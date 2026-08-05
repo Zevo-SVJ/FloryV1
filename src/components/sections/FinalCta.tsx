@@ -1,77 +1,55 @@
 "use client";
 
 import { motion } from "framer-motion";
-import { Button } from "@/components/ui/Button";
-import { IconArrowRight } from "@/components/ui/Icons";
-import { EASE_OUT, inViewOnce, staggerParent } from "@/lib/motion";
+import { PlatformNote } from "@/analyze/PlatformNote";
+import { CtaButton } from "@/components/ui/CtaButton";
+import { EASE_OUT, onceInView, stagger } from "@/lib/motion";
 
 /**
- * Section eight. Type, space, one button.
+ * The last invitation. Type, space, one button.
  */
 
-const HEADLINE = [
-  { text: "See" },
-  { text: "yourself" },
-  { text: "through" },
-  { text: "someone" },
-  { text: "else's", italic: true },
-  { text: "eyes." },
-];
+const HEADLINE = ["See", "yourself", "the", "way", "strangers", "do."];
 
 const word = {
-  hidden: { opacity: 0, y: "0.4em", filter: "blur(7px)" },
-  visible: {
+  hidden: { opacity: 0, y: "0.38em", filter: "blur(7px)" },
+  shown: {
     opacity: 1,
     y: "0em",
     filter: "blur(0px)",
-    transition: { duration: 0.95, ease: EASE_OUT },
+    transition: { duration: 0.9, ease: EASE_OUT },
   },
 };
 
 export function FinalCta() {
   return (
-    <section className="relative flex min-h-[62svh] flex-col items-center justify-center py-24 text-center md:py-32">
-      <div className="edge">
+    <section className="relative flex min-h-[64svh] flex-col items-center justify-center py-24 text-center sm:py-28">
+      <div className="gutter">
         <motion.h2
-          className="mx-auto max-w-5xl text-mega font-medium"
-          variants={staggerParent(0.08)}
+          className="mx-auto max-w-4xl text-mega"
+          variants={stagger(0.075)}
           initial="hidden"
-          whileInView="visible"
-          viewport={inViewOnce}
+          whileInView="shown"
+          viewport={onceInView}
         >
           {HEADLINE.map((part) => (
-            <span key={part.text} className="mr-[0.22em] inline-block">
-              <motion.span
-                className={
-                  part.italic
-                    ? "serif-italic inline-block pr-[0.04em] tracking-[-0.02em]"
-                    : "inline-block"
-                }
-                variants={word}
-              >
-                {part.text}
+            <span key={part} className="mr-[0.2em] inline-block">
+              <motion.span className="inline-block" variants={word}>
+                {part}
               </motion.span>
             </span>
           ))}
         </motion.h2>
 
         <motion.div
-          className="mt-16 flex flex-col items-center gap-7"
-          initial={{ opacity: 0, y: 18 }}
+          className="mt-12 flex flex-col items-center gap-6"
+          initial={{ opacity: 0, y: 16 }}
           whileInView={{ opacity: 1, y: 0 }}
-          viewport={inViewOnce}
-          transition={{ duration: 0.8, ease: EASE_OUT, delay: 0.55 }}
+          viewport={onceInView}
+          transition={{ duration: 0.8, ease: EASE_OUT, delay: 0.5 }}
         >
-          <Button
-            href="#analyze"
-            size="lg"
-            trailing={<IconArrowRight className="h-4 w-4" />}
-          >
-            Analyze my profile
-          </Button>
-          <p className="text-[0.8125rem] text-ink-faint">
-            One screenshot. About nine seconds.
-          </p>
+          <CtaButton />
+          <PlatformNote />
         </motion.div>
       </div>
     </section>

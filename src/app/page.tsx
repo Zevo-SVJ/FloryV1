@@ -1,8 +1,8 @@
 import { Hero } from "@/components/sections/Hero";
-import { PerceptionSection } from "@/components/sections/PerceptionSection";
-import { ShiftSection } from "@/components/sections/ShiftSection";
-import { AnalyzeExperience } from "@/components/sections/AnalyzeExperience";
-import { Testimonials } from "@/components/sections/Testimonials";
+import { StoryOne, StoryTwo } from "@/components/sections/Stories";
+import { ReportPreview } from "@/components/sections/ReportPreview";
+import { Reactions } from "@/components/sections/Reactions";
+import { Questions } from "@/components/sections/Questions";
 import { FinalCta } from "@/components/sections/FinalCta";
 
 /**
@@ -11,18 +11,22 @@ import { FinalCta } from "@/components/sections/FinalCta";
  *  1. the claim, and the film that proves it
  *  2. impressions form whether you like it or not
  *  3. small changes move them
- *  4. try it — 5. watch it read — 6. read the report
- *  7. what other people found
- *  8. one last invitation
+ *  4. what the report actually gives you
+ *  5. what people say afterwards
+ *  6. reasonable questions
+ *  7. one last invitation
+ *
+ * The product itself is not on this page — it opens over it, from any button.
  */
 export default function Home() {
   return (
     <>
       <Hero />
-      <PerceptionSection />
-      <ShiftSection />
-      <AnalyzeExperience />
-      <Testimonials />
+      <StoryOne />
+      <StoryTwo />
+      <ReportPreview />
+      <Reactions />
+      <Questions />
       <FinalCta />
     </>
   );

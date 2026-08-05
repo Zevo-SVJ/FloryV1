@@ -1,19 +1,14 @@
 "use client";
 
 import { useEffect } from "react";
-import {
-  animate,
-  motion,
-  useMotionValue,
-  useReducedMotion,
-  useTransform,
-} from "framer-motion";
+import { animate, motion, useMotionValue, useTransform } from "framer-motion";
+import { useReducedMotionSafe } from "@/hooks/useReducedMotionSafe";
 import { DURATION, EASE_OUT } from "@/lib/motion";
 import { cn } from "@/lib/utils";
 
 interface CountUpProps {
   value: number;
-  /** Counting only starts once this is true, so it can follow choreography. */
+  /** Counting starts when this flips true, so it can follow choreography. */
   active?: boolean;
   from?: number;
   duration?: number;
@@ -25,8 +20,8 @@ interface CountUpProps {
 /**
  * A number that arrives rather than appears.
  *
- * Driven by a motion value so the DOM text updates without re-rendering
- * React on every frame — this stays smooth even with a dozen on screen.
+ * Driven by a motion value, so the DOM text updates per frame without
+ * re-rendering React — this stays smooth with a dozen on screen at once.
  */
 export function CountUp({
   value,
@@ -37,7 +32,7 @@ export function CountUp({
   decimals = 0,
   className,
 }: CountUpProps) {
-  const reduced = useReducedMotion();
+  const reduced = useReducedMotionSafe();
   const progress = useMotionValue(from);
   const text = useTransform(progress, (latest) => latest.toFixed(decimals));
 
@@ -52,16 +47,9 @@ export function CountUp({
       return;
     }
 
-    const controls = animate(progress, value, {
-      duration,
-      delay,
-      ease: EASE_OUT,
-    });
-
+    const controls = animate(progress, value, { duration, delay, ease: EASE_OUT });
     return () => controls.stop();
   }, [active, delay, duration, from, progress, reduced, value]);
 
-  return (
-    <motion.span className={cn("tabular", className)}>{text}</motion.span>
-  );
+  return <motion.span className={cn("tabular", className)}>{text}</motion.span>;
 }

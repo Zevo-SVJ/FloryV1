@@ -3,36 +3,34 @@
 import { useSyncExternalStore } from "react";
 
 /**
- * Whether the visitor has asked for less motion — read in a way that survives
+ * Whether the viewer has asked for less motion, read in a way that survives
  * hydration.
  *
- * This matters more here than in most products: the cinematics render a
- * *different beat* when motion is reduced, so a client-only read on the first
- * render would be a genuine hydration mismatch, not a cosmetic one.
- * `useSyncExternalStore` gives us the server's answer during hydration and the
- * real one immediately after, with no mismatch and no effect.
+ * This matters here because scenes render a *different beat* when motion is
+ * reduced — a client-only read on the first render would be a genuine
+ * hydration mismatch, not a cosmetic one. `useSyncExternalStore` gives the
+ * server's answer during hydration and the real one immediately after.
  */
 
 const QUERY = "(prefers-reduced-motion: reduce)";
 
-let mediaQuery: MediaQueryList | null = null;
+let query: MediaQueryList | null = null;
 
-function getMediaQuery(): MediaQueryList | null {
+function getQuery(): MediaQueryList | null {
   if (typeof window === "undefined" || !window.matchMedia) return null;
-  mediaQuery ??= window.matchMedia(QUERY);
-  return mediaQuery;
+  query ??= window.matchMedia(QUERY);
+  return query;
 }
 
 function subscribe(onChange: () => void): () => void {
-  const query = getMediaQuery();
-  if (!query) return () => {};
-
-  query.addEventListener("change", onChange);
-  return () => query.removeEventListener("change", onChange);
+  const media = getQuery();
+  if (!media) return () => {};
+  media.addEventListener("change", onChange);
+  return () => media.removeEventListener("change", onChange);
 }
 
 function getSnapshot(): boolean {
-  return getMediaQuery()?.matches ?? false;
+  return getQuery()?.matches ?? false;
 }
 
 /** The server cannot know the preference, so it assumes full motion. */

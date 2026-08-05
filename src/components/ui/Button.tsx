@@ -5,103 +5,78 @@ import { motion } from "framer-motion";
 import { DURATION, EASE_OUT } from "@/lib/motion";
 import { cn } from "@/lib/utils";
 
-type Variant = "primary" | "outline" | "quiet";
-type Size = "md" | "lg";
+type Variant = "primary" | "secondary" | "ghost";
+type Size = "sm" | "md" | "lg";
 
-interface BaseProps {
+interface ButtonProps {
   children: ReactNode;
+  onClick?: () => void;
   variant?: Variant;
   size?: Size;
   className?: string;
-  /** Slides right by 2px on hover — the press feels like it goes somewhere. */
+  leading?: ReactNode;
   trailing?: ReactNode;
   disabled?: boolean;
-}
-
-interface ButtonAsButton extends BaseProps {
-  href?: undefined;
-  onClick?: () => void;
   type?: "button" | "submit";
   ariaLabel?: string;
+  /** Fills its container — used inside the upload sheet on mobile. */
+  block?: boolean;
 }
-
-interface ButtonAsLink extends BaseProps {
-  href: string;
-  onClick?: () => void;
-  ariaLabel?: string;
-}
-
-type ButtonProps = ButtonAsButton | ButtonAsLink;
 
 const base =
-  "group relative inline-flex select-none items-center justify-center gap-2.5 rounded-full font-medium tracking-[-0.01em] transition-colors will-change-transform disabled:pointer-events-none disabled:opacity-40";
+  "group relative inline-flex select-none items-center justify-center gap-2 rounded-full font-medium tracking-[-0.012em] transition-colors disabled:pointer-events-none disabled:opacity-40";
 
 const variants: Record<Variant, string> = {
-  primary: "bg-accent text-white hover:bg-accent-deep shadow-lift",
-  outline:
-    "border border-line-strong bg-surface text-ink hover:border-ink/40 hover:bg-white",
-  quiet: "text-ink/70 hover:text-ink",
+  primary: "bg-ink text-white hover:bg-[#191b21] shadow-rest",
+  secondary:
+    "bg-white text-ink ring-1 ring-edge-strong hover:ring-ink/25 shadow-rest",
+  ghost: "text-ink-2 hover:text-ink hover:bg-sunken",
 };
 
 const sizes: Record<Size, string> = {
+  sm: "h-9 px-4 text-[0.875rem]",
   md: "h-11 px-5 text-[0.9375rem]",
-  lg: "h-14 px-7 text-[1.0625rem]",
+  lg: "h-[3.25rem] px-7 text-[1rem]",
 };
 
-const interaction = {
-  whileHover: { y: -1 },
-  whileTap: { scale: 0.985, y: 0 },
-  transition: { duration: DURATION.micro, ease: EASE_OUT },
-} as const;
-
-export function Button(props: ButtonProps) {
-  const {
-    children,
-    variant = "primary",
-    size = "md",
-    className,
-    trailing,
-    disabled,
-    ariaLabel,
-  } = props;
-
-  const classes = cn(base, variants[variant], sizes[size], className);
-
-  const content = (
-    <>
+/**
+ * The one button.
+ *
+ * Ink-filled for the action that matters, white-on-hairline for everything
+ * else. Press is a 1.5% scale and a 1px settle — enough to feel mechanical
+ * without looking springy.
+ */
+export function Button({
+  children,
+  onClick,
+  variant = "primary",
+  size = "md",
+  className,
+  leading,
+  trailing,
+  disabled,
+  type = "button",
+  ariaLabel,
+  block,
+}: ButtonProps) {
+  return (
+    <motion.button
+      type={type}
+      onClick={onClick}
+      disabled={disabled}
+      aria-label={ariaLabel}
+      className={cn(base, variants[variant], sizes[size], block && "w-full", className)}
+      whileHover={{ y: -1 }}
+      whileTap={{ scale: 0.985, y: 0 }}
+      transition={{ duration: DURATION.tap, ease: EASE_OUT }}
+    >
+      {leading}
       <span>{children}</span>
       {trailing ? (
-        <span className="transition-transform duration-300 ease-out group-hover:translate-x-0.5">
+        <span className="transition-transform duration-300 ease-out group-hover:translate-x-[2px]">
           {trailing}
         </span>
       ) : null}
-    </>
-  );
-
-  if (props.href !== undefined) {
-    return (
-      <motion.a
-        href={props.href}
-        onClick={props.onClick}
-        className={classes}
-        aria-label={ariaLabel}
-        {...interaction}
-      >
-        {content}
-      </motion.a>
-    );
-  }
-
-  return (
-    <motion.button
-      type={props.type ?? "button"}
-      onClick={props.onClick}
-      disabled={disabled}
-      className={classes}
-      aria-label={ariaLabel}
-      {...interaction}
-    >
-      {content}
     </motion.button>
   );
 }

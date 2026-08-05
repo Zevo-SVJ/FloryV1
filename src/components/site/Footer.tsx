@@ -1,36 +1,29 @@
+import { Wordmark } from "@/components/brand/Brand";
+
 export function Footer() {
   return (
-    <footer className="border-t border-line">
-      <div className="edge flex flex-col gap-10 py-14 sm:flex-row sm:items-end sm:justify-between">
+    <footer className="border-t border-edge">
+      <div className="gutter flex flex-col gap-8 py-12 sm:flex-row sm:items-end sm:justify-between">
         <div>
-          <div className="flex items-baseline gap-1.5">
-            <span className="text-[1.0625rem] font-semibold tracking-[-0.03em]">
-              Blink
-            </span>
-            <span
-              aria-hidden
-              className="mb-[3px] block h-[5px] w-[5px] rounded-full bg-accent"
-            />
-          </div>
-          <p className="mt-4 max-w-xs text-[0.875rem] leading-relaxed text-ink-muted">
+          <Wordmark />
+          <p className="mt-4 max-w-[17rem] text-[0.875rem] leading-relaxed text-ink-3">
             Perception analysis for people who care how they land.
           </p>
         </div>
 
-        <div className="flex flex-col items-start gap-4 sm:items-end">
-          <nav aria-label="Footer" className="flex gap-7 text-[0.875rem]">
-            <a
-              href="#analyze"
-              className="text-ink-muted transition-colors hover:text-ink"
-            >
-              Analyze
+        <div className="flex flex-col items-start gap-3 sm:items-end">
+          <nav aria-label="Footer" className="flex gap-6 text-[0.875rem]">
+            <a href="#questions" className="text-ink-3 transition-colors hover:text-ink">
+              Questions
             </a>
-            <a href="#how" className="text-ink-muted transition-colors hover:text-ink">
-              How it reads
+            <a href="#top" className="text-ink-3 transition-colors hover:text-ink">
+              Back to top
             </a>
           </nav>
-          <p className="text-[0.8125rem] text-ink-faint">
+          <p className="text-[0.75rem] leading-relaxed text-ink-4 sm:text-right">
             © {new Date().getFullYear()} Blink. Screenshots never leave your device.
+            <br />
+            An independent product. Not affiliated with or endorsed by Instagram.
           </p>
         </div>
       </div>
