@@ -1,0 +1,161 @@
+@import "tailwindcss";
+
+/* ─────────────────────────────────────────────────────────────
+   Blink — design tokens
+
+   One accent colour for the entire product (clay). Everything
+   else is warm paper, warm ink, and hairlines. Typography and
+   whitespace carry the design; colour is used as punctuation.
+   ───────────────────────────────────────────────────────────── */
+
+@theme {
+  /* Surfaces */
+  --color-paper: #faf9f7;
+  --color-paper-deep: #f3f1ed;
+  --color-surface: #ffffff;
+
+  /* Ink (warm near-black) */
+  --color-ink: #16130f;
+  --color-ink-muted: #6b645b;
+  --color-ink-faint: #a49d93;
+
+  /* The single accent */
+  --color-accent: #be4325;
+  --color-accent-deep: #9d3418;
+  --color-accent-wash: #f7ece7;
+
+  /* Hairlines */
+  --color-line: #e6e2db;
+  --color-line-strong: #d5cfc5;
+
+  /* Type */
+  --font-sans: var(--font-geist-sans), ui-sans-serif, system-ui, -apple-system,
+    "Segoe UI", Helvetica, Arial, sans-serif;
+  --font-serif: var(--font-instrument-serif), ui-serif, Georgia, "Times New Roman",
+    serif;
+
+  /* Display scale — fluid, keynote proportions.
+     `mega` is only ever used full-bleed and centred; `hero` sits in a column
+     beside the film, so it is deliberately smaller. */
+  --text-mega: clamp(2.75rem, 7.2vw, 6rem);
+  --text-mega--line-height: 0.94;
+  --text-mega--letter-spacing: -0.038em;
+
+  --text-hero: clamp(2.5rem, 4.9vw, 4.5rem);
+  --text-hero--line-height: 0.98;
+  --text-hero--letter-spacing: -0.032em;
+
+  --text-display: clamp(2.125rem, 4.6vw, 3.75rem);
+  --text-display--line-height: 1.02;
+  --text-display--letter-spacing: -0.03em;
+
+  --text-title: clamp(1.5rem, 2.6vw, 2.125rem);
+  --text-title--line-height: 1.12;
+  --text-title--letter-spacing: -0.022em;
+
+  --text-lede: clamp(1.0625rem, 1.5vw, 1.3125rem);
+  --text-lede--line-height: 1.5;
+  --text-lede--letter-spacing: -0.011em;
+
+  --text-eyebrow: 0.6875rem;
+  --text-eyebrow--line-height: 1;
+  --text-eyebrow--letter-spacing: 0.16em;
+
+  /* Radii — generous, consistent */
+  --radius-card: 20px;
+  --radius-panel: 28px;
+  --radius-stage: 34px;
+
+  /* Shadows — barely there, never glowing */
+  --shadow-lift: 0 1px 2px rgba(22, 19, 15, 0.04),
+    0 8px 24px -12px rgba(22, 19, 15, 0.1);
+  --shadow-panel: 0 1px 1px rgba(22, 19, 15, 0.03),
+    0 18px 48px -24px rgba(22, 19, 15, 0.14);
+  --shadow-float: 0 2px 4px rgba(22, 19, 15, 0.04),
+    0 32px 72px -32px rgba(22, 19, 15, 0.18);
+
+  /* Motion — slow confidence. Objects have weight. */
+  --ease-out-soft: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-in-out-soft: cubic-bezier(0.66, 0, 0.34, 1);
+}
+
+@layer base {
+  * {
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  html {
+    scroll-behavior: smooth;
+    -webkit-text-size-adjust: 100%;
+  }
+
+  body {
+    background-color: var(--color-paper);
+    color: var(--color-ink);
+    font-family: var(--font-sans);
+    font-feature-settings: "ss01" 1, "cv01" 1;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
+  }
+
+  ::selection {
+    background-color: var(--color-accent);
+    color: #fff;
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--color-accent);
+    outline-offset: 3px;
+    border-radius: 4px;
+  }
+
+  /* Numbers should never jitter while they count up. */
+  .tabular {
+    font-variant-numeric: tabular-nums;
+    font-feature-settings: "tnum" 1;
+  }
+
+  .serif-italic {
+    font-family: var(--font-serif);
+    font-style: italic;
+    font-weight: 400;
+  }
+}
+
+@utility edge {
+  /* The page's single horizontal rhythm. */
+  margin-inline: auto;
+  width: 100%;
+  max-width: 78rem;
+  padding-inline: 1.5rem;
+
+  @media (min-width: 768px) {
+    padding-inline: 2.5rem;
+  }
+
+  @media (min-width: 1280px) {
+    padding-inline: 3.5rem;
+  }
+}
+
+@utility hairline {
+  background-color: var(--color-line);
+  height: 1px;
+  width: 100%;
+}
+
+/* Respect the system preference: keep meaning, remove movement. */
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+  }
+}

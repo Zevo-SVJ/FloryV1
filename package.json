@@ -1,0 +1,35 @@
+{
+  "name": "blink",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Blink — know what people think before they follow.",
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "eslint .",
+    "typecheck": "tsc --noEmit"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Zevo-SVJ/FloryV1.git"
+  },
+  "license": "UNLICENSED",
+  "dependencies": {
+    "framer-motion": "^13.0.0",
+    "geist": "^1.7.2",
+    "next": "^16.3.0",
+    "react": "^19.2.8",
+    "react-dom": "^19.2.8"
+  },
+  "devDependencies": {
+    "@tailwindcss/postcss": "^4.3.3",
+    "@types/node": "^26.1.2",
+    "@types/react": "^19.2.18",
+    "@types/react-dom": "^19.2.4",
+    "eslint": "^9.39.5",
+    "eslint-config-next": "^16.3.0",
+    "tailwindcss": "^4.3.3",
+    "typescript": "^5.9.3"
+  }
+}
