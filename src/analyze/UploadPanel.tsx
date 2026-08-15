@@ -78,7 +78,10 @@ export function UploadPanel({ titleId }: { titleId: string }) {
         </p>
       </div>
 
+      {/* Hidden entirely where it cannot lead anywhere. A target that accepts a
+          file and then does nothing with it is worse than no target. */}
       <motion.div
+        hidden={sampleOnly}
         onDragOver={(event) => {
           event.preventDefault();
           setDragging(true);
