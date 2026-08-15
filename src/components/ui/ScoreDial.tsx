@@ -106,7 +106,7 @@ export function ScoreBar({
   return (
     <div className={cn("h-[3px] w-full overflow-hidden rounded-full bg-edge", className)}>
       <motion.div
-        className="h-full rounded-full bg-accent"
+        className="brand-gradient h-full rounded-full"
         initial={{ width: "0%" }}
         animate={{ width: active ? `${value}%` : "0%" }}
         transition={{ duration: 1.1, delay, ease: EASE_OUT }}

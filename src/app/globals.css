@@ -1,38 +1,50 @@
 @import "tailwindcss";
 
 /* ─────────────────────────────────────────────────────────────────────────
-   Blink — design tokens
+   Blink — design tokens, derived from the logo
 
-   A consumer product, not a website. White ground, cool neutral greys with
-   a faint blue bias so they read as chosen rather than inherited, near-black
-   type, and exactly one accent. Colour is used for meaning only: a score, a
-   state, a single action.
+   Every value below comes out of the mark. The gradient corners give the
+   accent (#0040F8 deep, #10B2FD azure, #0B5CFB the middle the interface
+   lives at). The overlap where the arch meets the lens gives --color-overlap,
+   the one tint the product is allowed to decorate with. The greys are pulled
+   toward that blue so nothing on screen looks like a default. The squircle's
+   generous corner gives the radius scale, and elevation is a blue shadow
+   because the mark is luminous, not heavy.
+
+   Colour still carries meaning only: a score, a state, a single action.
    ───────────────────────────────────────────────────────────────────────── */
 
 @theme {
   /* Ground */
   --color-white: #ffffff;
-  --color-canvas: #fbfbfc;
+  --color-canvas: #fbfbfd;
   --color-raised: #ffffff;
-  --color-sunken: #f4f5f7;
+  --color-sunken: #f2f4f9;
 
-  /* Ink — near-black with a cool cast, never pure #000 */
-  --color-ink: #0c0d10;
-  --color-ink-2: #3d4149;
-  --color-ink-3: #6f747e;
-  --color-ink-4: #9ba0aa;
+  /* Ink — near-black carrying the logo's blue, never pure #000 */
+  --color-ink: #0a0c16;
+  --color-ink-2: #3a3f4f;
+  --color-ink-3: #6b7285;
+  --color-ink-4: #979eb1;
 
   /* Hairlines */
-  --color-edge: #e9eaee;
-  --color-edge-strong: #d8dae1;
+  --color-edge: #e7eaf2;
+  --color-edge-strong: #d3d8e6;
 
-  /* The one accent */
-  --color-accent: #1b4aff;
-  --color-accent-press: #1338cc;
-  --color-accent-tint: #eef2ff;
-  --color-accent-ring: #b9c8ff;
+  /* The accent, straight off the mark */
+  --color-accent: #0b5cfb;
+  --color-accent-press: #0040f8;
+  --color-accent-tint: #eaf2fe;
+  --color-accent-ring: #a9ccfe;
 
-  /* Meaning, not decoration — used on score bands only */
+  /* The gradient's far stop. Gradients and washes only — never a flat fill. */
+  --color-azure: #10b2fd;
+
+  /* The intersection tint. The product's one decorative colour. */
+  --color-overlap: #b4d2fe;
+  --color-overlap-soft: #dbe9fe;
+
+  /* Meaning, not decoration — a like heart and an error message */
   --color-high: #0f9d6e;
   --color-mid: #b8860b;
   --color-low: #d6493a;
@@ -70,20 +82,25 @@
   --text-label--line-height: 1;
   --text-label--letter-spacing: 0.11em;
 
-  /* Radii — app-soft, consistent */
-  --radius-chip: 10px;
-  --radius-card: 18px;
-  --radius-panel: 26px;
-  --radius-sheet: 32px;
+  /* Radii — the mark's squircle, stepped down */
+  --radius-chip: 12px;
+  --radius-card: 22px;
+  --radius-panel: 30px;
+  --radius-sheet: 36px;
+  --radius-plate: 27%;
 
-  /* Elevation — light and cool, never a dark smudge */
-  --shadow-rest: 0 1px 2px rgba(12, 13, 16, 0.04);
-  --shadow-card: 0 1px 2px rgba(12, 13, 16, 0.04),
-    0 10px 24px -14px rgba(12, 13, 16, 0.12);
-  --shadow-raise: 0 1px 2px rgba(12, 13, 16, 0.04),
-    0 20px 48px -24px rgba(12, 13, 16, 0.18);
-  --shadow-sheet: 0 -1px 2px rgba(12, 13, 16, 0.03),
-    0 -24px 64px -32px rgba(12, 13, 16, 0.22);
+  /* Elevation — blue-cast and luminous, never a grey smudge */
+  --shadow-rest: 0 1px 2px rgba(8, 24, 84, 0.05);
+  --shadow-card: 0 1px 2px rgba(8, 24, 84, 0.05),
+    0 10px 26px -14px rgba(8, 24, 84, 0.14);
+  --shadow-raise: 0 1px 2px rgba(8, 24, 84, 0.05),
+    0 22px 52px -24px rgba(8, 24, 84, 0.2);
+  --shadow-sheet: 0 -1px 2px rgba(8, 24, 84, 0.04),
+    0 -24px 64px -32px rgba(8, 24, 84, 0.24);
+  --shadow-deck: 0 1px 2px rgba(8, 24, 84, 0.06),
+    0 16px 40px -20px rgba(8, 24, 84, 0.22);
+  --shadow-accent: 0 1px 2px rgba(4, 32, 140, 0.24),
+    0 12px 28px -12px rgba(11, 92, 251, 0.36);
 }
 
 @layer base {
@@ -166,6 +183,30 @@
   height: 1px;
   width: 100%;
   background-color: var(--color-edge);
+}
+
+/* The mark's gradient, at the mark's angle. Fills and text alike. */
+@utility brand-gradient {
+  background-image: linear-gradient(
+    38deg,
+    var(--color-accent-press) 0%,
+    var(--color-accent) 52%,
+    var(--color-azure) 100%
+  );
+}
+
+/* The faintest breath of the gradient, for grounds under content. */
+@utility brand-wash {
+  background-image: radial-gradient(
+      120% 90% at 88% 4%,
+      rgba(16, 178, 253, 0.09) 0%,
+      rgba(16, 178, 253, 0) 62%
+    ),
+    radial-gradient(
+      110% 90% at 6% 96%,
+      rgba(11, 92, 251, 0.07) 0%,
+      rgba(11, 92, 251, 0) 60%
+    );
 }
 
 /* Hide scrollbars on horizontal rails without losing keyboard scrolling. */

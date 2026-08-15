@@ -15,9 +15,9 @@ export const FAQ: FaqItem[] = [
       "A single screenshot of an Instagram profile page taken on a phone, showing the photo, name, bio, highlights and at least the first two rows of the grid. That is exactly what a stranger sees before deciding, so it is exactly what Blink reads. Cropped screenshots still work, but clarity and consistency scores get less to go on.",
   },
   {
-    question: "Does Blink store my screenshot?",
+    question: "What happens to my screenshot?",
     answer:
-      "No. Your screenshot is held in your browser for the length of the analysis and released when you close the report. It is never uploaded, never written to a database, and never shown to anyone else.",
+      "It is resized on your own device, sent to the analysis model, and discarded as soon as the report is written. Blink stores the report, never the image — nothing is written to a database, and nobody at Blink looks at it. If you are signed in, your reports are saved to your account; if you are not, they stay in this browser.",
   },
   {
     question: "Can I analyze multiple profiles?",
@@ -27,7 +27,7 @@ export const FAQ: FaqItem[] = [
   {
     question: "How is my report generated?",
     answer:
-      "Blink models what happens in the first seconds of attention: where the eye lands, what it can categorise, what it trusts, and what it remembers. Those readings become eight scores, each with the specific thing on your profile that is holding it back and the single change that would move it.",
+      "In two passes. The first looks at your screenshot and records what is actually there — whether a face reads at thumbnail size, how many lines the bio runs to, whether the grid looks edited by one hand — as structured observations, never opinions. The eight scores are then calculated from those observations by fixed arithmetic, and only afterwards is the report written from both. That order is why the same screenshot scores the same every time.",
   },
   {
     question: "What exactly will Blink improve?",

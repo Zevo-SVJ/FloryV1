@@ -1,4 +1,26 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
-  <rect width="64" height="64" rx="15" fill="#16130F" />
-  <circle cx="32" cy="32" r="11" fill="#BE4325" />
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" width="100" height="100">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="1" x2="1" y2="0">
+      <stop offset="0" stop-color="#0040F8"/>
+      <stop offset="0.55" stop-color="#0A7EFC"/>
+      <stop offset="1" stop-color="#10B2FD"/>
+    </linearGradient>
+    <mask id="notLens" maskUnits="userSpaceOnUse">
+      <rect width="100" height="100" fill="#fff"/>
+      <ellipse cx="66.5" cy="49.5" rx="20.5" ry="24.5" fill="#000"/>
+    </mask>
+    <mask id="notArch" maskUnits="userSpaceOnUse">
+      <rect width="100" height="100" fill="#fff"/>
+      <path d="M16 45.5 A20.5 20.5 0 0 1 57 45.5 L57 70 A4 4 0 0 1 53 74 L20 74 A4 4 0 0 1 16 70 Z" fill="#000"/>
+    </mask>
+    <clipPath id="inArch">
+      <path d="M16 45.5 A20.5 20.5 0 0 1 57 45.5 L57 70 A4 4 0 0 1 53 74 L20 74 A4 4 0 0 1 16 70 Z"/>
+    </clipPath>
+  </defs>
+  <rect width="100" height="100" rx="27" ry="27" fill="url(#bg)"/>
+  <path d="M16 45.5 A20.5 20.5 0 0 1 57 45.5 L57 70 A4 4 0 0 1 53 74 L20 74 A4 4 0 0 1 16 70 Z" fill="#fff" mask="url(#notLens)"/>
+  <ellipse cx="66.5" cy="49.5" rx="20.5" ry="24.5" fill="#fff" opacity="0.42" mask="url(#notArch)"/>
+  <g clip-path="url(#inArch)">
+    <ellipse cx="66.5" cy="49.5" rx="20.5" ry="24.5" fill="#fff" opacity="0.7"/>
+  </g>
 </svg>

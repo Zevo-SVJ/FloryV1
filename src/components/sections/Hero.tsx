@@ -76,7 +76,7 @@ export function Hero() {
               animate={{ opacity: 1 }}
               transition={{ duration: DURATION.base, ease: EASE_OUT, delay: 1.15 }}
             >
-              No account. Nothing stored. About nine seconds.
+              No account needed. Your screenshot is read once, then discarded.
             </motion.p>
           </div>
 

@@ -168,3 +168,54 @@ export function IconHeart({ className }: { className?: string }) {
     </svg>
   );
 }
+
+/**
+ * Google's mark, for the one button that needs it.
+ *
+ * Drawn in Google's own four colours because a sign-in button that recolours a
+ * provider's mark reads as a phishing page. This is the single exception to the
+ * one-accent rule, and it is a correctness requirement rather than a style
+ * choice.
+ */
+export function GoogleGlyph({ className }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 18 18" className={className} aria-hidden focusable="false">
+      <path
+        fill="#4285F4"
+        d="M17.64 9.2c0-.64-.06-1.25-.16-1.84H9v3.48h4.84a4.14 4.14 0 0 1-1.8 2.72v2.26h2.92c1.7-1.57 2.68-3.88 2.68-6.62z"
+      />
+      <path
+        fill="#34A853"
+        d="M9 18c2.43 0 4.47-.8 5.96-2.18l-2.92-2.26c-.8.54-1.84.86-3.04.86-2.34 0-4.32-1.58-5.03-3.7H.96v2.33A9 9 0 0 0 9 18z"
+      />
+      <path
+        fill="#FBBC05"
+        d="M3.97 10.72a5.4 5.4 0 0 1 0-3.44V4.95H.96a9 9 0 0 0 0 8.1l3.01-2.33z"
+      />
+      <path
+        fill="#EA4335"
+        d="M9 3.58c1.32 0 2.5.46 3.44 1.35l2.58-2.58C13.46.9 11.43 0 9 0A9 9 0 0 0 .96 4.95l3.01 2.33C4.68 5.16 6.66 3.58 9 3.58z"
+      />
+    </svg>
+  );
+}
+
+export function IconHistory(props: IconProps) {
+  return (
+    <Icon {...props}>
+      <path d="M3.5 9a8.5 8.5 0 1 1 1.2 5.5" />
+      <path d="M3.5 14.5v-5h5" />
+      <path d="M12 7.5V12l3 1.6" />
+    </Icon>
+  );
+}
+
+export function IconSignOut(props: IconProps) {
+  return (
+    <Icon {...props}>
+      <path d="M14 5.5V4a1.5 1.5 0 0 0-1.5-1.5h-7A1.5 1.5 0 0 0 4 4v16a1.5 1.5 0 0 0 1.5 1.5h7A1.5 1.5 0 0 0 14 20v-1.5" />
+      <path d="M18.5 12H9.5" />
+      <path d="M16 9.5 18.5 12 16 14.5" />
+    </Icon>
+  );
+}

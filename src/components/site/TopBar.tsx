@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { motion, useMotionValueEvent, useScroll, useSpring } from "framer-motion";
 import { Wordmark } from "@/components/brand/Brand";
+import { AccountMenu } from "@/components/site/AccountMenu";
 import { CtaButton } from "@/components/ui/CtaButton";
 import { EASE_OUT } from "@/lib/motion";
 
@@ -38,13 +39,14 @@ export function TopBar() {
             <Wordmark />
           </a>
 
-          <div className="flex items-center gap-1">
+          <div className="flex items-center gap-1 sm:gap-2">
             <a
               href="#questions"
               className="hidden rounded-full px-3.5 py-2 text-[0.875rem] text-ink-3 transition-colors hover:text-ink sm:block"
             >
               Questions
             </a>
+            <AccountMenu />
             <CtaButton size="sm" variant="secondary" withArrow={false} label="Analyze" />
           </div>
         </nav>

@@ -3,12 +3,13 @@
 import { useRef } from "react";
 import { AnimatePresence, motion, useInView } from "framer-motion";
 import { Scene } from "@/components/scene/Scene";
+import { SubjectGrid } from "@/components/profile/SubjectProfile";
 import {
-  SubjectAvatar,
-  SubjectBio,
-  SubjectGrid,
-  SubjectHandle,
-} from "@/components/profile/SubjectProfile";
+  AbstractAvatar,
+  AbstractBio,
+  AbstractCounts,
+  AbstractHandle,
+} from "@/components/profile/AbstractProfile";
 import { CountUp } from "@/components/ui/CountUp";
 import { useReducedMotionSafe } from "@/hooks/useReducedMotionSafe";
 import { useSceneClock } from "@/hooks/useSceneClock";
@@ -151,17 +152,14 @@ function MiniSubject() {
   return (
     <div className="w-[172px] overflow-hidden rounded-panel bg-white shadow-card ring-1 ring-edge">
       <div className="px-3.5 pt-3">
-        <SubjectHandle />
+        <AbstractHandle />
       </div>
       <div className="flex items-center gap-3 px-3.5 pt-3">
-        <SubjectAvatar size={42} />
-        <div className="flex-1">
-          <div className="tabular text-[11px] font-semibold leading-none">14.2k</div>
-          <div className="mt-1 text-[8.5px] leading-none text-ink-3">followers</div>
-        </div>
+        <AbstractAvatar size={42} />
+        <AbstractCounts className="flex-1" />
       </div>
       <div className="px-3.5 pb-3 pt-3">
-        <SubjectBio />
+        <AbstractBio />
       </div>
       <SubjectGrid rows={2} tile={56} gap={1} className="mx-auto pb-3.5" />
     </div>

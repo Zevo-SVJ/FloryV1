@@ -54,6 +54,46 @@ export const SHEET_OUT: Transition = {
   ease: EASE_IN_OUT,
 };
 
+/**
+ * A card leaving or arriving in the deck.
+ *
+ * The deck is Blink's main interaction, so it gets the most carefully tuned
+ * transition in the product: stiff enough to feel like it is following a
+ * thumb, damped enough that a flick never rebounds.
+ */
+export const DECK_SLIDE: Transition = {
+  type: "spring",
+  stiffness: 420,
+  damping: 42,
+  mass: 0.85,
+};
+
+/** The deck resizing when a card opens. Slower than the slide, on purpose. */
+export const DECK_RESIZE: Transition = {
+  type: "spring",
+  stiffness: 260,
+  damping: 30,
+  mass: 0.9,
+};
+
+/**
+ * Morphing between two states of the same object.
+ *
+ * Used by the landing films, where nothing appears or disappears — a block
+ * becomes a card, a card becomes a face. Long and symmetrical, because the eye
+ * needs time to accept that the second thing is the first thing.
+ */
+export const MORPH: Transition = {
+  duration: 1.15,
+  ease: EASE_IN_OUT,
+};
+
+/** A mask travelling across something, revealing it in place. */
+export const WIPE: Transition = {
+  duration: 0.95,
+  ease: [0.42, 0, 0.28, 1] as const,
+};
+
 /** Content arriving: rise, fade, and a whisper of blur. */
 export const rise: Variants = {
   hidden: { opacity: 0, y: 20, filter: "blur(5px)" },

@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { useAnalyze } from "@/analyze/AnalyzeContext";
 import { PlatformNote } from "@/analyze/PlatformNote";
+import { useCapabilities } from "@/app/CapabilityContext";
 import { Button } from "@/components/ui/Button";
 import { IconArrowRight, IconClose, IconLock, IconUpload } from "@/components/ui/Icons";
 import { EASE_OUT } from "@/lib/motion";
@@ -20,6 +21,9 @@ const MAX_BYTES = 12 * 1024 * 1024;
  */
 export function UploadPanel({ titleId }: { titleId: string }) {
   const { submit, runSample } = useAnalyze();
+  const { analysis, known } = useCapabilities();
+  // Only claim the model is missing once the server has actually said so.
+  const sampleOnly = known && analysis !== "model";
   const inputRef = useRef<HTMLInputElement>(null);
   const [dragging, setDragging] = useState(false);
   const [picked, setPicked] = useState<{ file: File; url: string } | null>(null);
@@ -178,38 +182,72 @@ export function UploadPanel({ titleId }: { titleId: string }) {
         </AnimatePresence>
       </div>
 
+      {/* A build with no model connected says so here, before anyone spends a
+          screenshot on it. */}
+      {sampleOnly ? (
+        <p className="mt-3 rounded-card border border-edge bg-sunken px-4 py-3 text-center text-[0.8125rem] leading-relaxed text-ink-3">
+          This build has no analysis model connected, so it cannot read your own
+          screenshot yet. The sample report is the real thing, on a sample
+          profile.
+        </p>
+      ) : null}
+
       <div className="mt-4 flex flex-col items-center gap-4">
         {/* One primary control: it picks a file until there is one, then reads
             it. A disabled button here would be a dead end on the first tap. */}
-        <Button
-          size="lg"
-          block
-          onClick={() => (picked ? submit(picked.file) : inputRef.current?.click())}
-          leading={picked ? undefined : <IconUpload className="h-[1.05rem] w-[1.05rem]" />}
-          trailing={
-            picked ? <IconArrowRight className="h-[1.05rem] w-[1.05rem]" /> : undefined
-          }
-          className="sm:w-auto sm:px-9"
-        >
-          {picked ? "Read my first impression" : "Choose a screenshot"}
-        </Button>
+        {sampleOnly ? (
+          <Button
+            size="lg"
+            block
+            onClick={runSample}
+            trailing={<IconArrowRight className="h-[1.05rem] w-[1.05rem]" />}
+            className="sm:w-auto sm:px-9"
+          >
+            See the sample report
+          </Button>
+        ) : (
+          <>
+            <Button
+              size="lg"
+              block
+              onClick={() => (picked ? submit(picked.file) : inputRef.current?.click())}
+              leading={
+                picked ? undefined : <IconUpload className="h-[1.05rem] w-[1.05rem]" />
+              }
+              trailing={
+                picked ? <IconArrowRight className="h-[1.05rem] w-[1.05rem]" /> : undefined
+              }
+              className="sm:w-auto sm:px-9"
+            >
+              {picked ? "Read my first impression" : "Choose a screenshot"}
+            </Button>
 
-        <button
-          type="button"
-          onClick={runSample}
-          className="text-[0.875rem] font-medium text-ink-3 underline decoration-edge-strong decoration-1 underline-offset-4 transition-colors hover:text-ink hover:decoration-ink/40"
-        >
-          Or try it on a sample profile
-        </button>
+            <button
+              type="button"
+              onClick={runSample}
+              className="text-[0.875rem] font-medium text-ink-3 underline decoration-edge-strong decoration-1 underline-offset-4 transition-colors hover:text-ink hover:decoration-ink/40"
+            >
+              Or try it on a sample profile
+            </button>
+          </>
+        )}
       </div>
 
       <div className="mt-7 flex flex-wrap items-center justify-center gap-x-3 gap-y-2">
         <PlatformNote />
+        {/* The honest version. The screenshot is sent to the analysis model —
+            saying otherwise would be the one lie this product cannot tell. */}
         <span className="inline-flex items-center gap-1.5 rounded-full bg-sunken px-3 py-1.5 text-[0.75rem] font-medium text-ink-2">
           <IconLock className="h-3 w-3 text-ink-3" />
-          Never leaves your device
+          Read once, never stored
         </span>
       </div>
+
+      <p className="mx-auto mt-3 max-w-sm text-center text-[0.75rem] leading-relaxed text-ink-4">
+        Your screenshot is resized on this device, sent for analysis, and
+        discarded when the report is written. Blink keeps the report, not the
+        image.
+      </p>
     </div>
   );
 }

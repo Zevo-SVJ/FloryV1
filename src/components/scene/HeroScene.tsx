@@ -1,395 +1,141 @@
 "use client";
 
 import { useRef, type ReactNode } from "react";
-import { AnimatePresence, motion, useInView, type Transition } from "framer-motion";
+import { AnimatePresence, motion } from "framer-motion";
+import { useInView } from "framer-motion";
 import { Scene } from "@/components/scene/Scene";
 import {
-  SubjectAvatar,
-  SubjectBio,
-  SubjectCollections,
-  SubjectGrid,
-  SubjectHandle,
-} from "@/components/profile/SubjectProfile";
+  AbstractAvatar,
+  AbstractBio,
+  AbstractCollections,
+  AbstractCounts,
+  AbstractHandle,
+} from "@/components/profile/AbstractProfile";
+import { SubjectGrid } from "@/components/profile/SubjectProfile";
 import { CountUp } from "@/components/ui/CountUp";
-import { ScoreDial } from "@/components/ui/ScoreDial";
 import { useReducedMotionSafe } from "@/hooks/useReducedMotionSafe";
 import { useSceneClock } from "@/hooks/useSceneClock";
-import { EASE_IN_OUT, EASE_OUT, sceneInView } from "@/lib/motion";
+import { EASE_IN_OUT, EASE_OUT, MORPH, sceneInView } from "@/lib/motion";
 
 /**
  * The hero film.
  *
- * A profile arrives → it is captured → the screenshot separates into the four
- * things a stranger actually reacts to → each layer is read → the layers
- * reorganise into measurements → the measurements resolve into a report → it
- * resets and begins again.
+ * A profile is captured, comes apart into the four things a stranger reacts to,
+ * is read, and resolves into a report — and then folds back up and starts again.
  *
- * Nine beats, fourteen seconds. The product is explained here without a
- * sentence of copy.
+ * The rule the whole film is built on: **nothing appears and nothing
+ * disappears.** There are exactly five moving objects on stage for the entire
+ * fourteen seconds. The plate becomes the report. Each fragment becomes its own
+ * score. When the scores leave, they travel into the report rather than fading
+ * out where they stand. Every box change is a layout morph on a node that was
+ * already there, and every content change is a crossfade inside that node while
+ * its frame is already travelling — so the eye is always following an object,
+ * never catching a cut.
+ *
+ * The fragments are abstract on purpose. A real sentence inside an animation
+ * stops the choreography dead while it is read; a measure does not.
  */
 
 const W = 456;
 const H = 566;
 
 const BEATS = [
-  { id: "arrive", duration: 1.5 },
+  { id: "assemble", duration: 1.7 },
   { id: "capture", duration: 1.2 },
   { id: "separate", duration: 1.7 },
-  { id: "scan", duration: 2.2 },
-  { id: "gather", duration: 1.1 },
-  { id: "measure", duration: 1.7 },
-  { id: "report", duration: 2.4 },
-  { id: "reset", duration: 0.9 },
+  { id: "read", duration: 2.2 },
+  { id: "measure", duration: 2 },
+  { id: "resolve", duration: 1.2 },
+  { id: "report", duration: 2.6 },
+  { id: "return", duration: 1.2 },
 ] as const;
 
 type Beat = (typeof BEATS)[number]["id"];
 
-/** The screenshot's frame, in scene coordinates. */
-const CARD = { x: 80, y: 42, w: 296, h: 472 };
-
-interface Layer {
-  left: number;
-  top: number;
-  width: number;
-  /** Where the layer travels once the screenshot separates. */
-  out: { x: number; y: number; scale: number };
-  /** Reading order during the scan. */
-  at: number;
-  label: string;
-  side: "left" | "right";
+interface Frame {
+  x: number;
+  y: number;
+  w: number;
+  h: number;
 }
 
-const LAYERS = {
-  avatar: {
-    left: 96,
-    top: 96,
-    width: 62,
-    out: { x: -44, y: -14, scale: 1.1 },
-    at: 0.16,
-    label: "Photo",
-    side: "left",
+/** The screenshot's own surface, and what it later becomes. */
+const PLATE: Frame = { x: 80, y: 42, w: 296, h: 472 };
+const REPORT: Frame = { x: 68, y: 140, w: 320, h: 288 };
+
+type FragmentKey = "photo" | "bio" | "collections" | "grid";
+
+const FRAGMENTS: FragmentKey[] = ["photo", "bio", "collections", "grid"];
+
+/** Where each fragment sits in each act. Four boxes, four lives. */
+const FRAMES: Record<FragmentKey, Record<"placed" | "detached" | "scored", Frame>> = {
+  photo: {
+    placed: { x: 96, y: 152, w: 62, h: 62 },
+    detached: { x: 52, y: 132, w: 82, h: 82 },
+    scored: { x: 56, y: 96, w: 160, h: 104 },
   },
   bio: {
-    left: 96,
-    top: 176,
-    width: 264,
-    out: { x: 38, y: -46, scale: 0.94 },
-    at: 0.6,
-    label: "Bio",
-    side: "right",
+    placed: { x: 96, y: 236, w: 264, h: 46 },
+    detached: { x: 130, y: 216, w: 284, h: 66 },
+    scored: { x: 240, y: 96, w: 160, h: 104 },
   },
   collections: {
-    left: 96,
-    top: 248,
-    width: 264,
-    out: { x: -38, y: -10, scale: 0.9 },
-    at: 1.04,
-    label: "Collections",
-    side: "left",
+    placed: { x: 96, y: 306, w: 264, h: 58 },
+    detached: { x: 56, y: 296, w: 284, h: 78 },
+    scored: { x: 56, y: 230, w: 160, h: 104 },
   },
   grid: {
-    left: 85,
-    top: 336,
-    width: 264,
-    out: { x: 32, y: -18, scale: 0.85 },
-    at: 1.48,
-    label: "Posts",
-    side: "right",
+    placed: { x: 85, y: 386, w: 264, h: 174 },
+    detached: { x: 114, y: 372, w: 284, h: 194 },
+    scored: { x: 240, y: 230, w: 160, h: 104 },
   },
-} satisfies Record<string, Layer>;
+};
 
-type LayerKey = keyof typeof LAYERS;
+/** Where they go when the report absorbs them. */
+const ABSORBED: Frame = {
+  x: REPORT.x + REPORT.w / 2 - 30,
+  y: REPORT.y + REPORT.h / 2 - 20,
+  w: 60,
+  h: 40,
+};
 
-const SETTLED = { x: 0, y: 0, scale: 1, opacity: 1 };
+const SCORES: Record<FragmentKey, { label: string; value: number }> = {
+  photo: { label: "Trust", value: 86 },
+  bio: { label: "Clarity", value: 58 },
+  collections: { label: "Consistency", value: 88 },
+  grid: { label: "Visual quality", value: 91 },
+};
 
-function layerState(key: LayerKey, beat: Beat) {
-  const { out } = LAYERS[key];
+/** Reading order during the pass, in seconds from the start of the beat. */
+const READ_AT: Record<FragmentKey, number> = {
+  photo: 0.24,
+  bio: 0.78,
+  collections: 1.22,
+  grid: 1.66,
+};
 
+function frameFor(key: FragmentKey, beat: Beat): Frame {
   switch (beat) {
-    case "arrive":
+    case "assemble":
     case "capture":
-      return SETTLED;
+    case "return":
+      return FRAMES[key].placed;
     case "separate":
-    case "scan":
-      return { ...out, opacity: 1 };
-    case "gather":
-      return { x: out.x * 0.2, y: out.y * 0.2, scale: 0.93, opacity: 0 };
+    case "read":
+      return FRAMES[key].detached;
+    case "measure":
+      return FRAMES[key].scored;
     default:
-      return { x: 0, y: 0, scale: 0.93, opacity: 0 };
+      return ABSORBED;
   }
 }
 
-const TRANSITIONS: Record<string, Transition> = {
-  separate: { duration: 1.45, ease: EASE_OUT },
-  gather: { duration: 0.95, ease: EASE_IN_OUT },
-  default: { duration: 0.75, ease: EASE_OUT },
-};
-
-function LayerBlock({
-  layerKey,
-  beat,
-  cycle,
-  children,
-}: {
-  layerKey: LayerKey;
-  beat: Beat;
-  cycle: number;
-  children: ReactNode;
-}) {
-  const layer = LAYERS[layerKey];
-  const detached = beat === "separate" || beat === "scan";
-  const scanning = beat === "scan";
-
-  const transition =
-    beat === "separate"
-      ? TRANSITIONS.separate
-      : beat === "gather"
-        ? TRANSITIONS.gather
-        : TRANSITIONS.default;
-
-  return (
-    <motion.div
-      className="absolute"
-      style={{ left: layer.left, top: layer.top, width: layer.width }}
-      animate={layerState(layerKey, beat)}
-      transition={transition}
-    >
-      {/* Once detached, each layer sits on its own surface. */}
-      <motion.div
-        className="relative rounded-card"
-        animate={{
-          backgroundColor: detached ? "#ffffff" : "rgba(255,255,255,0)",
-          boxShadow: detached
-            ? "0 1px 2px rgba(12,13,16,0.04), 0 14px 32px -18px rgba(12,13,16,0.16)"
-            : "0 0 0 rgba(0,0,0,0)",
-          padding: detached ? 10 : 0,
-        }}
-        transition={{ duration: 0.85, ease: EASE_OUT }}
-      >
-        {children}
-
-        {/* A ring that confirms the layer has been read. */}
-        <motion.span
-          aria-hidden
-          className="pointer-events-none absolute inset-0 rounded-card ring-1 ring-accent/50"
-          initial={false}
-          animate={{ opacity: scanning ? [0, 1, 1] : 0 }}
-          transition={{
-            duration: 0.9,
-            delay: scanning ? layer.at : 0,
-            ease: EASE_OUT,
-            times: [0, 0.25, 1],
-          }}
-        />
-      </motion.div>
-
-      <AnimatePresence>
-        {scanning ? (
-          <motion.span
-            key={`${layerKey}-${cycle}`}
-            className={`absolute top-1/2 text-label font-medium uppercase text-accent ${
-              layer.side === "left" ? "right-full mr-3 text-right" : "left-full ml-3"
-            }`}
-            initial={{ opacity: 0, x: layer.side === "left" ? 5 : -5 }}
-            animate={{ opacity: 1, x: 0, y: "-50%" }}
-            exit={{ opacity: 0 }}
-            transition={{ duration: 0.45, delay: layer.at, ease: EASE_OUT }}
-          >
-            {layer.label}
-          </motion.span>
-        ) : null}
-      </AnimatePresence>
-    </motion.div>
-  );
-}
-
-/* ── Capture ────────────────────────────────────────────────────────────── */
-
-const CORNERS = [
-  { d: "M0,13 L0,0 L13,0", x: CARD.x - 9, y: CARD.y - 9 },
-  { d: "M0,0 L13,0 L13,13", x: CARD.x + CARD.w - 4, y: CARD.y - 9 },
-  { d: "M0,0 L0,13 L13,13", x: CARD.x - 9, y: CARD.y + CARD.h - 4 },
-  { d: "M13,0 L13,13 L0,13", x: CARD.x + CARD.w - 4, y: CARD.y + CARD.h - 4 },
-];
-
-function Capture({ cycle }: { cycle: number }) {
-  return (
-    <>
-      {CORNERS.map((corner, index) => (
-        <motion.svg
-          key={`${index}-${cycle}`}
-          className="absolute"
-          width="13"
-          height="13"
-          viewBox="0 0 13 13"
-          style={{ left: corner.x, top: corner.y }}
-          initial={{ opacity: 0, x: index % 2 === 0 ? -9 : 9, y: index < 2 ? -9 : 9 }}
-          animate={{ opacity: 1, x: 0, y: 0 }}
-          exit={{ opacity: 0 }}
-          transition={{ duration: 0.5, ease: EASE_OUT, delay: index * 0.04 }}
-        >
-          <path
-            d={corner.d}
-            fill="none"
-            stroke="var(--color-accent)"
-            strokeWidth="1.6"
-          />
-        </motion.svg>
-      ))}
-
-      {/* One clean pass of light. No bloom, no flare. */}
-      <motion.div
-        key={`sweep-${cycle}`}
-        className="absolute overflow-hidden rounded-panel"
-        style={{ left: CARD.x, top: CARD.y, width: CARD.w, height: CARD.h }}
-        initial={{ opacity: 0 }}
-        animate={{ opacity: [0, 1, 0] }}
-        transition={{ duration: 0.85, ease: EASE_IN_OUT, delay: 0.16 }}
-      >
-        <motion.div
-          className="absolute inset-y-0 w-1/2"
-          style={{
-            background:
-              "linear-gradient(100deg, transparent, rgba(255,255,255,0.92), transparent)",
-          }}
-          initial={{ x: -CARD.w * 0.6 }}
-          animate={{ x: CARD.w }}
-          transition={{ duration: 0.85, ease: EASE_IN_OUT, delay: 0.16 }}
-        />
-      </motion.div>
-
-      <motion.span
-        key={`shot-${cycle}`}
-        className="absolute text-label font-medium uppercase text-accent"
-        style={{ left: CARD.x, top: CARD.y + CARD.h + 16 }}
-        initial={{ opacity: 0, y: 5 }}
-        animate={{ opacity: 1, y: 0 }}
-        exit={{ opacity: 0 }}
-        transition={{ duration: 0.45, ease: EASE_OUT, delay: 0.3 }}
-      >
-        Screenshot captured
-      </motion.span>
-    </>
-  );
-}
-
-/* ── Measurements ───────────────────────────────────────────────────────── */
-
-const CARDS = [
-  { label: "Trust", value: 89, left: 58, top: 150 },
-  { label: "Clarity", value: 64, left: 236, top: 232 },
-  { label: "Visual quality", value: 93, left: 102, top: 318 },
-] as const;
-
-function MeasureCard({
-  label,
-  value,
-  left,
-  top,
-  index,
-  counting,
-}: {
-  label: string;
-  value: number;
-  left: number;
-  top: number;
-  index: number;
-  counting: boolean;
-}) {
-  return (
-    <motion.div
-      className="absolute w-[162px] rounded-card bg-white p-4 shadow-card ring-1 ring-edge"
-      style={{ left, top }}
-      initial={{ opacity: 0, y: 16, scale: 0.96 }}
-      animate={{ opacity: 1, y: 0, scale: 1 }}
-      exit={{ opacity: 0, scale: 0.97, transition: { duration: 0.45 } }}
-      transition={{ duration: 0.75, ease: EASE_OUT, delay: index * 0.13 }}
-    >
-      <p className="text-[9px] font-medium uppercase tracking-[0.12em] text-ink-4">
-        {label}
-      </p>
-      <p className="display mt-2 text-[26px] font-medium leading-none tracking-[-0.035em]">
-        <CountUp value={value} active={counting} duration={1.1} />
-      </p>
-      <div className="mt-3 h-[3px] w-full overflow-hidden rounded-full bg-edge">
-        <motion.div
-          className="h-full rounded-full bg-accent"
-          initial={{ width: "0%" }}
-          animate={{ width: counting ? `${value}%` : "0%" }}
-          transition={{ duration: 1.2, ease: EASE_OUT }}
-        />
-      </div>
-    </motion.div>
-  );
-}
-
-/* ── Final report ───────────────────────────────────────────────────────── */
-
-function ReportCard({ active }: { active: boolean }) {
-  const rows = [
-    { label: "Trust", value: 89 },
-    { label: "Authority", value: 71 },
-    { label: "Clarity", value: 64 },
-  ];
-
-  return (
-    <motion.div
-      className="absolute rounded-panel bg-white p-6 shadow-raise ring-1 ring-edge"
-      style={{ left: 72, top: 124, width: 312 }}
-      initial={{ opacity: 0, y: 20, scale: 0.975 }}
-      animate={{ opacity: 1, y: 0, scale: 1 }}
-      exit={{ opacity: 0, y: -8, transition: { duration: 0.55, ease: EASE_IN_OUT } }}
-      transition={{ duration: 0.85, ease: EASE_OUT }}
-    >
-      <div className="flex items-start justify-between gap-4">
-        <div>
-          <p className="text-[9px] font-medium uppercase tracking-[0.13em] text-ink-4">
-            First impression
-          </p>
-          <p className="display mt-2 max-w-[142px] text-[15px] font-medium leading-snug tracking-[-0.02em]">
-            Composed, quietly premium
-          </p>
-        </div>
-        <ScoreDial value={82} size={70} thickness={4} active={active} delay={0.2} duration={1.2}>
-          <span className="display text-[21px] font-medium tracking-[-0.035em]">
-            <CountUp value={82} active={active} delay={0.2} duration={1.2} />
-          </span>
-        </ScoreDial>
-      </div>
-
-      <div className="mt-5 space-y-3">
-        {rows.map((row, index) => (
-          <div key={row.label} className="space-y-1.5">
-            <div className="flex items-baseline justify-between text-[10.5px]">
-              <span className="text-ink-3">{row.label}</span>
-              <span className="tabular font-medium">{row.value}</span>
-            </div>
-            <div className="h-[3px] w-full overflow-hidden rounded-full bg-edge">
-              <motion.div
-                className="h-full rounded-full bg-accent"
-                initial={{ width: "0%" }}
-                animate={{ width: active ? `${row.value}%` : "0%" }}
-                transition={{ duration: 1, ease: EASE_OUT, delay: 0.3 + index * 0.11 }}
-              />
-            </div>
-          </div>
-        ))}
-      </div>
-
-      <motion.p
-        className="mt-5 border-t border-edge pt-4 text-[11px] leading-relaxed text-ink-3"
-        initial={{ opacity: 0, y: 5 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.6, ease: EASE_OUT, delay: 0.8 }}
-      >
-        Believed in <span className="tabular text-ink">2.4s</span>. Nothing yet says
-        what you do.
-      </motion.p>
-    </motion.div>
-  );
-}
-
-/* ── The film ───────────────────────────────────────────────────────────── */
+const asStyle = (frame: Frame) => ({
+  left: frame.x,
+  top: frame.y,
+  width: frame.w,
+  height: frame.h,
+});
 
 export function HeroScene() {
   const holder = useRef<HTMLDivElement>(null);
@@ -402,136 +148,340 @@ export function HeroScene() {
     restingId: "report",
   });
 
-  const beat = clock.id;
-  const chrome = beat === "arrive" || beat === "capture";
-  const showMeasures = beat === "gather" || beat === "measure";
-  const showReport = beat === "report";
+  const beat = clock.id as Beat;
+  const onPlate = beat === "assemble" || beat === "capture" || beat === "return";
+  const lifted = beat === "separate" || beat === "read";
+  const scoring = beat === "measure";
+  const absorbing = beat === "resolve" || beat === "report";
+  const reporting = beat === "report";
 
   return (
     <div ref={holder} className="w-full">
       <Scene
         width={W}
         height={H}
-        label="A profile is captured, separated into its photo, bio, collections and posts, read layer by layer, and resolved into a perception report."
+        label="A profile is captured, separated into its photo, bio, collections and posts, read one layer at a time, scored, and folded into a perception report."
       >
+        {/* ── The plate. It is the screenshot, and then it is the report. ── */}
         <motion.div
-          className="absolute inset-0"
-          animate={{ opacity: showReport || beat === "reset" ? 0 : 1 }}
-          transition={{ duration: 0.65, ease: EASE_IN_OUT }}
+          className="absolute z-[2] overflow-hidden bg-white"
+          animate={{
+            ...asStyle(onPlate ? PLATE : absorbing ? REPORT : PLATE),
+            borderRadius: absorbing ? 26 : 30,
+            /* Never fully gone: while the fragments are out on their own it
+               recedes to a ghost of itself, still occupying its place. */
+            opacity: lifted || scoring ? 0.16 : 1,
+            scale: beat === "capture" ? 0.994 : 1,
+            boxShadow:
+              lifted || scoring
+                ? "0 0 0 rgba(0,0,0,0)"
+                : "0 1px 2px rgba(8,24,84,0.05), 0 22px 52px -24px rgba(8,24,84,0.2)",
+          }}
+          transition={MORPH}
         >
-          {/* The screenshot's own surface. */}
-          <motion.div
-            className="absolute rounded-panel bg-white"
-            style={{ left: CARD.x, top: CARD.y, width: CARD.w, height: CARD.h }}
-            initial={{ opacity: 0, y: 24, scale: 0.978 }}
-            animate={{
-              opacity: chrome ? 1 : 0,
-              y: 0,
-              scale: beat === "capture" ? 0.994 : 1,
-              boxShadow: chrome
-                ? "0 1px 2px rgba(12,13,16,0.04), 0 20px 48px -24px rgba(12,13,16,0.18)"
-                : "0 0 0 rgba(0,0,0,0)",
-            }}
-            transition={{ duration: 1.1, ease: EASE_OUT }}
-          />
-
-          <motion.div
-            className="absolute"
-            style={{ left: 96, top: 62, width: 264 }}
-            animate={{ opacity: chrome ? 1 : 0 }}
-            transition={{ duration: 0.55, ease: EASE_OUT }}
-          >
-            <SubjectHandle />
-          </motion.div>
-
-          {/* Counts stay with the screenshot; they are context, not a layer. */}
-          <motion.div
-            className="absolute"
-            style={{ left: 172, top: 104, width: 188 }}
-            animate={{ opacity: chrome ? 1 : 0 }}
-            transition={{ duration: 0.55, ease: EASE_OUT }}
-          >
-            <div className="flex items-center justify-around">
-              {[
-                { value: "128", label: "posts" },
-                { value: "14.2k", label: "followers" },
-                { value: "312", label: "following" },
-              ].map((stat) => (
-                <div key={stat.label} className="text-center">
-                  <div className="tabular text-[12.5px] font-semibold leading-none">
-                    {stat.value}
-                  </div>
-                  <div className="mt-1 text-[9px] leading-none text-ink-3">
-                    {stat.label}
-                  </div>
-                </div>
-              ))}
-            </div>
-          </motion.div>
-
-          {/* The four things a stranger reacts to. */}
-          <LayerBlock layerKey="avatar" beat={beat} cycle={clock.cycle}>
-            <SubjectAvatar size={62} />
-          </LayerBlock>
-          <LayerBlock layerKey="bio" beat={beat} cycle={clock.cycle}>
-            <SubjectBio />
-          </LayerBlock>
-          <LayerBlock layerKey="collections" beat={beat} cycle={clock.cycle}>
-            <SubjectCollections />
-          </LayerBlock>
-          <LayerBlock layerKey="grid" beat={beat} cycle={clock.cycle}>
-            <SubjectGrid rows={2} tile={86} gap={2} />
-          </LayerBlock>
-
-          <AnimatePresence>
-            {beat === "capture" ? <Capture cycle={clock.cycle} /> : null}
-          </AnimatePresence>
-
-          {/* The read. One line, travelling with weight. */}
-          <AnimatePresence>
-            {beat === "scan" ? (
-              <motion.div
-                key={`scan-${clock.cycle}`}
-                className="absolute left-0 right-0"
-                initial={{ y: 72, opacity: 0 }}
-                animate={{ y: 486, opacity: [0, 1, 1, 0] }}
-                exit={{ opacity: 0 }}
-                transition={{
-                  duration: 2.2,
-                  ease: EASE_IN_OUT,
-                  opacity: { duration: 2.2, times: [0, 0.06, 0.86, 1] },
-                }}
-              >
-                <div
-                  className="h-14 w-full"
-                  style={{
-                    background:
-                      "linear-gradient(to bottom, rgba(27,74,255,0) 0%, rgba(27,74,255,0.07) 100%)",
-                  }}
-                />
-                <div className="h-px w-full bg-accent/55" />
-              </motion.div>
-            ) : null}
-          </AnimatePresence>
+          <PlateHeader visible={onPlate} />
+          <ReportContents visible={absorbing} counting={reporting} />
         </motion.div>
 
+        {/* ── The four fragments. Same nodes throughout. ── */}
+        {FRAGMENTS.map((key) => (
+          <FragmentNode
+            key={key}
+            fragmentKey={key}
+            beat={beat}
+            cycle={clock.cycle}
+            lifted={lifted}
+            scoring={scoring}
+            absorbing={absorbing}
+          />
+        ))}
+
+        {/* ── The capture, and the read. The only two transient effects, and
+               both are passes of light across objects that stay put. ── */}
         <AnimatePresence>
-          {showMeasures
-            ? CARDS.map((card, index) => (
-                <MeasureCard
-                  key={`${card.label}-${clock.cycle}`}
-                  {...card}
-                  index={index}
-                  counting={beat === "measure"}
-                />
-              ))
-            : null}
+          {beat === "capture" ? <Capture cycle={clock.cycle} /> : null}
         </AnimatePresence>
 
         <AnimatePresence>
-          {showReport ? <ReportCard key={`report-${clock.cycle}`} active /> : null}
+          {beat === "read" ? (
+            <motion.div
+              key={`read-${clock.cycle}`}
+              className="absolute left-0 right-0"
+              initial={{ y: 96, opacity: 0 }}
+              animate={{ y: 540, opacity: [0, 1, 1, 0] }}
+              exit={{ opacity: 0 }}
+              transition={{
+                duration: 2.2,
+                ease: EASE_IN_OUT,
+                opacity: { duration: 2.2, times: [0, 0.06, 0.86, 1] },
+              }}
+            >
+              <div
+                className="h-16 w-full"
+                style={{
+                  background:
+                    "linear-gradient(to bottom, rgba(11,92,251,0) 0%, rgba(11,92,251,0.09) 100%)",
+                }}
+              />
+              <div className="h-px w-full bg-accent/55" />
+            </motion.div>
+          ) : null}
         </AnimatePresence>
       </Scene>
     </div>
+  );
+}
+
+/* ── One fragment, through its whole life ─────────────────────────────────── */
+
+function FragmentNode({
+  fragmentKey,
+  beat,
+  cycle,
+  lifted,
+  scoring,
+  absorbing,
+}: {
+  fragmentKey: FragmentKey;
+  beat: Beat;
+  cycle: number;
+  lifted: boolean;
+  scoring: boolean;
+  absorbing: boolean;
+}) {
+  const frame = frameFor(fragmentKey, beat);
+  const score = SCORES[fragmentKey];
+  const onSurface = lifted || scoring;
+
+  return (
+    <motion.div
+      className="absolute"
+      animate={{
+        ...asStyle(frame),
+        /* Absorbed rather than deleted: it shrinks into the report's middle and
+           is covered by it, which is what merging looks like. */
+        opacity: absorbing ? 0 : 1,
+        scale: absorbing ? 0.7 : 1,
+      }}
+      transition={MORPH}
+      style={{ zIndex: absorbing ? 1 : 3 }}
+    >
+      <motion.div
+        className="relative h-full w-full overflow-hidden"
+        animate={{
+          backgroundColor: onSurface ? "#ffffff" : "rgba(255,255,255,0)",
+          borderRadius: 18,
+          padding: onSurface ? 10 : 0,
+          boxShadow: onSurface
+            ? "0 1px 2px rgba(8,24,84,0.05), 0 14px 32px -18px rgba(8,24,84,0.18)"
+            : "0 0 0 rgba(0,0,0,0)",
+        }}
+        transition={{ duration: 0.85, ease: EASE_OUT }}
+      >
+        {/* Both contents are always mounted. The box travels; the interior
+            hands over inside it. Neither is ever alone on screen. */}
+        <motion.div
+          className="absolute inset-0 flex items-center justify-center p-[10px]"
+          animate={{ opacity: scoring || absorbing ? 0 : 1 }}
+          transition={{ duration: 0.5, ease: EASE_IN_OUT }}
+        >
+          <FragmentContent fragmentKey={fragmentKey} />
+        </motion.div>
+
+        <motion.div
+          className="absolute inset-0 flex flex-col justify-center px-4"
+          animate={{ opacity: scoring ? 1 : 0 }}
+          transition={{ duration: 0.5, delay: scoring ? 0.25 : 0, ease: EASE_IN_OUT }}
+        >
+          <p className="text-[9px] font-medium uppercase tracking-[0.12em] text-ink-4">
+            {score.label}
+          </p>
+          <p className="display mt-2 text-[26px] font-medium leading-none tracking-[-0.04em]">
+            <CountUp value={score.value} active={scoring} duration={1.1} />
+          </p>
+          <div className="mt-3 h-[3px] w-full overflow-hidden rounded-full bg-edge">
+            <motion.div
+              className="brand-gradient h-full rounded-full"
+              initial={false}
+              animate={{ width: scoring ? `${score.value}%` : "0%" }}
+              transition={{ duration: 1.2, ease: EASE_OUT }}
+            />
+          </div>
+        </motion.div>
+
+        {/* The confirmation that this layer has been read. */}
+        <motion.span
+          aria-hidden
+          className="pointer-events-none absolute inset-0 rounded-[18px] ring-1 ring-accent/50"
+          initial={false}
+          animate={{ opacity: beat === "read" ? [0, 1, 1] : 0 }}
+          transition={{
+            duration: 0.9,
+            delay: beat === "read" ? READ_AT[fragmentKey] : 0,
+            ease: EASE_OUT,
+            times: [0, 0.25, 1],
+          }}
+          key={`ring-${cycle}`}
+        />
+      </motion.div>
+    </motion.div>
+  );
+}
+
+function FragmentContent({ fragmentKey }: { fragmentKey: FragmentKey }): ReactNode {
+  if (fragmentKey === "photo") return <AbstractAvatar size={62} />;
+  if (fragmentKey === "bio") return <AbstractBio className="w-full" />;
+  if (fragmentKey === "collections") return <AbstractCollections />;
+  return <SubjectGrid rows={2} tile={86} gap={2} />;
+}
+
+/* ── What the plate holds ─────────────────────────────────────────────────── */
+
+/**
+ * The part of the profile that is context rather than a layer.
+ *
+ * The handle and the counts stay with the plate when the four fragments leave,
+ * because nobody forms an impression of a follower count — they form it of the
+ * face, the words, the collections and the work.
+ */
+function PlateHeader({ visible }: { visible: boolean }) {
+  return (
+    <motion.div
+      className="absolute inset-x-0 top-0 px-4 pt-5"
+      animate={{ opacity: visible ? 1 : 0 }}
+      transition={{ duration: 0.55, ease: EASE_IN_OUT }}
+    >
+      <AbstractHandle />
+      <AbstractCounts className="mt-6" />
+    </motion.div>
+  );
+}
+
+const ROWS = [
+  { label: "Trust", value: 86 },
+  { label: "Clarity", value: 58 },
+  { label: "Visual quality", value: 91 },
+];
+
+/**
+ * The report's interior, inside the plate that used to be the screenshot.
+ *
+ * It fades up while its container is already travelling and resizing, so the
+ * change reads as the plate turning into a report rather than a report being
+ * dealt on top of one.
+ */
+function ReportContents({
+  visible,
+  counting,
+}: {
+  visible: boolean;
+  counting: boolean;
+}) {
+  return (
+    <motion.div
+      className="absolute inset-0 p-6"
+      /* Arrives while the plate is still travelling, so the plate is never a
+         blank white card waiting for its contents. */
+      animate={{ opacity: visible ? 1 : 0 }}
+      transition={{ duration: 0.7, ease: EASE_IN_OUT }}
+    >
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <p className="text-[9px] font-medium uppercase tracking-[0.13em] text-ink-4">
+            First impression
+          </p>
+          <div className="mt-3 space-y-[6px]">
+            <span className="block h-[8px] w-[104px] rounded-full bg-ink-2" />
+            <span className="block h-[8px] w-[72px] rounded-full bg-edge-strong" />
+          </div>
+        </div>
+
+        <div className="display flex items-start">
+          <span className="text-[42px] font-semibold leading-none tracking-[-0.05em]">
+            <CountUp value={78} active={counting} duration={1.3} />
+          </span>
+          <span className="mt-1.5 text-[11px] font-medium text-ink-4">/100</span>
+        </div>
+      </div>
+
+      <div className="mt-6 space-y-3.5">
+        {ROWS.map((row, index) => (
+          <div key={row.label} className="space-y-1.5">
+            <div className="flex items-baseline justify-between text-[10.5px]">
+              <span className="text-ink-3">{row.label}</span>
+              <span className="tabular font-medium">{row.value}</span>
+            </div>
+            <div className="h-[3px] w-full overflow-hidden rounded-full bg-edge">
+              <motion.div
+                className="brand-gradient h-full rounded-full"
+                initial={false}
+                animate={{ width: counting ? `${row.value}%` : "0%" }}
+                transition={{ duration: 1, ease: EASE_OUT, delay: 0.5 + index * 0.11 }}
+              />
+            </div>
+          </div>
+        ))}
+      </div>
+
+      <div className="mt-6 border-t border-edge pt-4">
+        <div className="space-y-[6px]">
+          <span className="block h-[5px] w-full rounded-full bg-edge-strong" />
+          <span className="block h-[5px] w-[62%] rounded-full bg-edge" />
+        </div>
+      </div>
+    </motion.div>
+  );
+}
+
+/* ── Capture ──────────────────────────────────────────────────────────────── */
+
+const CORNERS = [
+  { d: "M0,13 L0,0 L13,0", x: PLATE.x - 9, y: PLATE.y - 9 },
+  { d: "M0,0 L13,0 L13,13", x: PLATE.x + PLATE.w - 4, y: PLATE.y - 9 },
+  { d: "M0,0 L0,13 L13,13", x: PLATE.x - 9, y: PLATE.y + PLATE.h - 4 },
+  { d: "M13,0 L13,13 L0,13", x: PLATE.x + PLATE.w - 4, y: PLATE.y + PLATE.h - 4 },
+];
+
+function Capture({ cycle }: { cycle: number }) {
+  return (
+    <>
+      {CORNERS.map((corner, index) => (
+        <motion.svg
+          key={`${index}-${cycle}`}
+          className="absolute"
+          width="13"
+          height="13"
+          viewBox="0 0 13 13"
+          style={{ left: corner.x, top: corner.y, zIndex: 4 }}
+          initial={{ opacity: 0, x: index % 2 === 0 ? -9 : 9, y: index < 2 ? -9 : 9 }}
+          animate={{ opacity: 1, x: 0, y: 0 }}
+          exit={{ opacity: 0 }}
+          transition={{ duration: 0.5, ease: EASE_OUT, delay: index * 0.04 }}
+        >
+          <path d={corner.d} fill="none" stroke="var(--color-accent)" strokeWidth="1.6" />
+        </motion.svg>
+      ))}
+
+      {/* One clean pass of light. No bloom, no flare. */}
+      <motion.div
+        key={`sweep-${cycle}`}
+        className="absolute overflow-hidden rounded-panel"
+        style={{ left: PLATE.x, top: PLATE.y, width: PLATE.w, height: PLATE.h, zIndex: 4 }}
+        initial={{ opacity: 0 }}
+        animate={{ opacity: [0, 1, 0] }}
+        transition={{ duration: 0.85, ease: EASE_IN_OUT, delay: 0.16 }}
+      >
+        <motion.div
+          className="absolute inset-y-0 w-1/2"
+          style={{
+            background:
+              "linear-gradient(100deg, transparent, rgba(255,255,255,0.92), transparent)",
+          }}
+          initial={{ x: -PLATE.w * 0.6 }}
+          animate={{ x: PLATE.w }}
+          transition={{ duration: 0.85, ease: EASE_IN_OUT, delay: 0.16 }}
+        />
+      </motion.div>
+    </>
   );
 }

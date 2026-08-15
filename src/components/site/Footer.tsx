@@ -21,7 +21,8 @@ export function Footer() {
             </a>
           </nav>
           <p className="text-[0.75rem] leading-relaxed text-ink-4 sm:text-right">
-            © {new Date().getFullYear()} Blink. Screenshots never leave your device.
+            © {new Date().getFullYear()} Blink. Screenshots are read once, then
+            discarded.
             <br />
             An independent product. Not affiliated with or endorsed by Instagram.
           </p>

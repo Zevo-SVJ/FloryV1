@@ -10,12 +10,13 @@ import {
   useTransform,
 } from "framer-motion";
 import { Scene } from "@/components/scene/Scene";
+import { SubjectGrid } from "@/components/profile/SubjectProfile";
 import {
-  SubjectAvatar,
-  SubjectBio,
-  SubjectGrid,
-  SubjectHandle,
-} from "@/components/profile/SubjectProfile";
+  AbstractAvatar,
+  AbstractBio,
+  AbstractCounts,
+  AbstractHandle,
+} from "@/components/profile/AbstractProfile";
 import { IconCheck } from "@/components/ui/Icons";
 import { useReducedMotionSafe } from "@/hooks/useReducedMotionSafe";
 import { useSceneClock } from "@/hooks/useSceneClock";
@@ -155,28 +156,25 @@ export function ShiftScene() {
           <div className="px-3.5 pt-3">
             <Swap
               flipped={step >= 2}
-              before={<SubjectHandle quality="weak" />}
-              after={<SubjectHandle quality="strong" />}
+              before={<AbstractHandle weight="loose" />}
+              after={<AbstractHandle weight="strong" />}
             />
           </div>
 
           <div className="flex items-center gap-3 px-3.5 pt-3">
             <Swap
               flipped={step >= 1}
-              before={<SubjectAvatar size={44} quality="weak" />}
-              after={<SubjectAvatar size={44} quality="strong" />}
+              before={<AbstractAvatar size={44} weight="loose" />}
+              after={<AbstractAvatar size={44} weight="strong" />}
             />
-            <div className="flex-1">
-              <div className="tabular text-[11px] font-semibold leading-none">9,481</div>
-              <div className="mt-1 text-[8.5px] leading-none text-ink-3">followers</div>
-            </div>
+            <AbstractCounts className="flex-1" />
           </div>
 
           <div className="px-3.5 pb-3 pt-3">
             <Swap
               flipped={step >= 2}
-              before={<SubjectBio quality="weak" />}
-              after={<SubjectBio quality="strong" />}
+              before={<AbstractBio weight="loose" />}
+              after={<AbstractBio weight="strong" />}
             />
           </div>
 

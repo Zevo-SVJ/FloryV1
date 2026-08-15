@@ -1,0 +1,42 @@
+rules_version = '2';
+
+// Blink's data boundary.
+//
+// Everything a person creates lives under their own uid and is readable and
+// writable by nobody else. Entitlement fields are readable by the client and
+// writable only by the server, because a client that can set its own plan is
+// not a paywall.
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    match /users/{uid} {
+      allow read: if request.auth != null && request.auth.uid == uid;
+
+      // The client may create its own profile document, but only on the free
+      // plan and only with no billing state.
+      allow create: if request.auth != null
+        && request.auth.uid == uid
+        && request.resource.data.plan == 'free'
+        && request.resource.data.billingCustomerId == null;
+
+      // Profile fields are the user's; entitlement is not.
+      allow update: if request.auth != null
+        && request.auth.uid == uid
+        && request.resource.data.plan == resource.data.plan
+        && request.resource.data.planStatus == resource.data.planStatus
+        && request.resource.data.planRenewsAt == resource.data.planRenewsAt
+        && request.resource.data.billingCustomerId == resource.data.billingCustomerId;
+
+      allow delete: if false;
+
+      match /analyses/{analysisId} {
+        allow read, write: if request.auth != null && request.auth.uid == uid;
+      }
+    }
+
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
