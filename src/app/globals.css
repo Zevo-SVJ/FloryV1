@@ -1,129 +1,96 @@
 @import "tailwindcss";
 
-/* ─────────────────────────────────────────────────────────────────────────
-   Blink — design tokens, derived from the logo
+/* ───────────────────────────────────────────────────────────────────────────
+   ShowMe — foundation tokens
 
-   Every value below comes out of the mark. The gradient corners give the
-   accent (#0040F8 deep, #10B2FD azure, #0B5CFB the middle the interface
-   lives at). The overlap where the arch meets the lens gives --color-overlap,
-   the one tint the product is allowed to decorate with. The greys are pulled
-   toward that blue so nothing on screen looks like a default. The squircle's
-   generous corner gives the radius scale, and elevation is a blue shadow
-   because the mark is luminous, not heavy.
+   Enough of a system to build on and no more. A neutral scale with a slight
+   cool cast, one accent, four radii, and a type scale. The real design system
+   is a later phase; what matters now is that nothing hard-codes a hex value,
+   so changing the palette later is changing this file.
 
-   Colour still carries meaning only: a score, a state, a single action.
-   ───────────────────────────────────────────────────────────────────────── */
+   Light and dark are both defined here as semantic tokens. Components refer to
+   `--color-surface`, never to a grey, which is what makes the dark variant a
+   token swap rather than a rewrite.
+   ─────────────────────────────────────────────────────────────────────────── */
 
 @theme {
-  /* Ground */
-  --color-white: #ffffff;
-  --color-canvas: #fbfbfd;
-  --color-raised: #ffffff;
-  --color-sunken: #f2f4f9;
+  --color-canvas: #ffffff;
+  --color-surface: #ffffff;
+  --color-surface-sunken: #f6f7f9;
+  --color-border: #e6e8ec;
+  --color-border-strong: #d4d8df;
 
-  /* Ink — near-black carrying the logo's blue, never pure #000 */
-  --color-ink: #0a0c16;
-  --color-ink-2: #3a3f4f;
-  --color-ink-3: #6b7285;
-  --color-ink-4: #979eb1;
+  --color-ink: #0d0f14;
+  --color-ink-muted: #4d5461;
+  --color-ink-subtle: #7b8291;
 
-  /* Hairlines */
-  --color-edge: #e7eaf2;
-  --color-edge-strong: #d3d8e6;
+  --color-accent: #1f5eff;
+  --color-accent-hover: #1a4fd8;
+  --color-accent-ink: #ffffff;
 
-  /* The accent, straight off the mark */
-  --color-accent: #0b5cfb;
-  --color-accent-press: #0040f8;
-  --color-accent-tint: #eaf2fe;
-  --color-accent-ring: #a9ccfe;
+  --color-danger: #c8352b;
+  --color-success: #0f7a52;
 
-  /* The gradient's far stop. Gradients and washes only — never a flat fill. */
-  --color-azure: #10b2fd;
-
-  /* The intersection tint. The product's one decorative colour. */
-  --color-overlap: #b4d2fe;
-  --color-overlap-soft: #dbe9fe;
-
-  /* Meaning, not decoration — a like heart and an error message */
-  --color-high: #0f9d6e;
-  --color-mid: #b8860b;
-  --color-low: #d6493a;
-
-  /* Type */
-  --font-display: var(--font-instrument-sans), ui-sans-serif, system-ui,
-    -apple-system, "Segoe UI", Helvetica, sans-serif, "Apple Color Emoji",
-    "Segoe UI Emoji", "Noto Color Emoji";
   --font-sans: var(--font-geist-sans), ui-sans-serif, system-ui, -apple-system,
-    "Segoe UI", Helvetica, sans-serif, "Apple Color Emoji", "Segoe UI Emoji",
-    "Noto Color Emoji";
+    "Segoe UI", Helvetica, Arial, sans-serif;
 
-  /* Display scale — fluid, app-confident */
-  --text-mega: clamp(3rem, 9.4vw, 8rem);
-  --text-mega--line-height: 0.9;
-  --text-mega--letter-spacing: -0.042em;
+  --text-display: clamp(2.25rem, 5vw, 3.5rem);
+  --text-display--line-height: 1.04;
+  --text-display--letter-spacing: -0.033em;
 
-  --text-hero: clamp(2.6rem, 5.6vw, 5rem);
-  --text-hero--line-height: 0.95;
-  --text-hero--letter-spacing: -0.038em;
+  --text-title: clamp(1.375rem, 2.4vw, 1.75rem);
+  --text-title--line-height: 1.18;
+  --text-title--letter-spacing: -0.022em;
 
-  --text-display: clamp(2.1rem, 4.4vw, 3.5rem);
-  --text-display--line-height: 1;
-  --text-display--letter-spacing: -0.034em;
+  --text-lede: 1.0625rem;
+  --text-lede--line-height: 1.55;
 
-  --text-title: clamp(1.375rem, 2.4vw, 1.875rem);
-  --text-title--line-height: 1.14;
-  --text-title--letter-spacing: -0.024em;
+  --radius-control: 10px;
+  --radius-card: 14px;
 
-  --text-lede: clamp(1.0625rem, 1.35vw, 1.25rem);
-  --text-lede--line-height: 1.5;
-  --text-lede--letter-spacing: -0.013em;
+  --shadow-control: 0 1px 2px rgba(13, 15, 20, 0.05);
+  --shadow-card: 0 1px 2px rgba(13, 15, 20, 0.04),
+    0 12px 28px -18px rgba(13, 15, 20, 0.16);
+}
 
-  --text-label: 0.6875rem;
-  --text-label--line-height: 1;
-  --text-label--letter-spacing: 0.11em;
+/* The visitor's own preference decides, with no flash: this is CSS, evaluated
+   before the first paint, rather than a class applied by JavaScript. A manual
+   toggle can be layered on later by writing these same tokens under a
+   `[data-theme]` selector. */
+@media (prefers-color-scheme: dark) {
+  @theme {
+    --color-canvas: #0b0d11;
+    --color-surface: #14171d;
+    --color-surface-sunken: #101319;
+    --color-border: #242932;
+    --color-border-strong: #333944;
 
-  /* Radii — the mark's squircle, stepped down */
-  --radius-chip: 12px;
-  --radius-card: 22px;
-  --radius-panel: 30px;
-  --radius-sheet: 36px;
-  --radius-plate: 27%;
+    --color-ink: #f4f6f8;
+    --color-ink-muted: #a6adba;
+    --color-ink-subtle: #78808f;
 
-  /* Elevation — blue-cast and luminous, never a grey smudge */
-  --shadow-rest: 0 1px 2px rgba(8, 24, 84, 0.05);
-  --shadow-card: 0 1px 2px rgba(8, 24, 84, 0.05),
-    0 10px 26px -14px rgba(8, 24, 84, 0.14);
-  --shadow-raise: 0 1px 2px rgba(8, 24, 84, 0.05),
-    0 22px 52px -24px rgba(8, 24, 84, 0.2);
-  --shadow-sheet: 0 -1px 2px rgba(8, 24, 84, 0.04),
-    0 -24px 64px -32px rgba(8, 24, 84, 0.24);
-  --shadow-deck: 0 1px 2px rgba(8, 24, 84, 0.06),
-    0 16px 40px -20px rgba(8, 24, 84, 0.22);
-  --shadow-accent: 0 1px 2px rgba(4, 32, 140, 0.24),
-    0 12px 28px -12px rgba(11, 92, 251, 0.36);
+    --color-accent: #5b8bff;
+    --color-accent-hover: #7ba1ff;
+    --color-accent-ink: #0b0d11;
+
+    --color-danger: #ff7a70;
+    --color-success: #4cc79a;
+
+    --shadow-control: 0 1px 2px rgba(0, 0, 0, 0.4);
+    --shadow-card: 0 1px 2px rgba(0, 0, 0, 0.3), 0 12px 28px -18px rgba(0, 0, 0, 0.6);
+  }
 }
 
 @layer base {
-  * {
-    -webkit-tap-highlight-color: transparent;
-  }
-
   html {
-    background-color: var(--color-canvas);
+    color-scheme: light dark;
     -webkit-text-size-adjust: 100%;
-    scroll-behavior: smooth;
-  }
-
-  /* The analyze flow opens over the page; scrolling behind it is locked. */
-  html[data-locked="true"] body {
-    overflow: hidden;
   }
 
   body {
     background-color: var(--color-canvas);
     color: var(--color-ink);
     font-family: var(--font-sans);
-    font-feature-settings: "ss01" 1, "cv01" 1;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
   }
@@ -131,104 +98,38 @@
   h1,
   h2,
   h3 {
-    font-family: var(--font-display);
-    font-weight: 500;
+    font-weight: 600;
     text-wrap: balance;
-  }
-
-  ::selection {
-    background-color: var(--color-accent);
-    color: #fff;
   }
 
   :focus-visible {
     outline: 2px solid var(--color-accent);
-    outline-offset: 3px;
-    border-radius: 6px;
+    outline-offset: 2px;
+    border-radius: 4px;
   }
 
-  button,
-  a {
-    touch-action: manipulation;
+  ::selection {
+    background-color: var(--color-accent);
+    color: var(--color-accent-ink);
   }
 }
 
-@utility display {
-  font-family: var(--font-display);
-  font-weight: 500;
-}
-
-@utility tabular {
-  font-variant-numeric: tabular-nums;
-  font-feature-settings: "tnum" 1;
-}
-
-@utility gutter {
-  /* One horizontal rhythm for the whole product. */
+/* One horizontal rhythm for every page in the product. */
+@utility container-page {
   margin-inline: auto;
   width: 100%;
-  max-width: 80rem;
+  max-width: 64rem;
   padding-inline: 1.25rem;
 
   @media (min-width: 640px) {
     padding-inline: 2rem;
   }
-
-  @media (min-width: 1280px) {
-    padding-inline: 3rem;
-  }
 }
 
-@utility hairline {
-  height: 1px;
+/* The public creator page is narrower than the app. */
+@utility container-profile {
+  margin-inline: auto;
   width: 100%;
-  background-color: var(--color-edge);
-}
-
-/* The mark's gradient, at the mark's angle. Fills and text alike. */
-@utility brand-gradient {
-  background-image: linear-gradient(
-    38deg,
-    var(--color-accent-press) 0%,
-    var(--color-accent) 52%,
-    var(--color-azure) 100%
-  );
-}
-
-/* The faintest breath of the gradient, for grounds under content. */
-@utility brand-wash {
-  background-image: radial-gradient(
-      120% 90% at 88% 4%,
-      rgba(16, 178, 253, 0.09) 0%,
-      rgba(16, 178, 253, 0) 62%
-    ),
-    radial-gradient(
-      110% 90% at 6% 96%,
-      rgba(11, 92, 251, 0.07) 0%,
-      rgba(11, 92, 251, 0) 60%
-    );
-}
-
-/* Hide scrollbars on horizontal rails without losing keyboard scrolling. */
-@utility no-bar {
-  scrollbar-width: none;
-  -ms-overflow-style: none;
-
-  &::-webkit-scrollbar {
-    display: none;
-  }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  html {
-    scroll-behavior: auto;
-  }
-
-  *,
-  *::before,
-  *::after {
-    animation-duration: 0.001ms !important;
-    animation-iteration-count: 1 !important;
-    transition-duration: 0.001ms !important;
-  }
+  max-width: 34rem;
+  padding-inline: 1.25rem;
 }

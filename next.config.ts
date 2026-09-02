@@ -2,9 +2,9 @@ import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
   reactStrictMode: true,
+  // The public creator page is linked from social apps; there is no reason to
+  // advertise the framework on every request.
   poweredByHeader: false,
-  // The dev overlay sits on top of the hero film.
-  devIndicators: false,
 };
 
 export default nextConfig;

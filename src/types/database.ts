@@ -1,0 +1,200 @@
+/**
+ * The database, in TypeScript.
+ *
+ * Hand-written to match `supabase/migrations/`. Once a Supabase project is
+ * linked this file becomes generated output:
+ *
+ *   npx supabase gen types typescript --linked > src/types/database.ts
+ *
+ * Until then it is maintained alongside the migrations. The shape is the one
+ * `supabase-js` expects, so passing `Database` to the client gives every query
+ * in the app real column names and real nullability.
+ */
+
+export type Json = string | number | boolean | null | { [key: string]: Json } | Json[];
+
+export type SocialPlatform =
+  | "instagram"
+  | "tiktok"
+  | "youtube"
+  | "x"
+  | "threads"
+  | "facebook"
+  | "linkedin"
+  | "github"
+  | "twitch"
+  | "spotify"
+  | "soundcloud"
+  | "pinterest"
+  | "snapchat"
+  | "discord"
+  | "telegram"
+  | "whatsapp"
+  | "email"
+  | "website";
+
+export type BlockType =
+  | "links"
+  | "socials"
+  | "text"
+  | "image"
+  | "video"
+  | "embed"
+  | "divider";
+
+export type SubscriptionStatus =
+  | "trialing"
+  | "active"
+  | "past_due"
+  | "canceled"
+  | "incomplete"
+  | "incomplete_expired"
+  | "unpaid";
+
+export type SubscriptionPlan = "free" | "pro";
+
+interface Timestamps {
+  created_at: string;
+  updated_at: string;
+}
+
+interface ProfileRow extends Timestamps {
+  id: string;
+  username: string;
+  display_name: string | null;
+  bio: string | null;
+  avatar_url: string | null;
+}
+
+interface LinkRow extends Timestamps {
+  id: string;
+  profile_id: string;
+  title: string;
+  url: string;
+  position: number;
+  is_active: boolean;
+}
+
+interface SocialLinkRow extends Timestamps {
+  id: string;
+  profile_id: string;
+  platform: SocialPlatform;
+  url: string;
+  position: number;
+  is_active: boolean;
+}
+
+interface BlockRow extends Timestamps {
+  id: string;
+  profile_id: string;
+  type: BlockType;
+  position: number;
+  data: Json;
+  is_visible: boolean;
+}
+
+interface PageViewRow {
+  id: number;
+  profile_id: string;
+  created_at: string;
+  referrer: string | null;
+  user_agent: string | null;
+  country: string | null;
+  device: string | null;
+}
+
+interface LinkClickRow extends Omit<PageViewRow, "id"> {
+  id: number;
+  link_id: string;
+}
+
+interface SubscriptionRow extends Timestamps {
+  id: string;
+  profile_id: string;
+  stripe_customer_id: string | null;
+  stripe_subscription_id: string | null;
+  status: SubscriptionStatus | null;
+  plan: SubscriptionPlan;
+  current_period_end: string | null;
+}
+
+interface ReservedUsernameRow {
+  username: string;
+  reason: string | null;
+  created_at: string;
+}
+
+/** Columns the database fills in for us are optional on insert. */
+type Insert<Row, Required extends keyof Row> = Pick<Row, Required> &
+  Partial<Omit<Row, Required>>;
+
+export interface Database {
+  public: {
+    Tables: {
+      profiles: {
+        Row: ProfileRow;
+        Insert: Insert<ProfileRow, "id" | "username">;
+        Update: Partial<ProfileRow>;
+        Relationships: [];
+      };
+      links: {
+        Row: LinkRow;
+        Insert: Insert<LinkRow, "profile_id" | "title" | "url">;
+        Update: Partial<LinkRow>;
+        Relationships: [];
+      };
+      social_links: {
+        Row: SocialLinkRow;
+        Insert: Insert<SocialLinkRow, "profile_id" | "platform" | "url">;
+        Update: Partial<SocialLinkRow>;
+        Relationships: [];
+      };
+      blocks: {
+        Row: BlockRow;
+        Insert: Insert<BlockRow, "profile_id" | "type">;
+        Update: Partial<BlockRow>;
+        Relationships: [];
+      };
+      page_views: {
+        Row: PageViewRow;
+        Insert: Insert<PageViewRow, "profile_id">;
+        Update: Partial<PageViewRow>;
+        Relationships: [];
+      };
+      link_clicks: {
+        Row: LinkClickRow;
+        Insert: Insert<LinkClickRow, "profile_id" | "link_id">;
+        Update: Partial<LinkClickRow>;
+        Relationships: [];
+      };
+      subscriptions: {
+        Row: SubscriptionRow;
+        Insert: Insert<SubscriptionRow, "profile_id">;
+        Update: Partial<SubscriptionRow>;
+        Relationships: [];
+      };
+      reserved_usernames: {
+        Row: ReservedUsernameRow;
+        Insert: Insert<ReservedUsernameRow, "username">;
+        Update: Partial<ReservedUsernameRow>;
+        Relationships: [];
+      };
+    };
+    Views: Record<never, never>;
+    Functions: Record<never, never>;
+    Enums: {
+      social_platform: SocialPlatform;
+      block_type: BlockType;
+      subscription_status: SubscriptionStatus;
+      subscription_plan: SubscriptionPlan;
+    };
+    CompositeTypes: Record<never, never>;
+  };
+}
+
+/** Convenience aliases, so features import a row type rather than a path. */
+export type Profile = ProfileRow;
+export type Link = LinkRow;
+export type SocialLink = SocialLinkRow;
+export type Block = BlockRow;
+export type Subscription = SubscriptionRow;

@@ -1,14 +1,17 @@
 {
-  "name": "blink",
+  "name": "showme",
   "version": "0.1.0",
   "private": true,
-  "description": "Blink — know what people think before they follow.",
+  "description": "ShowMe — a premium personal page for creators at showme.at/username.",
   "scripts": {
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
     "lint": "eslint .",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "check": "npm run typecheck && npm run lint && npm test && npm run build",
+    "test": "node scripts/test.mjs",
+    "test:db": "./supabase/tests/run.sh"
   },
   "repository": {
     "type": "git",
@@ -16,9 +19,8 @@
   },
   "license": "UNLICENSED",
   "dependencies": {
-    "@anthropic-ai/sdk": "^0.115.0",
-    "firebase": "^12.17.1",
-    "framer-motion": "^13.0.0",
+    "@supabase/ssr": "^0.12.5",
+    "@supabase/supabase-js": "^2.114.0",
     "geist": "^1.7.2",
     "next": "^16.3.0",
     "react": "^19.2.8",
