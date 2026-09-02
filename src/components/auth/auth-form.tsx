@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useActionState } from "react";
 import { Button } from "@/components/ui/button";
 import { Field, Input } from "@/components/ui/field";
+import { UsernameField } from "@/components/auth/username-field";
 import { emptyFormState, type FormState } from "@/lib/auth/form-state";
 
 /**
@@ -38,6 +39,7 @@ export function AuthForm({
           name="email"
           type="email"
           autoComplete="email"
+          autoCapitalize="none"
           required
           placeholder="you@example.com"
           invalid={Boolean(state.fieldErrors?.email)}
@@ -68,6 +70,8 @@ export function AuthForm({
         />
       </Field>
 
+      {signingUp ? <UsernameField serverError={state.fieldErrors?.username} /> : null}
+
       {state.error ? (
         <p role="alert" className="text-sm text-danger">
           {state.error}
@@ -83,10 +87,10 @@ export function AuthForm({
       <Button type="submit" disabled={pending} className="w-full">
         {pending
           ? signingUp
-            ? "Creating account…"
+            ? "Creating your page…"
             : "Signing in…"
           : signingUp
-            ? "Create account"
+            ? "Create my page"
             : "Sign in"}
       </Button>
 

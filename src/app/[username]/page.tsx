@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
-import { notFound, redirect } from "next/navigation";
+import { notFound, permanentRedirect } from "next/navigation";
 import { getPublicPage } from "@/lib/profiles";
-import { normalizeUsername, usernameFromPath } from "@/lib/validation/username";
+import { usernameFromPath } from "@/lib/validation/username";
 
 /**
  * The public creator page — showme.at/<username>.
@@ -23,18 +23,21 @@ interface PageProps {
 /**
  * One page, one address.
  *
- * `/Alex` and `/alex` must not both render. Anything that is not already
- * canonical is redirected to the form that is, so links, analytics and search
- * results never fragment across spellings.
+ * `/Alex` and `/alex` are the same person, so only the lowercase form renders
+ * and the rest redirect permanently — links, analytics and search results
+ * never fragment across spellings.
+ *
+ * `/john.doe` is not a username at all, so it is a 404 rather than a redirect
+ * to `/johndoe`: inventing an address nobody asked for would send a visitor to
+ * a stranger's page.
  */
 async function resolveUsername(params: PageProps["params"]): Promise<string> {
   const { username: raw } = await params;
-  const canonical = usernameFromPath(raw);
-  if (canonical) return canonical;
+  const resolved = usernameFromPath(raw);
 
-  const normalized = normalizeUsername(decodeURIComponent(raw));
-  if (normalized.length > 0 && normalized !== raw) redirect(`/${normalized}`);
-
+  if (resolved.kind === "canonical") return resolved.username;
+  // 308, not 307: this mapping never changes, so intermediaries may remember it.
+  if (resolved.kind === "redirect") permanentRedirect(`/${resolved.username}`);
   notFound();
 }
 
@@ -77,11 +80,11 @@ export default async function ProfilePage({ params }: PageProps) {
 
   if (!page) notFound();
 
-  const { profile, links } = page;
+  const { profile } = page;
   const name = profile.display_name ?? profile.username;
 
   return (
-    <main className="container-profile flex min-h-dvh flex-col items-center py-16 text-center">
+    <main className="container-profile flex min-h-dvh flex-col items-center justify-center py-16 text-center">
       <div
         aria-hidden
         className="flex h-20 w-20 items-center justify-center rounded-full bg-surface-sunken text-xl font-semibold text-ink-subtle"
@@ -98,24 +101,8 @@ export default async function ProfilePage({ params }: PageProps) {
         </p>
       ) : null}
 
-      {links.length > 0 ? (
-        <ul className="mt-9 w-full space-y-3">
-          {links.map((link) => (
-            <li key={link.id}>
-              <a
-                href={link.url}
-                rel="noopener noreferrer nofollow ugc"
-                target="_blank"
-                className="block rounded-card border border-border bg-surface px-5 py-4 text-[0.9375rem] font-medium shadow-control transition-colors hover:border-border-strong"
-              >
-                {link.title}
-              </a>
-            </li>
-          ))}
-        </ul>
-      ) : (
-        <p className="mt-9 text-sm text-ink-subtle">This page is still being built.</p>
-      )}
+      {/* Phase 3 replaces everything below with the real page engine. */}
+      <p className="mt-10 text-sm text-ink-subtle">ShowMe page coming soon.</p>
     </main>
   );
 }

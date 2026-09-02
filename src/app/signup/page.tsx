@@ -17,7 +17,7 @@ export default function SignupPage() {
 
       <h1 className="mt-10 text-title">Create your page</h1>
       <p className="mt-2 text-sm text-ink-muted">
-        You will choose your username in a moment.
+        Pick the address people will visit. It takes about thirty seconds.
       </p>
 
       <div className="mt-8">

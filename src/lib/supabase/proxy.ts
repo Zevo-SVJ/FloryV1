@@ -91,6 +91,18 @@ export async function updateSession(request: NextRequest): Promise<NextResponse>
     return redirectPreservingCookies(request, response, AFTER_SIGN_IN);
   }
 
+  /*
+   * Nothing is set here to stop the Back button revealing a signed-out
+   * dashboard. It was tried, and it was theatre: a `cache-control` set on this
+   * response is replaced by the one Next.js writes when it renders, so the
+   * header never reached the browser.
+   *
+   * It is also unnecessary. Every dynamically rendered response already leaves
+   * production with `private, no-cache, no-store, max-age=0, must-revalidate`,
+   * and `no-store` is precisely what keeps a page out of the back-forward
+   * cache. The dashboard is dynamic because `getUser()` awaits `connection()`,
+   * so Back re-requests it, finds no session, and is redirected.
+   */
   return response;
 }
 

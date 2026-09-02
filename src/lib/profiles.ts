@@ -19,6 +19,21 @@ import type { Link, Profile, SocialLink } from "@/types/database";
  * behaviour we want and comes for free.
  */
 
+/**
+ * The lookup itself failed — not "no such user".
+ *
+ * Kept distinct because the difference is visible to search engines. A profile
+ * that 404s while the database is down gets de-indexed; the same page failing
+ * with a 500 is retried later. The route lets this propagate to the error
+ * boundary instead of turning it into a not-found.
+ */
+export class ProfileLookupError extends Error {
+  constructor() {
+    super("Could not reach the profile store.");
+    this.name = "ProfileLookupError";
+  }
+}
+
 export interface PublicPage {
   profile: Profile;
   links: Link[];
@@ -28,6 +43,8 @@ export interface PublicPage {
 /** The profile behind a username, or null when nobody has claimed it. */
 export const getProfileByUsername = cache(
   async (username: string): Promise<Profile | null> => {
+    // No database configured is not a lookup failure: the deployment simply
+    // has no profiles, and every name is genuinely unclaimed.
     if (!isSupabaseConfigured()) return null;
 
     try {
@@ -38,10 +55,11 @@ export const getProfileByUsername = cache(
         .eq("username", username)
         .maybeSingle();
 
-      if (error) return null;
+      if (error) throw new ProfileLookupError();
       return data;
-    } catch {
-      return null;
+    } catch (cause) {
+      if (cause instanceof ProfileLookupError) throw cause;
+      throw new ProfileLookupError();
     }
   },
 );

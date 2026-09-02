@@ -71,7 +71,7 @@ select pg_temp.ok(
 
 select pg_temp.ok(
   (select username from public.profiles where id = '11111111-1111-1111-1111-111111111111')
-    = 'user_111111111111',
+    = 'u' || repeat('1', 29),
   'the generated placeholder username is derived from the user id'
 );
 

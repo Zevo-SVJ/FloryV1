@@ -11,17 +11,21 @@
  * the database is what actually holds the line. To add a name, add it here and
  * write a migration that inserts it.
  *
- * Every entry must already be in normalized form. A name written with a hyphen
- * would never match anything: normalization strips the hyphen first, so
- * `well-known` would sit in this list looking protective while `wellknown`
- * stayed free. The test suite asserts the invariant rather than trusting it.
+ * Every entry must be in normalized form — lowercase and trimmed — and must
+ * itself be a shape a username could take. An entry that could never be typed
+ * as a username sits here looking protective while protecting nothing, so the
+ * test suite asserts both properties rather than trusting them.
  */
 
 /** Names that are, or will be, real routes in the application. */
 const ROUTES = [
+  "account",
+  "accounts",
   "about",
   "admin",
+  "administrator",
   "api",
+  "app",
   "auth",
   "blog",
   "careers",
@@ -29,16 +33,36 @@ const ROUTES = [
   "contact",
   "dashboard",
   "docs",
+  "documentation",
+  "developer",
+  "developers",
+  "download",
+  "downloads",
   "editor",
+  "enterprise",
   "explore",
+  "faq",
+  "feedback",
   "help",
   "home",
+  "index",
+  "invite",
+  "jobs",
   "legal",
   "login",
   "logout",
+  "new",
   "onboarding",
+  "partners",
+  "password",
+  "plans",
+  "press",
   "pricing",
   "privacy",
+  "profile",
+  "profiles",
+  "register",
+  "reset",
   "search",
   "security",
   "settings",
@@ -49,13 +73,19 @@ const ROUTES = [
   "support",
   "terms",
   "upgrade",
+  "user",
+  "users",
+  "verify",
   "welcome",
 ] as const;
 
 /** Names that would let an account pass itself off as ShowMe. */
 const BRAND = [
   "showme",
+  "show",
+  "show-me",
   "showmeat",
+  "showme-app",
   "official",
   "team",
   "staff",
@@ -66,9 +96,15 @@ const BRAND = [
   "system",
 ] as const;
 
-/** Paths and files the platform serves from the same origin. */
+/**
+ * Paths and files the platform serves from the same origin.
+ *
+ * Only names a username could actually take. `_next` and `me` used to sit here
+ * and protected nothing — the first cannot start with an underscore and the
+ * second is below the minimum length, so neither was ever claimable. A static
+ * route always beats `[username]` anyway.
+ */
 const INFRASTRUCTURE = [
-  "_next",
   "assets",
   "cdn",
   "favicon",
@@ -78,7 +114,12 @@ const INFRASTRUCTURE = [
   "robots",
   "sitemap",
   "static",
-  "wellknown",
+  "well-known",
+  "mail",
+  "smtp",
+  "ftp",
+  "ns1",
+  "ns2",
 ] as const;
 
 export const RESERVED_USERNAMES: ReadonlySet<string> = new Set<string>([

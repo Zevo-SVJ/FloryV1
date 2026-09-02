@@ -5,13 +5,16 @@
  * for a fast redirect; the layouts use it as the check that actually counts.
  */
 
-export const PROTECTED_PREFIXES = ["/dashboard", "/editor"] as const;
+export const PROTECTED_PREFIXES = ["/dashboard", "/editor", "/onboarding"] as const;
 
 /** Signed-in visitors have no use for these. */
 export const AUTH_ONLY_PREFIXES = ["/login", "/signup"] as const;
 
 /** Where a signed-in visitor lands. */
 export const AFTER_SIGN_IN = "/dashboard";
+
+/** Where an account that has not chosen a username is sent. */
+export const ONBOARDING_PATH = "/onboarding";
 
 /** Where a signed-out visitor is sent, and where they come back from. */
 export const SIGN_IN_PATH = "/login";

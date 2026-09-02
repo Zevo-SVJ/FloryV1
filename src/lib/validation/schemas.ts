@@ -41,6 +41,8 @@ export const credentialsSchema = z.object({
   password: passwordSchema,
 });
 
+export type Credentials = z.infer<typeof credentialsSchema>;
+
 export const signInSchema = z.object({
   email: emailSchema,
   password: z.string().min(1, "Enter your password."),

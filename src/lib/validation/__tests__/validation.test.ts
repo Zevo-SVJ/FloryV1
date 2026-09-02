@@ -2,7 +2,10 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 
 import {
+  USERNAME_MAX,
+  USERNAME_MIN,
   checkUsername,
+  isPlaceholderUsername,
   normalizeUsername,
   usernameFromPath,
   usernameSchema,
@@ -18,59 +21,116 @@ import { checkUrl, normalizeUrl, urlSchema } from "../url.ts";
  * These use Node's built-in test runner and type stripping — no jest, no
  * vitest, no transform step. Imports are relative and carry the `.ts`
  * extension because Node resolves them itself, without the bundler's alias.
+ *
+ * The same rules exist as SQL. `supabase/tests/02_usernames.sql` asserts the
+ * database agrees with every case below; the database is the one that decides.
  */
 
-test("normalizeUsername folds case, whitespace and unicode", () => {
+test("normalizeUsername folds case and whitespace, and nothing else", () => {
   assert.equal(normalizeUsername("  Alex  "), "alex");
   assert.equal(normalizeUsername("ALEX_01"), "alex_01");
-  assert.equal(normalizeUsername("alex smith"), "alexsmith");
-  assert.equal(normalizeUsername("a.l.e.x"), "alex");
-  // Fullwidth characters normalize to ASCII rather than being dropped, so two
-  // visually identical names cannot both be claimed.
+  // Fullwidth characters normalize to ASCII, so two names that look identical
+  // in a browser tab cannot be two different accounts.
   assert.equal(normalizeUsername("ａlex"), "alex");
+
+  // Crucially it does not strip. Silently turning "john doe" into "johndoe"
+  // would hand somebody an address they never typed and never checked.
+  assert.equal(normalizeUsername("john doe"), "john doe");
+  assert.equal(normalizeUsername("john.doe"), "john.doe");
 });
 
-test("checkUsername enforces the documented rules", () => {
-  assert.equal(checkUsername("alex"), null);
-  assert.equal(checkUsername("8zevo"), null);
-  assert.equal(checkUsername("a_b"), null);
+test("checkUsername accepts the names the product promises", () => {
+  for (const valid of ["john", "john123", "john_doe", "john-doe", "8zevo", "a1b"]) {
+    assert.equal(checkUsername(valid), null, valid);
+  }
+});
 
-  assert.equal(checkUsername("al"), "too_short");
-  assert.equal(checkUsername("a".repeat(31)), "too_long");
-  assert.equal(checkUsername("_alex"), "bad_edges");
-  assert.equal(checkUsername("alex_"), "bad_edges");
-  assert.equal(checkUsername("al__ex"), "consecutive_underscores");
-  assert.equal(checkUsername("alex!"), "invalid_characters");
+test("checkUsername refuses everything else", () => {
+  assert.equal(checkUsername("john doe"), "invalid_characters");
+  assert.equal(checkUsername("john/doe"), "invalid_characters");
+  assert.equal(checkUsername("john.doe"), "invalid_characters");
+  assert.equal(checkUsername("john@doe"), "invalid_characters");
+  assert.equal(checkUsername("🔥john"), "invalid_characters");
+  assert.equal(checkUsername("John"), "invalid_characters");
+
+  assert.equal(checkUsername("_john"), "bad_edges");
+  assert.equal(checkUsername("-john"), "bad_edges");
+  assert.equal(checkUsername("john_"), "bad_edges");
+  assert.equal(checkUsername("john-"), "bad_edges");
+
+  assert.equal(checkUsername("jo__hn"), "adjacent_separators");
+  assert.equal(checkUsername("jo--hn"), "adjacent_separators");
+  assert.equal(checkUsername("jo-_hn"), "adjacent_separators");
+});
+
+test("checkUsername holds the length boundaries exactly", () => {
+  assert.equal(checkUsername("a".repeat(USERNAME_MIN - 1)), "too_short");
+  assert.equal(checkUsername("a".repeat(USERNAME_MIN)), null);
+  assert.equal(checkUsername("a".repeat(USERNAME_MAX)), null);
+  assert.equal(checkUsername("a".repeat(USERNAME_MAX + 1)), "too_long");
+});
+
+test("system placeholders cannot be claimed", () => {
+  const placeholder = `u${"0123456789ab".repeat(3).slice(0, 29)}`;
+  assert.equal(isPlaceholderUsername(placeholder), true);
+  // Claiming another account's placeholder would take over the address that
+  // account is about to be given.
+  assert.equal(checkUsername(placeholder), "reserved");
+
+  assert.equal(isPlaceholderUsername("under_score"), false);
+  assert.equal(isPlaceholderUsername("u0123"), false);
 });
 
 test("every reserved username is refused", () => {
   for (const reserved of reservedUsernameList()) {
-    const normalized = normalizeUsername(reserved);
-    // Some reserved entries exist only to block a route and are not themselves
-    // valid usernames; those are refused for a different reason, which is fine.
-    if (checkUsername(normalized) === null) {
-      assert.fail(`${reserved} was accepted`);
-    }
+    assert.notEqual(checkUsername(reserved), null, `${reserved} was accepted`);
   }
   assert.equal(checkUsername("dashboard"), "reserved");
+  assert.equal(checkUsername("administrator"), "reserved");
+  assert.equal(checkUsername("well-known"), "reserved");
   assert.equal(checkUsername("showme"), "reserved");
 });
 
-test("usernameSchema normalizes before validating", () => {
-  assert.equal(usernameSchema.parse("  Alex  "), "alex");
-  assert.equal(usernameSchema.safeParse("Dashboard").success, false);
-  assert.equal(usernameSchema.safeParse("no").success, false);
+test("every reserved entry is a name somebody could otherwise have typed", () => {
+  // An entry that is not itself a valid username shape protects nothing — it
+  // sits in the list looking useful while the name it meant to block stays
+  // free. Both halves matter: normalized, and reserved for the right reason.
+  for (const reserved of reservedUsernameList()) {
+    assert.equal(normalizeUsername(reserved), reserved, `${reserved} is not normalized`);
+    assert.equal(
+      checkUsername(reserved),
+      "reserved",
+      `${reserved} is refused for the wrong reason — it is not a claimable shape`,
+    );
+  }
 });
 
-test("usernameFromPath accepts only the canonical form", () => {
-  assert.equal(usernameFromPath("alex"), "alex");
-  // Anything the browser would show differently must miss, so the route can
-  // redirect to one address instead of serving two.
-  assert.equal(usernameFromPath("Alex"), null);
-  assert.equal(usernameFromPath("a.lex"), null);
-  assert.equal(usernameFromPath("dashboard"), null);
-  assert.equal(usernameFromPath("%E2%82%AC"), null);
-  assert.equal(usernameFromPath("%"), null);
+test("usernameSchema normalizes, then judges", () => {
+  assert.equal(usernameSchema.parse("  Alex  "), "alex");
+  assert.equal(usernameSchema.parse("John-Doe"), "john-doe");
+
+  for (const invalid of ["Dashboard", "no", "john doe", "john.doe", "a".repeat(31)]) {
+    assert.equal(usernameSchema.safeParse(invalid).success, false, invalid);
+  }
+});
+
+test("usernameFromPath sends every spelling to one address", () => {
+  assert.deepEqual(usernameFromPath("alex"), { kind: "canonical", username: "alex" });
+  assert.deepEqual(usernameFromPath("john-doe"), {
+    kind: "canonical",
+    username: "john-doe",
+  });
+
+  // Case is the same person, so it redirects rather than serving two pages.
+  assert.deepEqual(usernameFromPath("Alex"), { kind: "redirect", username: "alex" });
+  assert.deepEqual(usernameFromPath("ALEX"), { kind: "redirect", username: "alex" });
+
+  // Not a username at all. A redirect to /johndoe would invent an address and
+  // could land the visitor on a stranger's page.
+  assert.deepEqual(usernameFromPath("john.doe"), { kind: "miss" });
+  assert.deepEqual(usernameFromPath("dashboard"), { kind: "miss" });
+  assert.deepEqual(usernameFromPath("%E2%82%AC"), { kind: "miss" });
+  assert.deepEqual(usernameFromPath("%"), { kind: "miss" });
 });
 
 test("normalizeUrl adds a scheme only when one is absent", () => {
@@ -104,17 +164,5 @@ test("urlSchema rejects script-bearing schemes however they are cased", () => {
     "data:text/html,<script>alert(1)</script>",
   ]) {
     assert.equal(urlSchema.safeParse(hostile).success, false, hostile);
-  }
-});
-
-test("every reserved entry is stored in its normalized form", () => {
-  // Otherwise the entry protects nothing: a name is normalized before it is
-  // looked up, so `well-known` in the list never matches `wellknown` in a URL.
-  for (const reserved of reservedUsernameList()) {
-    assert.equal(
-      normalizeUsername(reserved),
-      reserved,
-      `${reserved} is not normalized`,
-    );
   }
 });

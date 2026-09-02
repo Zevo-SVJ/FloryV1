@@ -2,9 +2,9 @@
 
 One page for everything you make — `showme.at/<username>`.
 
-**Phase 1: foundation.** Auth, the schema, the security model and the route
-skeleton. There is no editor, no themes and no analytics UI yet; those are
-later phases, and this exists so they can be built without a rewrite.
+**Phase 2: auth, accounts and usernames.** Someone can sign up, choose the
+address their page will live at, sign in and out, and see it on a dashboard.
+There is no editor, no themes and no analytics UI yet — those are later phases.
 
 ---
 
@@ -37,6 +37,8 @@ src/
   app/
     page.tsx              landing placeholder
     login/  signup/       functional auth
+    onboarding/           for an account that arrived without a username
+    api/username/         availability, while somebody is typing
     (app)/                the signed-in shell — protection lives in its layout
       dashboard/  editor/
     [username]/           the public creator page
@@ -49,6 +51,7 @@ src/
     supabase/             server client, browser client, session refresh
     auth/                 the data access layer, server actions, route rules
     validation/           usernames, URLs, reserved names, schemas
+    usernames/            is this name free?
     profiles.ts           reading a public page
     env.ts                configuration, and whether there is any
   types/database.ts       the schema, in TypeScript
@@ -90,6 +93,47 @@ Ownership always comes from the session.
 
 ---
 
+## Usernames
+
+A username is the whole address, so the rules are strict and they live in two
+places: `src/lib/validation/username.ts` for the browser, and SQL for the
+database. The database is the one that decides;
+`supabase/tests/02_usernames.sql` asserts the two agree.
+
+Lowercase letters, digits, underscore and hyphen. Three to thirty characters.
+Alphanumeric at both ends, and never two separators in a row.
+
+**Normalizing folds, it does not strip.** `Alex` becomes `alex`, but `john doe`
+stays `john doe` and is then refused. Quietly deleting the space would hand
+somebody `johndoe` — an address they never typed and never checked.
+
+**The name is claimed in the same transaction as the account.** `signUp` passes
+it as user metadata; a trigger on `auth.users` reads it back out and creates the
+profile. There is no second request that could fail on its own, and no window
+where an account exists without a page. If the name was taken in the
+milliseconds since the availability check, the unique index rejects it, the
+whole signup rolls back, and no orphaned account is left behind.
+
+**The availability check is a courtesy, not a guarantee.** It exists to tell
+somebody early. Between the check and the write, anybody can take the name, so
+both the signup action and the claim action are written to expect the answer to
+arrive late — from `profiles_username_key`, which is the only thing that
+actually decides.
+
+**Usernames are write-once for now.** Changing one changes a public URL, which
+breaks old links, splits analytics and rots search results. None of that is
+handled yet, so a trigger refuses the change rather than leaving the door open
+for a client to walk through `supabase-js` directly. `username_claimed_at` is
+maintained by that trigger, because a client that could write it could reset
+itself to unclaimed and rename freely.
+
+**An account without a username is a real state.** Created from the Supabase
+dashboard, or by a signup that predates this flow. It gets a placeholder derived
+from its id, `username_claimed_at` stays null, and the app shell sends it to
+`/onboarding`. The normal signup never lands there.
+
+---
+
 ## Decisions worth knowing
 
 **`connection()` in the data access layer, not `export const dynamic`.**
@@ -123,6 +167,25 @@ the service-role key, in phase 6.
 **Cache Components is off.** Next.js 16 ships it opt-in, and it changes caching
 semantics across the whole app. Turning it on is a decision for the phase that
 makes the public page fast, with the public page in front of us.
+
+**Nothing sets cache headers to defeat the Back button.** It was tried. A
+`cache-control` set in the proxy is replaced by the one Next.js writes when it
+renders, so the header never reached the browser — protection that looked real
+and was not. It is also unnecessary: every dynamically rendered response leaves
+production with `private, no-cache, no-store, max-age=0, must-revalidate`, and
+`no-store` is exactly what keeps a page out of the back-forward cache.
+
+**A database failure on a public page is a 500, not a 404.** The two are
+indistinguishable to the code that fetches a profile and very distinguishable to
+a search engine: a page that 404s while the database is down gets de-indexed,
+where a 500 is retried. `getProfileByUsername` returns null only for a name
+nobody has claimed, and throws otherwise.
+
+**Profiles are readable by anyone, including anonymously.** The public page has
+to render for a logged-out visitor, and the table holds only what a creator
+chose to publish. The cost is that the full list of usernames is enumerable
+through the anon key — as it already is by visiting URLs. Nothing private lives
+there; email is in `auth.users`, which is not exposed.
 
 ---
 

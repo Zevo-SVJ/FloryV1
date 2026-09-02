@@ -53,47 +53,63 @@ export type SubscriptionStatus =
 
 export type SubscriptionPlan = "free" | "pro";
 
-interface Timestamps {
+/*
+ * Type aliases, not interfaces, all the way down.
+ *
+ * postgrest's `GenericTable` requires `Row extends Record<string, unknown>`.
+ * TypeScript gives object *type aliases* an implicit index signature but not
+ * interfaces, so an interface here fails the constraint — and when it fails,
+ * the client degrades to `never` for every argument and every result instead
+ * of reporting an error. Reads still compile, because `never` is assignable to
+ * anything, which is what makes the fault so quiet.
+ */
+type Timestamps = {
   created_at: string;
   updated_at: string;
-}
+};
 
-interface ProfileRow extends Timestamps {
+type ProfileRow = Timestamps & {
   id: string;
   username: string;
   display_name: string | null;
   bio: string | null;
   avatar_url: string | null;
-}
+  /**
+   * When the owner chose this username. Null means a system placeholder is
+   * still in place and onboarding is unfinished. Maintained by a database
+   * trigger — a client that could write it could rename itself freely.
+   */
+  username_claimed_at: string | null;
+};
 
-interface LinkRow extends Timestamps {
+type LinkRow = Timestamps & {
   id: string;
   profile_id: string;
   title: string;
   url: string;
   position: number;
   is_active: boolean;
-}
+};
 
-interface SocialLinkRow extends Timestamps {
+type SocialLinkRow = Timestamps & {
   id: string;
   profile_id: string;
   platform: SocialPlatform;
   url: string;
   position: number;
   is_active: boolean;
-}
+};
 
-interface BlockRow extends Timestamps {
+type BlockRow = Timestamps & {
   id: string;
   profile_id: string;
   type: BlockType;
   position: number;
   data: Json;
   is_visible: boolean;
-}
+};
 
-interface PageViewRow {
+type PageViewRow = {
   id: number;
   profile_id: string;
   created_at: string;
@@ -101,14 +117,14 @@ interface PageViewRow {
   user_agent: string | null;
   country: string | null;
   device: string | null;
-}
+};
 
-interface LinkClickRow extends Omit<PageViewRow, "id"> {
+type LinkClickRow = Omit<PageViewRow, "id"> & {
   id: number;
   link_id: string;
-}
+};
 
-interface SubscriptionRow extends Timestamps {
+type SubscriptionRow = Timestamps & {
   id: string;
   profile_id: string;
   stripe_customer_id: string | null;
@@ -116,13 +132,13 @@ interface SubscriptionRow extends Timestamps {
   status: SubscriptionStatus | null;
   plan: SubscriptionPlan;
   current_period_end: string | null;
-}
+};
 
-interface ReservedUsernameRow {
+type ReservedUsernameRow = {
   username: string;
   reason: string | null;
   created_at: string;
-}
+};
 
 /** Columns the database fills in for us are optional on insert. */
 type Insert<Row, Required extends keyof Row> = Pick<Row, Required> &
@@ -180,15 +196,23 @@ export interface Database {
         Relationships: [];
       };
     };
-    Views: Record<never, never>;
-    Functions: Record<never, never>;
+    /*
+     * `Record<string, never>`, not `Record<never, never>`. The latter is `{}`,
+     * which has no index signature and therefore does not satisfy postgrest's
+     * `GenericSchema` — when that constraint fails the whole client degrades
+     * silently, and every `.insert()` and `.update()` argument becomes `never`.
+     * Reads keep working, so the fault only appears the first time something
+     * writes.
+     */
+    Views: Record<string, never>;
+    Functions: Record<string, never>;
     Enums: {
       social_platform: SocialPlatform;
       block_type: BlockType;
       subscription_status: SubscriptionStatus;
       subscription_plan: SubscriptionPlan;
     };
-    CompositeTypes: Record<never, never>;
+    CompositeTypes: Record<string, never>;
   };
 }
 

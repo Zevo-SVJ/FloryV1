@@ -4,8 +4,12 @@ The schema, its policies, and a suite that proves the policies do what they say.
 
 ```
 migrations/   applied in filename order by the Supabase CLI
-tests/        a Supabase shim, an RLS suite, and a runner
+tests/        a Supabase shim, two suites, and a runner
 ```
+
+Each suite runs against its own database, cloned from the migrated one, because
+they insert overlapping fixtures and a shared database would make the result
+depend on the order they ran in.
 
 ## Applying migrations
 
@@ -58,7 +62,25 @@ RLS. An anonymous insert policy on analytics would let anyone forge a creator's
 traffic; a client-writable `subscriptions` row would mean a user could grant
 themselves a paid plan.
 
-### Things the suite actually checks
+### Usernames
+
+`profiles.username` is the whole public address, so the rules are enforced in
+three layers: a CHECK constraint on the format, a trigger for reserved names,
+and a unique index that settles every race.
+
+`handle_new_user()` reads the username the user chose out of
+`raw_user_meta_data` and creates the profile in the same transaction as the auth
+row. A taken name makes that transaction fail as a whole — there is deliberately
+no fallback there, because silently assigning a different name would be worse
+than a refused signup, and a rollback leaves no orphaned account.
+
+`guard_username_change()` makes the username write-once. It also owns
+`username_claimed_at` outright: a client that could set that column could reset
+itself to unclaimed and rename at will, which would defeat the rule entirely.
+An attempt to write it is refused rather than quietly reverted, so a rejected
+write never answers with a success.
+
+### Things the suites actually check
 
 - A profile is created automatically for every new auth user.
 - Reserved, uppercase, spaced, doubled-underscore and duplicate usernames are all refused.
@@ -69,6 +91,18 @@ themselves a paid plan.
 - A creator cannot write their own entitlement or forge their own analytics.
 - A creator cannot rewrite their profile id to become another user.
 - RLS is enabled on every table, and no write policy is unconditional.
+- Every username rule agrees with the TypeScript copy: length boundaries,
+  hyphens, underscores, spaces, periods, slashes, emoji, uppercase, edges and
+  adjacent separators.
+- A username chosen at signup reaches the profile and is marked claimed.
+- A taken username fails signup atomically, leaving no account without a page.
+- Missing, malformed and reserved usernames fall back to a placeholder and land
+  in onboarding.
+- A claimed username cannot be changed, and `username_claimed_at` cannot be
+  reset to sidestep that.
+- One user cannot claim a username on another's profile, nor take over another
+  account's placeholder.
+- Two accounts racing for the same name are settled by the unique index.
 
 ## Conventions
 

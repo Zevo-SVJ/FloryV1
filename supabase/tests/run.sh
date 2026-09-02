@@ -26,4 +26,13 @@ done
 
 # Query output to /dev/null: the assertions report through NOTICE on stderr,
 # and a column of empty "ok" rows would bury them.
-"${PSQL[@]}" -d "$DB" -o /dev/null -f "$ROOT/supabase/tests/01_rls.sql"
+#
+# Each suite gets its own database, because they insert overlapping fixtures
+# and a shared one would make the result depend on the order they ran in.
+for suite in "$ROOT"/supabase/tests/[0-9][1-9]_*.sql; do
+  echo "→ $(basename "$suite")"
+  "${PSQL[@]}" -d postgres -c "drop database if exists ${DB}_suite;"
+  "${PSQL[@]}" -d postgres -c "create database ${DB}_suite template ${DB};"
+  "${PSQL[@]}" -d "${DB}_suite" -o /dev/null -f "$suite"
+done
+"${PSQL[@]}" -d postgres -c "drop database if exists ${DB}_suite;"

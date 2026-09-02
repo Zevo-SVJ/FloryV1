@@ -31,9 +31,14 @@ alter default privileges in schema public
 alter default privileges in schema public
   grant all on sequences to anon, authenticated, service_role;
 
+-- Only the columns this schema depends on. `raw_user_meta_data` is where
+-- GoTrue stores `options.data` from `signUp`, and is how the username the user
+-- typed reaches the profile trigger inside the same transaction.
 create table auth.users (
   id uuid primary key default gen_random_uuid(),
   email text unique,
+  raw_user_meta_data jsonb not null default '{}'::jsonb,
+  email_confirmed_at timestamptz,
   created_at timestamptz not null default now()
 );
 

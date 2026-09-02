@@ -7,7 +7,7 @@ import { headers } from "next/headers";
 import { createClient } from "@/lib/supabase/server";
 import { PATHNAME_HEADER } from "@/lib/supabase/proxy";
 import { isSupabaseConfigured } from "@/lib/env";
-import { signInUrl } from "@/lib/auth/routes";
+import { ONBOARDING_PATH, signInUrl } from "@/lib/auth/routes";
 import type { Profile } from "@/types/database";
 
 /**
@@ -111,6 +111,18 @@ export const getCurrentProfile = cache(async (): Promise<Profile | null> => {
   } catch {
     return null;
   }
+});
+
+/**
+ * The signed-in user's profile, insisting that onboarding is finished.
+ *
+ * Anything behind the app shell can assume a chosen username, which is what
+ * lets the dashboard print an address without checking whether there is one.
+ */
+export const requireClaimedProfile = cache(async (): Promise<Profile> => {
+  const profile = await requireProfile();
+  if (!profile.username_claimed_at) redirect(ONBOARDING_PATH);
+  return profile;
 });
 
 export const requireProfile = cache(async (returnTo?: string): Promise<Profile> => {

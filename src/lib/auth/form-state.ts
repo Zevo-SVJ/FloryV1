@@ -5,9 +5,12 @@
  * functions — a plain object export there is a build error, and a confusing
  * one, since the type-only exports beside it are perfectly legal.
  */
+
+export type AuthField = "email" | "password" | "username";
+
 export interface FormState {
   error: string | null;
-  fieldErrors?: Partial<Record<"email" | "password", string>>;
+  fieldErrors?: Partial<Record<AuthField, string>>;
   message?: string | null;
 }
 
