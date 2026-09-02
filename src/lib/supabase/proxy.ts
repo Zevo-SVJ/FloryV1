@@ -5,6 +5,7 @@ import {
   AFTER_SIGN_IN,
   isAuthOnlyPath,
   isProtectedPath,
+  needsSession,
   signInUrl,
 } from "@/lib/auth/routes";
 import type { Database } from "@/types/database";
@@ -53,6 +54,14 @@ export async function updateSession(request: NextRequest): Promise<NextResponse>
   // Unconfigured deployments still serve the public pages; there is simply no
   // session to refresh and nothing to protect.
   if (!env) return response;
+
+  /*
+   * Public creator pages get out of here before any of the below. Verifying a
+   * session costs a request to the auth server, and `/[username]` is served to
+   * people who do not have one — it is the single hottest path in the product
+   * and the one whose latency a creator's audience actually feels.
+   */
+  if (!needsSession(request.nextUrl.pathname)) return response;
 
   const supabase = createServerClient<Database>(env.url, env.anonKey, {
     cookies: {

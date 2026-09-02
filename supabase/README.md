@@ -4,7 +4,7 @@ The schema, its policies, and a suite that proves the policies do what they say.
 
 ```
 migrations/   applied in filename order by the Supabase CLI
-tests/        a Supabase shim, two suites, and a runner
+tests/        a Supabase shim, three suites, and a runner
 ```
 
 Each suite runs against its own database, cloned from the migrated one, because
@@ -103,6 +103,21 @@ write never answers with a success.
 - One user cannot claim a username on another's profile, nor take over another
   account's placeholder.
 - Two accounts racing for the same name are settled by the unique index.
+- A stranger with no session at all can read a creator's profile, active links,
+  active socials and visible blocks — the public page renders for a logged-out
+  visitor without a single policy exception.
+- A draft link, an inactive social and a hidden block are invisible to that
+  stranger at the row level, so a hidden block's `data` never leaves the
+  database even if the query forgot to filter.
+- One creator's links never appear under another's username, and two creators
+  resolve independently.
+- A stranger cannot edit a profile, edit or delete a link, publish somebody
+  else's draft, plant a link, or add a block.
+- A stranger reading profiles gets no auth rows, no analytics and no billing.
+- The owner still reads their own drafts when authenticated — the public page
+  hides them by filtering, not by a policy the owner would also hit.
+- `javascript:`, `data:` and `vbscript:` URLs cannot be stored in `links` or
+  `social_links` in the first place.
 
 ## Conventions
 

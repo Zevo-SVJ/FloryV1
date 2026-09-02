@@ -24,7 +24,14 @@ export const metadata: Metadata = {
   },
   description: "One page for everything you make.",
   applicationName: "ShowMe",
-  robots: { index: true, follow: true },
+  /*
+   * No `robots` here. An absent directive already means index and follow, so
+   * stating it buys nothing — and it is actively harmful on a 404: Next.js
+   * emits its own `noindex` for a not-found render, and a layout-level
+   * `index, follow` is appended after it, leaving two contradictory tags on
+   * the page a crawler most needs to be told to ignore. Routes that must not
+   * be indexed say so themselves; `robots.txt` covers the rest.
+   */
 };
 
 export const viewport: Viewport = {

@@ -2,9 +2,11 @@
 
 One page for everything you make — `showme.at/<username>`.
 
-**Phase 2: auth, accounts and usernames.** Someone can sign up, choose the
-address their page will live at, sign in and out, and see it on a dashboard.
-There is no editor, no themes and no analytics UI yet — those are later phases.
+**Phase 3: the public page engine.** Someone can sign up, claim an address,
+and that address renders — `showme.at/<username>` serves a real creator page,
+built from the database, to a visitor with no account. There is no editor yet:
+rows are added through Supabase, and the page shows them. Themes and analytics
+are later phases.
 
 ---
 
@@ -41,18 +43,21 @@ src/
     api/username/         availability, while somebody is typing
     (app)/                the signed-in shell — protection lives in its layout
       dashboard/  editor/
-    [username]/           the public creator page
+    [username]/           the public creator page, and its 404
+    robots.ts             what a crawler may visit
     error.tsx  global-error.tsx  not-found.tsx
   components/
     ui/                   button, field
     layout/               site header, app nav
     auth/                 the auth form, sign out
+    public/               everything the creator page renders
   lib/
-    supabase/             server client, browser client, session refresh
+    supabase/             server client, browser client, session refresh,
+                          and a session-less client for the public page
     auth/                 the data access layer, server actions, route rules
     validation/           usernames, URLs, reserved names, schemas
     usernames/            is this name free?
-    profiles.ts           reading a public page
+    public-page/          the query, the shape, the block registry, the avatar
     env.ts                configuration, and whether there is any
   types/database.ts       the schema, in TypeScript
   proxy.ts                runs before every route
@@ -134,6 +139,59 @@ from its id, `username_claimed_at` stays null, and the app shell sends it to
 
 ---
 
+## The public page
+
+`showme.at/<username>` is the route the product exists to serve. It is opened
+from a bio link, on a phone, on mobile data, by somebody who will give it about
+a second. Everything about it is arranged around that.
+
+**One function reads it.** `getPublicPage(username)` in
+`src/lib/public-page/query.ts` returns the profile, the links, the socials and
+the blocks in a single embedded select — not four queries fanned out across the
+component tree. It is wrapped in React's `cache()`, so `generateMetadata` and
+the page body share one round trip instead of making two. Columns are named
+rather than `select("*")`, which keeps `profile_id` and the owner's uuid out of
+the server-rendered payload.
+
+**The query has no session.** `createPublicClient()` builds a Supabase client
+with `persistSession: false` and no cookies, so Row Level Security evaluates
+every row as `anon`. Two things follow. The response depends only on the URL, so
+it can be cached. And a signed-in creator opening their own address sees exactly
+what the world sees — with a session-bearing client they would see their own
+drafts on their public page, which is the one place they must not appear.
+
+**Shaping is separate from fetching.** `src/lib/public-page/shape.ts` is a pure
+`toPublicPage(row)`: ordering, what gets dropped, what a null column means. It
+is unit-tested without a database, and Phase 4's live preview will shape editor
+state through the same function — which is what stops the preview and the
+published page from disagreeing. It filters unpublished rows itself rather than
+trusting its caller, because the preview will hand it unfiltered state.
+
+**Ordering is deterministic.** `position ASC`, then `created_at`, then `id`.
+`position` is not unique — mid-reorder two rows share one — and without the last
+two steps the same page can come back in a different order on two requests.
+
+**Nothing renders arbitrary HTML.** Block `data` is untrusted JSON. It goes
+through a zod registry in `src/lib/public-page/blocks.ts`, and a block whose
+type is unknown or whose data fails its schema is dropped rather than rendered
+as a fallback. There is no `dangerouslySetInnerHTML` anywhere in
+`src/components/public/`. Two block types exist today, `text` and `divider` —
+the point of this phase is the registry, not the catalogue.
+
+**URLs are checked twice more than they need to be.** The database has a CHECK
+constraint on the scheme and every write goes through `urlSchema`, so a
+`javascript:` href should be impossible — `toPublicPage` drops one anyway,
+because "impossible" is a claim about today's code and this one renders an
+`href`. Avatars are narrower still: `renderableAvatarUrl()` accepts only an
+`https` URL on the Supabase storage host, so a creator cannot point the page's
+one `<img>` at an arbitrary server.
+
+**No client JavaScript of its own.** No component under
+`src/components/public/` is a Client Component. The page ships the Next.js
+runtime and nothing else.
+
+---
+
 ## Decisions worth knowing
 
 **`connection()` in the data access layer, not `export const dynamic`.**
@@ -155,6 +213,13 @@ not globally.
 normalized form; anything else redirects to the canonical address, so links,
 analytics and search results never fragment across spellings.
 
+**No `robots` directive in the root layout.** An absent one already means index
+and follow, so declaring it bought nothing — and on a 404 it was actively wrong.
+Next.js emits its own `noindex` for a not-found render and then appends the
+layout's metadata after it, so `/nope` went out with two contradictory `robots`
+tags. Routes that must not be indexed declare it themselves; `robots.txt` covers
+the crawl rules.
+
 **The reserved list is duplicated on purpose.** `src/lib/validation/reserved.ts`
 gives instant feedback while someone types; `reserved_usernames` is what
 actually holds the line, and it is a table so names can be added without a
@@ -164,9 +229,25 @@ deploy.
 policy would let anyone forge a creator's traffic. Ingestion is server-side with
 the service-role key, in phase 6.
 
+**The public page is cached for sixty seconds, and the route is prerenderable.**
+`export const revalidate = 60` alone did nothing: Next.js treats a dynamic
+segment as fully dynamic and re-renders it on every request, and the route went
+out with `private, no-cache, no-store`. Adding `generateStaticParams()` returning
+an empty list is what makes the segment prerenderable — "build nothing now,
+cache what you render" — after which it serves
+`s-maxage=60, stale-while-revalidate` and `x-nextjs-cache: HIT`. Sixty seconds
+is only the ceiling; `revalidatePublicPage()` drops an entry immediately, and
+Phase 4 calls it after every edit.
+
+**The proxy skips the public page.** Refreshing a Supabase session on a route
+that never reads one costs a round trip on the request that most needs to be
+fast. `needsSession()` limits the proxy's work to the landing page and the
+signed-in routes; `/<username>` returns before any Supabase client is built.
+
 **Cache Components is off.** Next.js 16 ships it opt-in, and it changes caching
-semantics across the whole app. Turning it on is a decision for the phase that
-makes the public page fast, with the public page in front of us.
+semantics across the whole app — including removing `revalidate`, which the
+public page depends on. Turning it on is a migration, not a flag, and it belongs
+to the phase that has a reason to want it.
 
 **Nothing sets cache headers to defeat the Back button.** It was tried. A
 `cache-control` set in the proxy is replaced by the one Next.js writes when it
@@ -178,8 +259,8 @@ production with `private, no-cache, no-store, max-age=0, must-revalidate`, and
 **A database failure on a public page is a 500, not a 404.** The two are
 indistinguishable to the code that fetches a profile and very distinguishable to
 a search engine: a page that 404s while the database is down gets de-indexed,
-where a 500 is retried. `getProfileByUsername` returns null only for a name
-nobody has claimed, and throws otherwise.
+where a 500 is retried. `getPublicPage` returns null only for a name nobody has
+claimed, and throws `PublicPageError` otherwise.
 
 **Profiles are readable by anyone, including anonymously.** The public page has
 to render for a logged-out visitor, and the table holds only what a creator
@@ -204,6 +285,8 @@ the browser or prefixed with `NEXT_PUBLIC_`.
 
 ## What is not here yet
 
-The editor, drag and drop, themes, custom fonts and backgrounds, the analytics
-dashboard, QR codes, monetization, Stripe, AI, and sharing. All later phases.
-The schema and the policies for them are already in place, which is the point.
+The editor and drag and drop, themes, custom fonts and backgrounds, the rich
+block types, analytics of any kind — no page views, no link clicks, nothing is
+recorded when somebody opens a page — QR codes, monetization, Stripe, AI, and
+sharing. All later phases. The schema and the policies for them are already in
+place, which is the point.

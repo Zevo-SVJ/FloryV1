@@ -13,12 +13,21 @@
  */
 
 export class MissingEnvError extends Error {
-  constructor(readonly variables: string[]) {
+  /*
+   * A plain field rather than a constructor parameter property. Node's
+   * type-stripping runs the real source, and it cannot erase `readonly x` in a
+   * parameter list — anything the test runner imports has to stay inside the
+   * syntax it supports.
+   */
+  readonly variables: string[];
+
+  constructor(variables: string[]) {
     super(
       `Missing environment variable${variables.length > 1 ? "s" : ""}: ${variables.join(", ")}. ` +
         "Copy .env.example to .env.local and fill it in.",
     );
     this.name = "MissingEnvError";
+    this.variables = variables;
   }
 }
 

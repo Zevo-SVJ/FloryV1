@@ -8,6 +8,7 @@ import { isSupabaseConfigured, siteUrl } from "@/lib/env";
 import { requireUser } from "@/lib/auth/dal";
 import { AFTER_SIGN_IN, ONBOARDING_PATH, SIGN_IN_PATH, safeReturnTo } from "@/lib/auth/routes";
 import { checkAvailability } from "@/lib/usernames/availability";
+import { revalidatePublicPage } from "@/lib/public-page/revalidate";
 import { credentialsSchema, signInSchema } from "@/lib/validation/schemas";
 import { usernameSchema } from "@/lib/validation/username";
 import type { AuthField, FormState } from "@/lib/auth/form-state";
@@ -159,6 +160,13 @@ export async function signUp(_prev: FormState, formData: FormData): Promise<Form
    * session — the account exists and is waiting on a click in an inbox. The
    * username is already claimed, so nobody can take it in the meantime.
    */
+  /*
+   * The page exists from this moment, and `/username` may already be cached as
+   * a 404 from somebody checking the name a minute ago. Dropping it now stops
+   * a brand new creator from finding their own address broken.
+   */
+  revalidatePublicPage(username);
+
   if (!data.session) {
     return {
       error: null,
@@ -263,10 +271,7 @@ export async function claimUsername(
 
   // No row updated means the account already has a chosen username — another
   // tab got there first. Nothing is wrong; go to the dashboard.
-  if (!data) {
-    revalidatePath("/", "layout");
-    redirect(AFTER_SIGN_IN);
-  }
+  if (data) revalidatePublicPage(data.username);
 
   revalidatePath("/", "layout");
   redirect(AFTER_SIGN_IN);

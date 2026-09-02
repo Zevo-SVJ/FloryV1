@@ -22,6 +22,26 @@ export const SIGN_IN_PATH = "/login";
 const startsWithSegment = (pathname: string, prefix: string): boolean =>
   pathname === prefix || pathname.startsWith(`${prefix}/`);
 
+/**
+ * Paths where a session is worth refreshing.
+ *
+ * Everything else — above all `/[username]`, the page this product exists to
+ * serve — is read by strangers, and putting a Supabase round trip in front of
+ * it would slow down the request that matters most to make a cookie fresher
+ * for a visitor who has no cookie.
+ *
+ * The list is derived from the route rules above rather than written out
+ * again, so adding a protected prefix is enough to keep its session alive. The
+ * landing page is included because its header renders a signed-in state.
+ */
+const SESSION_PATHS: readonly string[] = [
+  ...PROTECTED_PREFIXES,
+  ...AUTH_ONLY_PREFIXES,
+];
+
+export const needsSession = (pathname: string): boolean =>
+  pathname === "/" || SESSION_PATHS.some((prefix) => startsWithSegment(pathname, prefix));
+
 export const isProtectedPath = (pathname: string): boolean =>
   PROTECTED_PREFIXES.some((prefix) => startsWithSegment(pathname, prefix));
 
