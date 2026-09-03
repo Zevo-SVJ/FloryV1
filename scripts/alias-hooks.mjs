@@ -17,7 +17,24 @@ import path from "node:path";
 const SRC = path.resolve(import.meta.dirname, "..", "src");
 const EXTENSIONS = [".ts", ".tsx", ".js", ".mjs"];
 
+/**
+ * `server-only` is a guard, not a module.
+ *
+ * The package exists so that importing a server module from a Client Component
+ * is a build error; the bundler resolves it to something that throws in a
+ * browser build and to nothing at all on the server. Node has never heard of
+ * it, so a test that reaches any server module fails at resolution rather than
+ * at an assertion.
+ *
+ * Resolving it to an empty module here keeps the guard doing its real job in
+ * the application and stops it from making server code untestable. The same
+ * applies to `client-only`, its mirror image.
+ */
+const GUARDS = new Set(["server-only", "client-only"]);
+const EMPTY = "data:text/javascript,";
+
 export async function resolve(specifier, context, nextResolve) {
+  if (GUARDS.has(specifier)) return { url: EMPTY, shortCircuit: true };
   if (!specifier.startsWith("@/")) return nextResolve(specifier, context);
 
   const base = path.join(SRC, specifier.slice(2));

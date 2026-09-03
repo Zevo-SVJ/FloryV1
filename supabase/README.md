@@ -4,7 +4,7 @@ The schema, its policies, and a suite that proves the policies do what they say.
 
 ```
 migrations/   applied in filename order by the Supabase CLI
-tests/        a Supabase shim, four suites, and a runner
+tests/        a Supabase shim, five suites, and a runner
 ```
 
 Each suite runs against its own database, cloned from the migrated one, because
@@ -57,19 +57,19 @@ drafts; and only the creator may write. Every write policy is
 can neither create a row owned by somebody else nor hand one of its own away.
 
 **page_views**, **link_clicks** and **subscriptions** are readable by their
-owner and writable by nobody through the API. Analytics ingestion and the Stripe
-webhook will write them server-side with the service-role key, which bypasses
-RLS. An anonymous insert policy on analytics would let anyone forge a creator's
-traffic; a client-writable `subscriptions` row would mean a user could grant
-themselves a paid plan.
+owner and writable by nobody through the API. Analytics ingestion writes them
+server-side with the service-role key, which bypasses RLS, and the Stripe
+webhook will do the same. An anonymous insert policy on analytics would let
+anyone forge a creator's traffic with a browser console open; a client-writable
+`subscriptions` row would mean a user could grant themselves a paid plan.
 
 ### Blocks, links and media
 
 A page is an ordered list of **blocks**. Two kinds own rows elsewhere rather
 than carrying them as JSON: a `links` block owns `links` through `block_id`, and
 the `socials` block reads `social_links`. Both are first-class tables because
-`link_clicks` will reference a link by id in Phase 6, and burying links inside a
-JSONB blob would make per-link analytics a rewrite.
+`link_clicks` references a link by id, and burying links inside a JSONB blob
+would make per-link analytics a rewrite.
 
 `links_block_same_owner` is the trigger that makes `block_id` safe. Row Level
 Security already stops a creator from inserting a link they do not own; it does
@@ -114,6 +114,47 @@ legitimate value approaches it and tight enough that the column never becomes
 somewhere to put things. Everything else is enforced in
 `src/lib/design/schema.ts`, which parses on the way in and on the way out — a
 hand-edited row renders as the default design rather than as broken CSS.
+
+### Analytics
+
+`20260105000000_analytics.sql` finishes the two event tables the first
+migration sketched, and the shape of the change is mostly about what a number
+has to survive.
+
+**A click outlives its link.** `link_clicks.link_id` was
+`on delete cascade`, which meant deleting a link silently deleted its history —
+so a creator tidying their page would watch last month's total drop. It is now
+`on delete set null`, with a `link_title` snapshot written at click time, and
+the dashboard shows the row as *deleted* rather than pretending it never
+happened. The same applies to deleting a whole links block.
+
+**A raw user agent and a full referrer are not analytics, they are a log.**
+Both columns are gone. What replaces them is what the dashboard actually
+displays: a `source` from a fixed list of identifiers, a bare `referrer_host`
+with no path or query, and a `device` that is one of four enum values. A
+constraint refuses a URL-shaped source and an off-enum device, so the columns
+cannot quietly become free text again.
+
+**Unique visitors, without identifying a visitor.** `visitor_hash` is a
+32-character HMAC of address, user agent and profile, keyed by a secret and
+today's date, computed in `src/lib/analytics/visitor.ts` and never stored
+alongside anything it was derived from. The key rotates daily, so two days of
+rows cannot be joined into a history of one person, and no address is written
+anywhere. Without `ANALYTICS_SALT` the column stays null and the dashboard says
+the figure is unavailable.
+
+Five `security invoker` functions read the data — `analytics_overview`,
+`analytics_timeseries`, `analytics_top_links`, `analytics_breakdown` and
+`analytics_recent`. **None of them takes a profile id.** The rows a caller sees
+are the rows their own policies allow, which makes cross-account access a
+property of the database rather than of a `where` clause somebody has to
+remember to write. Execute is granted to `authenticated` and revoked from
+`public`, so an anonymous client cannot call them at all.
+
+`analytics_timeseries` takes a bucket, and it is checked against two literals in
+a `CASE` before it reaches `date_trunc` — an interpolated identifier there would
+be an injection point. It fills empty buckets with `generate_series` so a quiet
+Tuesday is a gap in the chart rather than a missing column.
 
 ### Usernames
 
@@ -193,6 +234,24 @@ write never answers with a success.
   restyle anybody.
 - A design that is not an object, or is larger than the column allows, is
   refused by the database rather than by the application alone.
+- A creator reads their own analytics and only their own: a rival's views and
+  clicks are invisible at the row level, and every function returns the caller's
+  rows without being told whose they are.
+- Nobody can insert, update or delete an event through the API — not the owner,
+  not a rival, not a stranger — so a creator cannot forge their own traffic.
+- An anonymous client reads no events and cannot execute any analytics function.
+- Deleting a link, or the whole block that held it, keeps its clicks: they show
+  up under the snapshotted title with a deleted marker.
+- Window boundaries are exclusive at the top and inclusive at the bottom, so an
+  event never lands in two ranges at once.
+- The time series buckets sum to exactly the overview totals for the same
+  window.
+- Repeat views from one visitor hash count once toward visitors and every time
+  toward views.
+- `page_views` and `link_clicks` have no `user_agent`, `referrer` or `ip`
+  column at all.
+- A URL-shaped source, a non-hash visitor hash and an off-enum device are all
+  refused by the database.
 
 ## Conventions
 

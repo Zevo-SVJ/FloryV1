@@ -35,7 +35,15 @@ export function LinksBlock({ data, links }: { data: LinksBlockData; links: Publi
       <ul className="sm-links">
         {links.map((link) => (
           <li key={link.id}>
-            <a href={link.url} rel="nofollow ugc noopener" className="sm-button">
+            {/*
+              * `/go/<id>` rather than the destination itself. The click is the
+              * request, so it cannot be lost to a navigation that starts
+              * before a beacon leaves — which on a slow phone is a large share
+              * of them. The destination is never in this URL: it is looked up
+              * from the row, so there is no parameter to override and no open
+              * redirect to find.
+              */}
+            <a href={`/go/${link.id}`} rel="nofollow ugc noopener" className="sm-button">
               {link.title}
             </a>
           </li>

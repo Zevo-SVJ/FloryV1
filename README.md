@@ -2,11 +2,14 @@
 
 One page for everything you make — `showme.at/<username>`.
 
-**Phase 5: the design system.** A creator builds a page out of blocks — links,
-images, a gallery, text, video, Spotify, socials — and then decides how it
-looks: seven themes, six colours, a background, four typefaces, five button
-styles, and the page's width and rhythm. `showme.at/<username>` renders exactly
-that. Analytics is a later phase.
+**Phase 6: analytics.** A creator builds a page out of blocks — links, images,
+a gallery, text, video, Spotify, socials — decides how it looks with seven
+themes, six colours, a background, four typefaces and five button styles, and
+then finds out whether any of it worked. `showme.at/<username>` renders the
+page; `/dashboard/analytics` shows what happened on it: views, clicks,
+click-through rate, which links people actually pick, where they arrived from,
+what they were holding. Every figure comes from a recorded event. Nothing on
+that page is estimated, projected, or written by a model.
 
 ---
 
@@ -43,8 +46,11 @@ src/
     login/  signup/       functional auth
     onboarding/           for an account that arrived without a username
     api/username/         availability, while somebody is typing
+    api/track/view/       the page-view beacon's endpoint
+    go/[linkId]/          the click redirect — every link button goes through it
     (app)/                the signed-in shell — protection lives in its layout
       dashboard/  editor/
+      dashboard/analytics/  what the page did
     [username]/           the public creator page, and its 404
     robots.ts             what a crawler may visit
     error.tsx  global-error.tsx  not-found.tsx
@@ -55,10 +61,12 @@ src/
     public/               everything the creator page renders
       blocks/             one component per block type
     editor/               the editor, its forms and its controls
+    analytics/            the dashboard's stats, bars, chart and range picker
   lib/
     design/               themes, tokens, the design schema, contrast
     supabase/             server client, browser client, session refresh,
-                          and a session-less client for the public page
+                          a session-less client for the public page, and the
+                          admin client that writes events
     auth/                 the data access layer, server actions, route rules
     validation/           usernames, URLs, reserved names, schemas
     usernames/            is this name free?
@@ -67,12 +75,14 @@ src/
     embeds/               which URLs may become an iframe
     media/                what counts as an image, and where it may live
     public-page/          the query, the shape, the avatar
+    analytics/            sources, devices, bots, the visitor hash, recording,
+                          the ranges, and the dashboard's queries
     env.ts                configuration, and whether there is any
   types/database.ts       the schema, in TypeScript
   proxy.ts                runs before every route
 supabase/
   migrations/             the schema and its policies
-  tests/                  a Postgres shim, an RLS suite, a runner
+  tests/                  a Postgres shim, five RLS suites, a runner
 ```
 
 ---
@@ -224,7 +234,7 @@ object — the draft — and a single action that persists it.
 reordering is moving an item and saving. Two block types own rows in their own
 tables rather than JSON — a links block owns `links` by `block_id`, and the
 socials block reads `social_links` — because those are first-class rows that
-Phase 6's `link_clicks` will reference by id. Everything else lives in the
+`link_clicks` references by id. Everything else lives in the
 block's own `data`.
 
 **One registry, two lookups.** `src/lib/blocks/registry.ts` holds what is true
@@ -351,6 +361,94 @@ gzipped CSS and no JavaScript at all.
 
 ---
 
+## Analytics
+
+A creator should be able to answer two questions: is anybody looking, and does
+anything on the page get pressed. Everything here exists for those two, and
+stops there.
+
+**Two events, and one of them is a redirect.** A view is recorded by a small
+beacon on the public page; a click is recorded by `/go/<link-id>`, which is
+where every link button points. The click could not be a beacon: a browser
+following an outbound `href` is entitled to tear down the page before a
+`fetch` leaves, so a client-fired click event is a request you lose exactly
+when somebody engages with the page. A server redirect happens on the request
+that is already going somewhere.
+
+**The redirect never trusts the URL it is given.** It receives a link id,
+looks the row up under Row Level Security — which is also what makes a hidden
+link 404 rather than redirect — and sends the visitor to the URL stored on
+that row, after the same protocol check every other URL in the product goes
+through. `?url=` is ignored, because there is no code path that reads it. A
+`302`, not a `301`: a permanent redirect is cached by the browser, and a
+cached click is a click that is never counted and a destination the creator
+can never change.
+
+**The view is a beacon precisely because the page is cached.**
+`/<username>` is ISR-cached for sixty seconds, so counting a view during render
+would count one visitor per revalidation and miss everybody else. The beacon
+also reads the real `document.referrer` — the server would see only our own
+page on the `/go` request — and it costs nothing for the crawlers that make up
+most of the traffic to a new page, because they do not run it.
+
+**Nothing about a visitor is stored.** No cookie is set. No fingerprint is
+computed. The raw user agent and the full referrer are not written to the
+database at all: what is written is a `device` from four values, a `source`
+from a fixed list of about twenty, and at most a bare hostname. The IP address
+is read once, in `src/lib/analytics/visitor.ts`, to compute an HMAC keyed by a
+secret and today's date, and never leaves that function. Because the key
+rotates daily, two days of rows cannot be joined together into one person's
+history — which is what makes "visitors" an estimate rather than a
+surveillance record, and the dashboard calls it an estimate.
+
+Without `ANALYTICS_SALT` the hash is not computed and the Visitors figure reads
+*Not available here*. A per-instance random salt would produce a number, and
+the number would be wrong in a way nobody could see.
+
+**Ingestion cannot be forged.** `page_views` and `link_clicks` have no insert
+policy for anyone, so the anon key cannot write an event from a console. Both
+tracking paths resolve the owner server-side — from a username, or from the
+link row — and insert with the service-role client. No `profile_id` from a
+request is ever written.
+
+**Reading is decided by the database.** The dashboard calls five
+`security invoker` functions, and not one of them takes a profile id. There is
+no argument to tamper with and no `where` clause to forget: the rows a caller
+gets are the rows their own policies allow. `authenticated` may execute them;
+`public` may not.
+
+**A failed insert is nothing.** Both `recordPageView` and `recordLinkClick`
+swallow every error, and both run inside `after()` — so the response has
+already been sent and the redirect has already happened when the write is
+attempted. A missing service key, an unreachable database or a constraint
+nobody anticipated costs a statistic and never a page. With no key configured
+at all, nothing is recorded and the whole site behaves normally.
+
+**Bots are excluded at the door.** A self-identifying crawler, preview fetcher
+or scripted tool is redirected but not counted, and a request with no user
+agent counts as a bot — a real browser always sends one. This is not
+anti-abuse; it is the difference between a creator seeing "40 views" and
+seeing the eleven people who actually looked. A small in-memory rate limit
+sits in front of ingestion for accidents and casual abuse, and says plainly in
+its own file that it is per-instance.
+
+**Deleting a link keeps its clicks.** `link_clicks.link_id` is
+`on delete set null` with a title snapshot taken at click time, so tidying up
+the page does not silently reduce last month's total. The dashboard shows the
+row with its old title, marked as deleted.
+
+**No number is invented.** A comparison against the previous period appears
+only when there is a previous period that reaches back before the account was
+created; otherwise the card says *Not enough data* rather than showing a
+percentage against zero. CTR is blank when there are no views. A breakdown with
+no rows says so instead of drawing an empty chart. There is no model call
+anywhere in this phase and no "insight" that is not a count.
+
+**One known limitation, stated where it matters.** A click's referrer is the
+creator's own page, so traffic sources are computed from views. Recovering the
+original source of a click would mean carrying it in a cookie, which is the one
+thing this phase refuses to do.
+
 ## Decisions worth knowing
 
 **`connection()` in the data access layer, not `export const dynamic`.**
@@ -415,7 +513,8 @@ deploy.
 
 **Analytics has no insert policy.** Not an oversight — an anonymous insert
 policy would let anyone forge a creator's traffic. Ingestion is server-side with
-the service-role key, in phase 6.
+the service-role key, and the dashboard reads through `security invoker`
+functions that take no owner argument.
 
 **The public page is cached for sixty seconds, and the route is prerenderable.**
 `export const revalidate = 60` alone did nothing: Next.js treats a dynamic
@@ -465,15 +564,23 @@ there; email is in `auth.users`, which is not exposed.
 | `NEXT_PUBLIC_SUPABASE_URL` | yes | Project URL. |
 | `NEXT_PUBLIC_SUPABASE_ANON_KEY` | yes | Safe in the browser; RLS is what grants access. |
 | `NEXT_PUBLIC_SITE_URL` | no | Canonical origin. Falls back to `VERCEL_URL`, then localhost. |
+| `SUPABASE_SERVICE_ROLE_KEY` | no | Records analytics events. Unset, nothing is recorded and everything else works. |
+| `ANALYTICS_SALT` | no | Keys the daily-rotating visitor hash. Unset, the Visitors figure reads *Not available here*. |
 
-The service-role key is **not** used in this phase and must never be exposed to
-the browser or prefixed with `NEXT_PUBLIC_`.
+The service-role key bypasses Row Level Security. It is used in exactly one
+file — `src/lib/supabase/admin.ts` — only ever to insert events, and must never
+be exposed to the browser or prefixed with `NEXT_PUBLIC_`.
+
+Country is read from whatever header the host sets (`x-vercel-ip-country`,
+`cf-ipcountry`, `x-country-code`, `fly-client-country`). There is no variable
+and no bundled geolocation database; where no header arrives the dashboard says
+the data is unavailable.
 
 ---
 
 ## What is not here yet
 
-Analytics of any kind — no page views, no link clicks, nothing is recorded when
-somebody opens a page; QR codes, monetization, Stripe, commerce, forms, AI and
-sharing. All later phases. The schema and the policies for them are already in
-place, which is the point.
+QR codes, advanced sharing and SEO tools, social publishing, monetization,
+Stripe, commerce, bookings, forms, email, and anything that would call a model
+to tell a creator what to do. All later phases. The schema and the policies for
+them are already in place, which is the point.

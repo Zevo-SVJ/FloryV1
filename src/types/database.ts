@@ -116,19 +116,38 @@ type BlockRow = Timestamps & {
   is_visible: boolean;
 };
 
+export type AnalyticsDevice = "mobile" | "tablet" | "desktop" | "unknown";
+
+/**
+ * An analytics event holds dimensions, never identities.
+ *
+ * No IP address, no user agent, no referrer URL. `source` is one of a fixed
+ * set of identifiers, `referrer_host` is a bare hostname kept only for the
+ * "other" bucket, and `visitor_hash` is a daily-rotating salted HMAC that is
+ * meaningless tomorrow and unrelated across creators.
+ */
 type PageViewRow = {
   id: number;
   profile_id: string;
   created_at: string;
-  referrer: string | null;
-  user_agent: string | null;
+  source: string;
+  referrer_host: string | null;
   country: string | null;
-  device: string | null;
+  device: AnalyticsDevice;
+  visitor_hash: string | null;
 };
 
-type LinkClickRow = Omit<PageViewRow, "id"> & {
+type LinkClickRow = {
   id: number;
-  link_id: string;
+  profile_id: string;
+  /** Null once the link is deleted; the click and its title survive. */
+  link_id: string | null;
+  link_title: string | null;
+  created_at: string;
+  source: string;
+  referrer_host: string | null;
+  country: string | null;
+  device: AnalyticsDevice;
 };
 
 type SubscriptionRow = Timestamps & {
@@ -186,7 +205,7 @@ export interface Database {
       };
       link_clicks: {
         Row: LinkClickRow;
-        Insert: Insert<LinkClickRow, "profile_id" | "link_id">;
+        Insert: Insert<LinkClickRow, "profile_id">;
         Update: Partial<LinkClickRow>;
         Relationships: [];
       };
@@ -225,10 +244,40 @@ export interface Database {
         Args: { payload: Record<string, unknown> };
         Returns: undefined;
       };
+
+      /*
+       * Analytics, read as the creator.
+       *
+       * None of these takes a profile id. Every one is `security invoker`, so
+       * Row Level Security decides whose rows they can see — which is a
+       * stronger guarantee than validating an argument, because there is no
+       * argument to get wrong.
+       */
+      analytics_overview: {
+        Args: { p_from: string; p_to: string };
+        Returns: { views: number; clicks: number; visitors: number }[];
+      };
+      analytics_timeseries: {
+        Args: { p_from: string; p_to: string; p_bucket: string };
+        Returns: { bucket: string; views: number; clicks: number }[];
+      };
+      analytics_top_links: {
+        Args: { p_from: string; p_to: string; p_limit?: number };
+        Returns: { link_id: string | null; title: string; clicks: number; deleted: boolean }[];
+      };
+      analytics_breakdown: {
+        Args: { p_from: string; p_to: string; p_dimension: string };
+        Returns: { key: string; views: number }[];
+      };
+      analytics_recent: {
+        Args: { p_limit?: number };
+        Returns: { kind: string; title: string | null; at: string }[];
+      };
     };
     Enums: {
       social_platform: SocialPlatform;
       block_type: BlockType;
+      analytics_device: AnalyticsDevice;
       subscription_status: SubscriptionStatus;
       subscription_plan: SubscriptionPlan;
     };

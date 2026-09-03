@@ -39,6 +39,9 @@ export default async function DashboardPage() {
         <ButtonLink href="/editor" size="sm" variant="ghost">
           Editor
         </ButtonLink>
+        <ButtonLink href="/dashboard/analytics" size="sm" variant="ghost">
+          Analytics
+        </ButtonLink>
       </div>
 
       <section className="mt-10">
@@ -59,8 +62,7 @@ export default async function DashboardPage() {
           </Row>
         </dl>
         <p className="mt-3 text-sm text-ink-subtle">
-          Your display name and bio are set in the editor, which arrives in the
-          next phase.
+          Your display name, bio and page design are all set in the editor.
         </p>
       </section>
     </div>

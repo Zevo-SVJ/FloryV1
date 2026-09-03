@@ -64,6 +64,22 @@ export function requireSupabaseEnv(): SupabaseEnv {
 }
 
 /**
+ * The service-role key, or null.
+ *
+ * Server-only and deliberately not part of `supabaseEnv()`: that function is
+ * reached from code which also runs in the browser, and a key that bypasses
+ * Row Level Security must never be within reach of a bundle. It is read here
+ * with a literal `process.env` name, has no `NEXT_PUBLIC_` prefix, and is used
+ * by exactly one module — `src/lib/supabase/admin.ts`.
+ *
+ * Null is a supported state. A clone without it records no analytics and
+ * everything else works, which is better than a deployment that will not start.
+ */
+export function serviceRoleKey(): string | null {
+  return clean(process.env.SUPABASE_SERVICE_ROLE_KEY);
+}
+
+/**
  * The canonical origin.
  *
  * Used for absolute metadata URLs and auth redirects. Prefers the explicit

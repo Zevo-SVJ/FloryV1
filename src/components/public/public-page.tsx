@@ -1,6 +1,7 @@
 import { ProfileHeader } from "@/components/public/profile-header";
 import { PublicBlockView } from "@/components/public/blocks";
 import { PageSurface } from "@/components/public/page-surface";
+import { ViewBeacon } from "@/components/public/view-beacon";
 import { isEmptyPage, type PublicPage as PublicPageData } from "@/lib/public-page/types";
 import type { ResolvedDesign } from "@/lib/design/types";
 
@@ -26,12 +27,23 @@ import type { ResolvedDesign } from "@/lib/design/types";
 export function PublicPage({
   page,
   design,
+  tracked = false,
 }: {
   page: PublicPageData;
   design: ResolvedDesign;
+  /**
+   * Whether this render is the live page rather than the editor's preview.
+   *
+   * The preview is the same components on the same data, which is the point —
+   * and which is exactly why it must not report a view. A creator adjusting
+   * their theme would otherwise spend the afternoon inflating their own
+   * numbers.
+   */
+  tracked?: boolean;
 }) {
   return (
     <PageSurface design={design}>
+      {tracked ? <ViewBeacon username={page.profile.username} /> : null}
       <ProfileHeader profile={page.profile} />
 
       {page.blocks.length > 0 ? (

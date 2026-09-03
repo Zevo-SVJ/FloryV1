@@ -39,6 +39,12 @@ export function AppNav({ profile }: { profile: Profile }) {
             >
               Editor
             </Link>
+            <Link
+              href="/dashboard/analytics"
+              className="rounded-control px-2 py-1.5 text-ink-muted transition-colors hover:bg-surface-sunken hover:text-ink sm:px-3"
+            >
+              Stats
+            </Link>
           </nav>
         </div>
 
