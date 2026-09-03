@@ -138,6 +138,10 @@ function describeValidationFailure(
     return { ok: false, message: `Profile: ${issue.message}` };
   }
 
+  if (section === "design") {
+    return { ok: false, message: `Design: ${issue.message}` };
+  }
+
   return { ok: false, message: GENERIC_SAVE_FAILURE };
 }
 

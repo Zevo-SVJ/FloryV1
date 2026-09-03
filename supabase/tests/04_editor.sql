@@ -397,4 +397,124 @@ select pg_temp.denied(
 
 reset role;
 
+
+-- ── Design ────────────────────────────────────────────────────────────────
+--
+-- A design is presentation, and the assertions here are all versions of one
+-- question: can it reach anything that is not presentation, or anybody who is
+-- not its owner.
+
+set role authenticated;
+select set_config('request.jwt.claims',
+  '{"sub":"0a5e7d31-64bc-4e02-9c88-000000000001"}', false);
+
+select pg_temp.ok(
+  (select design from public.profiles where id = '0a5e7d31-64bc-4e02-9c88-000000000001')
+    = '{}'::jsonb,
+  'a new profile starts with no design, and renders as the default'
+);
+
+select public.save_page($${
+  "profile": {"displayName": "Zevo", "bio": "Creator", "avatarUrl": null},
+  "design": {"theme": "noir", "colors": {"accent": "#ff0055"},
+             "buttons": {"shape": "pill"}},
+  "socials": [],
+  "blocks": [
+    {"id": "77777777-0000-4000-8000-000000000001", "type": "links",
+     "data": {"title": "Latest"}, "isVisible": true,
+     "links": [{"id": "88888888-0000-4000-8000-000000000001", "title": "Shop",
+                "url": "https://example.com/shop", "isActive": true}]}
+  ]
+}$$::jsonb);
+
+select pg_temp.ok(
+  (select design ->> 'theme' from public.profiles
+     where id = '0a5e7d31-64bc-4e02-9c88-000000000001') = 'noir',
+  'a design is saved with the page it belongs to'
+);
+
+select pg_temp.ok(
+  (select design -> 'colors' ->> 'accent' from public.profiles
+     where id = '0a5e7d31-64bc-4e02-9c88-000000000001') = '#ff0055',
+  'a colour override is stored beside the theme it overrides'
+);
+
+-- Changing the design must leave every piece of content exactly as it was.
+select public.save_page($${
+  "profile": {"displayName": "Zevo", "bio": "Creator", "avatarUrl": null},
+  "design": {"theme": "paper"},
+  "socials": [],
+  "blocks": [
+    {"id": "77777777-0000-4000-8000-000000000001", "type": "links",
+     "data": {"title": "Latest"}, "isVisible": true,
+     "links": [{"id": "88888888-0000-4000-8000-000000000001", "title": "Shop",
+                "url": "https://example.com/shop", "isActive": true}]}
+  ]
+}$$::jsonb);
+
+select pg_temp.ok(
+  (select design ->> 'theme' from public.profiles
+     where id = '0a5e7d31-64bc-4e02-9c88-000000000001') = 'paper'
+  and (select count(*) from public.blocks
+         where profile_id = '0a5e7d31-64bc-4e02-9c88-000000000001') = 1
+  and (select title from public.links
+         where id = '88888888-0000-4000-8000-000000000001') = 'Shop',
+  'changing theme leaves every block and link untouched'
+);
+
+select pg_temp.ok(
+  (select design -> 'colors' from public.profiles
+     where id = '0a5e7d31-64bc-4e02-9c88-000000000001') is null,
+  'a reset design drops the overrides it was asked to drop'
+);
+
+-- A payload that never mentions design leaves the stored one alone, which is
+-- what stops an older client from silently wiping somebody's theme.
+select public.save_page($${
+  "profile": {"displayName": "Zevo", "bio": "Creator", "avatarUrl": null},
+  "socials": [], "blocks": []
+}$$::jsonb);
+
+select pg_temp.ok(
+  (select design ->> 'theme' from public.profiles
+     where id = '0a5e7d31-64bc-4e02-9c88-000000000001') = 'paper',
+  'a payload with no design leaves the stored design in place'
+);
+
+select pg_temp.denied(
+  $$update public.profiles set design = '{"theme":"bold"}'::jsonb
+      where id = '7c02e9b4-51aa-4c37-8f60-000000000002'$$,
+  'a creator cannot restyle another creator''s page'
+);
+
+select pg_temp.denied(
+  $$update public.profiles set design = '[]'::jsonb
+      where id = '0a5e7d31-64bc-4e02-9c88-000000000001'$$,
+  'a design that is not an object is refused'
+);
+
+select pg_temp.denied(
+  format($$update public.profiles set design = %L::jsonb
+            where id = '0a5e7d31-64bc-4e02-9c88-000000000001'$$,
+         json_build_object('junk', repeat('x', 9000))::text),
+  'a design larger than the column allows is refused'
+);
+
+reset role;
+
+set role anon;
+
+select pg_temp.ok(
+  (select design ->> 'theme' from public.profiles where username = 'zevo') = 'paper',
+  'a stranger can read the design, because it is how the public page looks'
+);
+
+select pg_temp.denied(
+  $$update public.profiles set design = '{"theme":"bold"}'::jsonb
+      where username = 'zevo'$$,
+  'a stranger cannot restyle anybody'
+);
+
+reset role;
+
 do $$ begin raise notice ''; raise notice 'All editor assertions passed.'; end $$;

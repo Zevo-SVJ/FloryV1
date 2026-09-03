@@ -1,4 +1,5 @@
 import type { SocialPlatform } from "@/types/database";
+import type { ResolvedDesign } from "@/lib/design/types";
 import type {
   EmbedBlockData,
   GalleryBlockData,
@@ -69,6 +70,15 @@ export type PublicBlock =
 
 export interface PublicPage {
   profile: PublicProfile;
+  /**
+   * How the page looks, with every question already answered.
+   *
+   * Beside the content rather than inside it. A block knows what it says; the
+   * design knows what it looks like; neither reads the other. That separation
+   * is what lets a creator try seven themes without a single row of what they
+   * wrote being touched.
+   */
+  design: ResolvedDesign;
   blocks: PublicBlock[];
 }
 

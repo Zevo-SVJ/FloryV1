@@ -11,6 +11,8 @@ import type {
   TextBlockData,
   VideoBlockData,
 } from "@/lib/blocks/schemas";
+import { parseDesign } from "@/lib/design/schema";
+import { resolveDesign } from "@/lib/design/resolve";
 import type { PublicBlock, PublicLink, PublicPage, PublicSocial } from "@/lib/public-page/types";
 
 /**
@@ -59,6 +61,8 @@ export interface ProfileRow {
   display_name: string | null;
   bio: string | null;
   avatar_url: string | null;
+  /** Presentation only. Parsed and resolved here, never trusted as stored. */
+  design?: unknown;
   links: LinkRow[] | null;
   social_links: SocialRow[] | null;
   blocks: BlockRow[] | null;
@@ -207,6 +211,14 @@ export function toPublicPage(row: ProfileRow): PublicPage {
       bio: emptyToNull(row.bio),
       avatarUrl: renderableMediaUrl(row.avatar_url),
     },
+    /*
+     * Parsed then resolved, in that order. Parsing discards anything the
+     * schema does not recognise — a hand-edited row, a field from a version
+     * that has since changed — and resolving fills every remaining gap from
+     * the chosen theme, so the renderer receives a complete design or the
+     * default one and never something in between.
+     */
+    design: resolveDesign(parseDesign(row.design)),
     blocks,
   };
 }

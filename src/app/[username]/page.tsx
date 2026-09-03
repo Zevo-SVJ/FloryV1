@@ -138,5 +138,5 @@ export default async function ProfilePage({ params }: PageProps) {
 
   if (!page) notFound();
 
-  return <PublicPage page={page} />;
+  return <PublicPage page={page} design={page.design} />;
 }

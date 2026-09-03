@@ -1,0 +1,561 @@
+/* ───────────────────────────────────────────────────────────────────────────
+   The creator page, as a design system.
+
+   Every rule here reads two things and nothing else: a CSS custom property set
+   by `designStyle()`, or a `data-sm-*` attribute set by `designAttributes()`.
+   Both come from `resolveDesign()`, which only emits validated hex colours and
+   members of literal tuples — so this file is the boundary where a creator's
+   choices become CSS, and there is no path through it for a value we did not
+   write.
+
+   Everything is sized against `--sm-type` and spaced against `--sm-gap`, so a
+   creator moving one control moves the page coherently rather than nudging a
+   single number out of step with the rest.
+
+   Deliberately plain CSS rather than Tailwind utilities. A button style is
+   five declarations that vary by an attribute, and expressing that as
+   `data-[sm-buttons=filled]:bg-[var(--sm-btn-bg)]` scattered across six
+   components is how a design system becomes impossible to change.
+   ─────────────────────────────────────────────────────────────────────────── */
+
+@layer components {
+  /* ── Type ──────────────────────────────────────────────────────────────── */
+
+  [data-sm-font="sans"] {
+    --sm-family: var(--font-geist-sans), ui-sans-serif, system-ui, -apple-system, sans-serif;
+  }
+  [data-sm-font="serif"] {
+    --sm-family: var(--sm-font-serif), ui-serif, Georgia, Cambria, "Times New Roman", serif;
+  }
+  [data-sm-font="editorial"] {
+    --sm-family: var(--sm-font-editorial), ui-serif, Georgia, "Times New Roman", serif;
+  }
+  [data-sm-font="display"] {
+    --sm-family: var(--sm-font-display), ui-sans-serif, system-ui, sans-serif;
+  }
+
+  /* ── The page ──────────────────────────────────────────────────────────── */
+
+  .sm-page {
+    position: relative;
+    display: flex;
+    min-height: 100dvh;
+    width: 100%;
+    flex-direction: column;
+    padding: var(--sm-pad) 1.25rem;
+
+    /* The palette colour is always underneath, so a gradient or a photograph
+       that fails to load leaves a designed page rather than a white one. */
+    background-color: var(--sm-bg);
+    background-image: var(--sm-layer-image);
+    background-repeat: no-repeat;
+    background-size: cover;
+    background-position: center;
+
+    color: var(--sm-text);
+    font-family: var(--sm-family);
+    -webkit-font-smoothing: antialiased;
+  }
+
+  /* A photograph gets its own layer rather than the page's background, because
+     a blur applied to the page would blur the words on it.
+
+     `absolute`, not `fixed`. A fixed layer would be positioned against the
+     viewport, which is right on the public page and wrong inside the editor's
+     preview frame — the wallpaper would escape the phone and cover the whole
+     editor. Absolute keeps it inside whatever `.sm-page` happens to be, and
+     `cover` means a taller page crops the photograph rather than stretching
+     it. It also sidesteps `background-attachment: fixed`, which janks badly on
+     iOS at exactly the size a full-bleed photograph is. */
+  .sm-backdrop {
+    position: absolute;
+    inset: 0;
+    z-index: 0;
+    overflow: hidden;
+    pointer-events: none;
+  }
+
+  .sm-backdrop-image {
+    position: absolute;
+    inset: 0;
+    background-image: var(--sm-layer-image);
+    background-repeat: no-repeat;
+    background-size: cover;
+    background-position: var(--sm-bg-position);
+  }
+
+  [data-sm-bg-blur="true"] .sm-backdrop-image {
+    /* Scaled up so the blur's soft edge never shows a strip of page. */
+    filter: blur(18px);
+    transform: scale(1.1);
+  }
+
+  .sm-backdrop-overlay {
+    position: absolute;
+    inset: 0;
+    background-color: var(--sm-overlay);
+  }
+
+  .sm-shell {
+    position: relative;
+    z-index: 1;
+    margin: auto;
+    width: 100%;
+    max-width: var(--sm-width);
+  }
+
+  .sm-stack {
+    display: flex;
+    flex-direction: column;
+    gap: var(--sm-gap);
+  }
+
+  /* The focus ring is the one piece of styling a theme may not remove. A
+     creator can choose any accent; they cannot choose not to have one. */
+  .sm-page :focus-visible {
+    outline: 2px solid var(--sm-accent);
+    outline-offset: 3px;
+    border-radius: 4px;
+  }
+
+  .sm-page ::selection {
+    background-color: rgb(var(--sm-accent-rgb) / 22%);
+  }
+
+  /* ── Header ────────────────────────────────────────────────────────────── */
+
+  .sm-header {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    gap: 0;
+  }
+
+  [data-sm-header="compact"] .sm-header {
+    flex-direction: row;
+    align-items: center;
+    gap: 1rem;
+    text-align: left;
+  }
+
+  .sm-avatar {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+    border-radius: 999px;
+    background-color: rgb(var(--sm-text-rgb) / 7%);
+    object-fit: cover;
+    width: 6rem;
+    height: 6rem;
+  }
+
+  [data-sm-avatar="large"] .sm-avatar {
+    width: 7.5rem;
+    height: 7.5rem;
+  }
+
+  /* A compact header is a row, and a 120px avatar in a row is a portrait with
+     a caption. It gets one size regardless of the avatar setting. */
+  [data-sm-header="compact"] .sm-avatar {
+    width: 4rem;
+    height: 4rem;
+    flex-shrink: 0;
+  }
+
+  .sm-avatar-initial {
+    font-size: calc(1.875rem * var(--sm-type));
+    font-weight: 600;
+    color: rgb(var(--sm-text-rgb) / 45%);
+    user-select: none;
+  }
+
+  .sm-name {
+    margin-top: 1.25rem;
+    font-size: calc(1.5rem * var(--sm-type));
+    font-weight: 600;
+    letter-spacing: -0.02em;
+    line-height: 1.15;
+    text-wrap: balance;
+  }
+
+  [data-sm-header="compact"] .sm-name {
+    margin-top: 0;
+  }
+
+  [data-sm-font="editorial"] .sm-name {
+    font-weight: 400;
+    letter-spacing: -0.01em;
+    font-size: calc(1.875rem * var(--sm-type));
+  }
+
+  .sm-handle {
+    margin-top: 0.25rem;
+    font-family: var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
+    font-size: calc(0.8125rem * var(--sm-type));
+    color: var(--sm-muted);
+    letter-spacing: 0.01em;
+  }
+
+  .sm-bio {
+    margin-top: 0.875rem;
+    max-width: 34ch;
+    font-size: calc(0.9375rem * var(--sm-type));
+    line-height: 1.6;
+    color: var(--sm-muted);
+    text-wrap: pretty;
+  }
+
+  [data-sm-header="compact"] .sm-bio {
+    margin-top: 0.375rem;
+    max-width: none;
+  }
+
+  .sm-header-text {
+    min-width: 0;
+  }
+
+  /* ── Section titles ────────────────────────────────────────────────────── */
+
+  .sm-section-title {
+    margin-bottom: 0.75rem;
+    text-align: center;
+    font-size: calc(0.8125rem * var(--sm-type));
+    font-weight: 500;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--sm-muted);
+  }
+
+  [data-sm-header="compact"] .sm-section-title {
+    text-align: left;
+  }
+
+  /* ── Buttons ───────────────────────────────────────────────────────────── */
+
+  .sm-button {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    /* Comfortably past the 44px a thumb needs, at every type scale. */
+    min-height: calc(3.5rem * var(--sm-type));
+    padding: 0.875rem 1.25rem;
+    border-radius: var(--sm-radius);
+    font-size: calc(0.9375rem * var(--sm-type));
+    font-weight: 500;
+    line-height: 1.35;
+    text-align: center;
+    transition:
+      background-color 0.15s ease,
+      border-color 0.15s ease,
+      opacity 0.15s ease,
+      transform 0.12s ease;
+  }
+
+  .sm-button:active {
+    transform: scale(0.99);
+  }
+
+  [data-sm-buttons="filled"] .sm-button {
+    background-color: var(--sm-btn-bg);
+    color: var(--sm-btn-text);
+  }
+  [data-sm-buttons="filled"] .sm-button:hover {
+    opacity: 0.88;
+  }
+
+  [data-sm-buttons="outline"] .sm-button {
+    border: 1.5px solid var(--sm-btn-bg);
+    color: var(--sm-text);
+  }
+  [data-sm-buttons="outline"] .sm-button:hover {
+    background-color: rgb(var(--sm-btn-bg-rgb) / 10%);
+  }
+
+  /* A tint of the button colour rather than the colour itself: the same hue,
+     without a solid block of it repeated eight times down a page. */
+  [data-sm-buttons="soft"] .sm-button {
+    background-color: rgb(var(--sm-btn-bg-rgb) / 12%);
+    color: var(--sm-text);
+  }
+  [data-sm-buttons="soft"] .sm-button:hover {
+    background-color: rgb(var(--sm-btn-bg-rgb) / 20%);
+  }
+
+  [data-sm-buttons="minimal"] .sm-button {
+    color: var(--sm-text);
+    padding-inline: 0.5rem;
+  }
+  [data-sm-buttons="minimal"] .sm-button:hover {
+    background-color: rgb(var(--sm-text-rgb) / 6%);
+  }
+
+  /* Without a surface, a stack of minimal buttons needs a rule between them or
+     it reads as one paragraph of centred phrases. */
+  [data-sm-buttons="minimal"] .sm-links li + li {
+    border-top: 1px solid rgb(var(--sm-text-rgb) / 12%);
+  }
+  [data-sm-buttons="minimal"] .sm-links {
+    gap: 0;
+  }
+
+  [data-sm-buttons="glass"] .sm-button {
+    background-color: rgb(var(--sm-text-rgb) / 9%);
+    border: 1px solid rgb(var(--sm-text-rgb) / 14%);
+    color: var(--sm-text);
+    backdrop-filter: blur(14px) saturate(1.4);
+    -webkit-backdrop-filter: blur(14px) saturate(1.4);
+  }
+  [data-sm-buttons="glass"] .sm-button:hover {
+    background-color: rgb(var(--sm-text-rgb) / 15%);
+  }
+
+  .sm-links {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+    list-style: none;
+  }
+
+  /* ── Surfaces ──────────────────────────────────────────────────────────── */
+
+  /* What a block sits on, and what an image's edge looks like. Both come from
+     the same choice, so a page's cards and its photographs agree. */
+  .sm-surface {
+    border-radius: var(--sm-surface-radius, 14px);
+    padding: var(--sm-surface-pad, 0);
+  }
+
+  [data-sm-blocks="flat"] {
+    --sm-surface-radius: 14px;
+    --sm-surface-pad: 0;
+  }
+
+  [data-sm-blocks="card"] {
+    --sm-surface-radius: 14px;
+    --sm-surface-pad: 1.125rem;
+  }
+  [data-sm-blocks="card"] .sm-surface {
+    background-color: rgb(var(--sm-text-rgb) / 4%);
+    border: 1px solid rgb(var(--sm-text-rgb) / 8%);
+  }
+
+  [data-sm-blocks="glass"] {
+    --sm-surface-radius: 16px;
+    --sm-surface-pad: 1.125rem;
+  }
+  [data-sm-blocks="glass"] .sm-surface {
+    background-color: rgb(var(--sm-text-rgb) / 7%);
+    border: 1px solid rgb(var(--sm-text-rgb) / 12%);
+    backdrop-filter: blur(14px) saturate(1.3);
+    -webkit-backdrop-filter: blur(14px) saturate(1.3);
+  }
+
+  /* Square edges and nothing else. The most editorial of the four, and the one
+     that makes a photograph look like it was placed rather than uploaded. */
+  [data-sm-blocks="minimal"] {
+    --sm-surface-radius: 0;
+    --sm-surface-pad: 0;
+  }
+
+  /* Media takes the surface's radius but never its padding or its fill: a card
+     drawn behind a photograph is what makes a page look like a database. */
+  .sm-media {
+    overflow: hidden;
+    border-radius: var(--sm-surface-radius, 14px);
+    background-color: rgb(var(--sm-text-rgb) / 6%);
+  }
+
+  [data-sm-blocks="card"] .sm-media {
+    box-shadow:
+      0 1px 2px rgb(var(--sm-text-rgb) / 6%),
+      0 18px 40px -28px rgb(var(--sm-text-rgb) / 45%);
+  }
+
+  [data-sm-blocks="glass"] .sm-media {
+    border: 1px solid rgb(var(--sm-text-rgb) / 12%);
+  }
+
+  /* ── Text blocks ───────────────────────────────────────────────────────── */
+
+  .sm-text {
+    font-size: calc(0.9375rem * var(--sm-type));
+    line-height: 1.65;
+    color: var(--sm-muted);
+    white-space: pre-line;
+    text-wrap: pretty;
+  }
+
+  .sm-text-heading {
+    font-size: calc(1.0625rem * var(--sm-type));
+    line-height: 1.35;
+    font-weight: 600;
+    letter-spacing: -0.01em;
+    color: var(--sm-text);
+    text-wrap: balance;
+  }
+
+  [data-sm-font="editorial"] .sm-text-heading {
+    font-weight: 400;
+    font-size: calc(1.375rem * var(--sm-type));
+  }
+
+  .sm-align-center {
+    text-align: center;
+  }
+  .sm-align-left {
+    text-align: left;
+  }
+
+  .sm-divider {
+    border: 0;
+    border-top: 1px solid rgb(var(--sm-text-rgb) / 14%);
+  }
+
+  /* ── Socials ───────────────────────────────────────────────────────────── */
+
+  .sm-socials {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: center;
+    gap: 0.25rem;
+    list-style: none;
+  }
+
+  [data-sm-header="compact"] .sm-socials {
+    justify-content: flex-start;
+  }
+
+  .sm-social {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 2.75rem;
+    height: 2.75rem;
+    border-radius: 999px;
+    color: var(--sm-muted);
+    transition:
+      background-color 0.15s ease,
+      color 0.15s ease,
+      border-color 0.15s ease;
+  }
+
+  .sm-social:hover {
+    color: var(--sm-text);
+  }
+
+  [data-sm-socials="plain"] .sm-social:hover {
+    background-color: rgb(var(--sm-text-rgb) / 8%);
+  }
+
+  [data-sm-socials="circle"] .sm-social {
+    background-color: rgb(var(--sm-text-rgb) / 8%);
+  }
+  [data-sm-socials="circle"] .sm-social:hover {
+    background-color: rgb(var(--sm-text-rgb) / 16%);
+  }
+
+  [data-sm-socials="outline"] .sm-social {
+    border: 1px solid rgb(var(--sm-text-rgb) / 22%);
+  }
+  [data-sm-socials="outline"] .sm-social:hover {
+    border-color: var(--sm-text);
+  }
+
+  /* ── Gallery ───────────────────────────────────────────────────────────── */
+
+  .sm-gallery {
+    display: flex;
+    gap: 0.75rem;
+    overflow-x: auto;
+    scroll-snap-type: x mandatory;
+    /* Pulled out to the page edge so a card can bleed off it, then padded back
+       so the first card lines up with the column. */
+    margin-inline: -1.25rem;
+    padding-inline: 1.25rem;
+    scroll-padding-left: 1.25rem;
+    padding-bottom: 0.25rem;
+    list-style: none;
+    scrollbar-width: none;
+  }
+
+  .sm-gallery::-webkit-scrollbar {
+    display: none;
+  }
+
+  .sm-gallery > li {
+    flex-shrink: 0;
+    scroll-snap-align: start;
+    /* The next card peeks past the edge, which is what says the row scrolls. */
+    width: 68%;
+  }
+
+  .sm-gallery[data-aspect="wide"] > li {
+    width: 86%;
+  }
+
+  @media (min-width: 34rem) {
+    .sm-gallery > li {
+      width: 46%;
+    }
+    .sm-gallery[data-aspect="wide"] > li {
+      width: 60%;
+    }
+  }
+
+  .sm-caption {
+    margin-top: 0.5rem;
+    font-size: calc(0.8125rem * var(--sm-type));
+    line-height: 1.4;
+    color: var(--sm-muted);
+  }
+
+  .sm-arrow {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 2.5rem;
+    height: 2.5rem;
+    border-radius: 999px;
+    color: var(--sm-muted);
+    transition:
+      background-color 0.15s ease,
+      color 0.15s ease;
+  }
+
+  .sm-arrow:hover:not(:disabled) {
+    background-color: rgb(var(--sm-text-rgb) / 8%);
+    color: var(--sm-text);
+  }
+
+  .sm-arrow:disabled {
+    opacity: 0.3;
+    pointer-events: none;
+  }
+
+  /* ── Aspect ratios ─────────────────────────────────────────────────────── */
+
+  .sm-ratio-square {
+    aspect-ratio: 1 / 1;
+  }
+  .sm-ratio-portrait {
+    aspect-ratio: 4 / 5;
+  }
+  .sm-ratio-wide {
+    aspect-ratio: 16 / 9;
+  }
+
+  /* ── Motion ────────────────────────────────────────────────────────────── */
+
+  @media (prefers-reduced-motion: reduce) {
+    .sm-page *,
+    .sm-page *::before,
+    .sm-page *::after {
+      transition-duration: 0.01ms !important;
+      scroll-behavior: auto !important;
+    }
+  }
+}

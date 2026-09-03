@@ -1,45 +1,49 @@
 import { ProfileHeader } from "@/components/public/profile-header";
 import { PublicBlockView } from "@/components/public/blocks";
+import { PageSurface } from "@/components/public/page-surface";
 import { isEmptyPage, type PublicPage as PublicPageData } from "@/lib/public-page/types";
+import type { ResolvedDesign } from "@/lib/design/types";
 
 /**
- * A creator's page.
+ * A creator's page: content, plus the design it is wearing.
  *
- * The header, then whatever the creator arranged. Phase 3 hard-coded the order
- * — socials, then links, then blocks; Phase 4 made every one of those a block,
- * so this component no longer decides what comes first. The array is the page.
+ * The two arrive separately and stay separate. `page` is what the creator
+ * wrote — names, links, images, the order of it all — and `design` is how it
+ * looks. Nothing in this tree reads one to decide the other, which is what
+ * makes switching theme a change to six words in a JSON column rather than a
+ * migration of everything a creator has made.
  *
- * Every part of this tree is a Server Component except the gallery's arrows.
- * A visitor gets finished HTML, and the only JavaScript that ships is Next's
- * own router plus a few hundred bytes on pages that actually have a gallery.
- * That is the point: this is opened from a phone, on mobile data, by somebody
- * who will give it about a second.
+ * Every component here is a Server Component except the gallery's arrows. A
+ * visitor gets finished HTML, one font file, and a few hundred bytes of
+ * behaviour on pages that actually have a gallery.
  *
- * The column stays narrow on every screen. A creator page that stretches to
- * fill a desktop monitor stops looking like a page somebody made and starts
- * looking like a dashboard.
- *
- * Spacing does the work that borders would. Blocks are separated by one
- * generous rhythm rather than each being wrapped in a card — the page should
- * read as one thing a person composed, not as a list of records.
+ * The column is centred with `margin: auto` rather than `justify-content`.
+ * Most new pages are short — a name and two links — and top-aligning those
+ * leaves two thirds of a desktop screen empty below them. Auto margins centre
+ * what fits and fall back to normal flow when it does not, where centring
+ * would push the top of a long page out of reach.
  */
-export function PublicPage({ page }: { page: PublicPageData }) {
+export function PublicPage({
+  page,
+  design,
+}: {
+  page: PublicPageData;
+  design: ResolvedDesign;
+}) {
   return (
-    <main className="flex min-h-dvh w-full flex-col px-5 py-14 sm:py-20">
-      <div className="m-auto w-full max-w-[30rem]">
-        <ProfileHeader profile={page.profile} />
+    <PageSurface design={design}>
+      <ProfileHeader profile={page.profile} />
 
-        {page.blocks.length > 0 ? (
-          <div className="mt-9 flex flex-col gap-9">
-            {page.blocks.map((block) => (
-              <PublicBlockView key={block.id} block={block} />
-            ))}
-          </div>
-        ) : null}
+      {page.blocks.length > 0 ? (
+        <div className="sm-stack" style={{ marginTop: "var(--sm-gap)" }}>
+          {page.blocks.map((block) => (
+            <PublicBlockView key={block.id} block={block} />
+          ))}
+        </div>
+      ) : null}
 
-        {isEmptyPage(page) ? <EmptyPage /> : null}
-      </div>
-    </main>
+      {isEmptyPage(page) ? <EmptyPage /> : null}
+    </PageSurface>
   );
 }
 
@@ -52,5 +56,9 @@ export function PublicPage({ page }: { page: PublicPageData }) {
  * see a person.
  */
 function EmptyPage() {
-  return <p className="mt-10 text-center text-sm text-ink-subtle">Nothing here yet.</p>;
+  return (
+    <p className="sm-text sm-align-center" style={{ marginTop: "2.5rem" }}>
+      Nothing here yet.
+    </p>
+  );
 }

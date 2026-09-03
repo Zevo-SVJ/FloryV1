@@ -21,16 +21,24 @@ import { draftToPublicPage, type Draft } from "@/lib/editor/state";
  * away from unsaved work, which is a strange way to lose an afternoon.
  */
 export function Preview({ draft }: { draft: Draft }) {
+  /*
+   * Shaped once per render, by the same function the public route calls. The
+   * design travels inside the result, so a theme change is a new object and
+   * React re-renders — there is no separate path by which the preview could
+   * learn about a design change late, or not at all.
+   */
+  const page = draftToPublicPage(draft);
+
   return (
     <div className="flex flex-col items-center">
       <div className="relative w-full max-w-[22rem]">
-        <div className="overflow-hidden rounded-[2rem] border border-border bg-canvas shadow-card ring-1 ring-black/5">
+        <div className="overflow-hidden rounded-[2rem] border border-border shadow-card ring-1 ring-black/5">
           <div
             aria-hidden
             className="max-h-[min(76vh,44rem)] overflow-y-auto [scrollbar-width:thin]"
           >
-            <div className="pointer-events-none [&_main]:min-h-[36rem] [&_main]:py-10">
-              <PublicPage page={draftToPublicPage(draft)} />
+            <div className="pointer-events-none [&_.sm-page]:min-h-[34rem]">
+              <PublicPage page={page} design={page.design} />
             </div>
           </div>
         </div>
@@ -44,7 +52,7 @@ export function Preview({ draft }: { draft: Draft }) {
          */}
         <div
           aria-hidden
-          className="pointer-events-none absolute inset-x-0 bottom-0 h-12 rounded-b-[2rem] bg-gradient-to-t from-canvas to-transparent"
+          className="pointer-events-none absolute inset-x-0 bottom-0 h-10 rounded-b-[2rem] bg-gradient-to-t from-black/15 to-transparent dark:from-black/35"
         />
       </div>
 

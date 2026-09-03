@@ -96,6 +96,25 @@ bucket also enforces its own 5 MiB limit and MIME list, so a request that never
 passes through the application is still refused. SVG is deliberately absent: it
 is a document that can carry script.
 
+### Design
+
+`profiles.design` is one JSONB column holding presentation and nothing else:
+theme, colours, background, typography, button and layout choices. It is read
+exactly when the profile is read — on every public page render — so a separate
+table would be a join on the hottest query in the product for a row that is
+always exactly one.
+
+It needs no policy of its own. `profiles` is world-readable and owner-writable,
+which is precisely the access a page's appearance wants: a stranger must be
+able to read it to render the page, and only its owner may change it.
+
+Two constraints keep it honest: it must be a JSON object, and it must fit in
+8KB. A full design is a few hundred bytes, so the limit is roomy enough that no
+legitimate value approaches it and tight enough that the column never becomes
+somewhere to put things. Everything else is enforced in
+`src/lib/design/schema.ts`, which parses on the way in and on the way out — a
+hand-edited row renders as the default design rather than as broken CSS.
+
 ### Usernames
 
 `profiles.username` is the whole public address, so the rules are enforced in
@@ -166,6 +185,14 @@ write never answers with a success.
   another creator's media; and cannot move their own object into somebody
   else's folder.
 - A stranger can read media and can neither write it nor call `save_page`.
+- A design is saved with the page it belongs to, and changing a theme leaves
+  every block and link exactly as it was.
+- A payload that never mentions design leaves the stored design in place, so an
+  older client cannot silently wipe a creator's theme.
+- A creator cannot restyle another creator's page, and a stranger cannot
+  restyle anybody.
+- A design that is not an object, or is larger than the column allows, is
+  refused by the database rather than by the application alone.
 
 ## Conventions
 

@@ -44,6 +44,7 @@ const QUERY = `
   display_name,
   bio,
   avatar_url,
+  design,
   links (id, block_id, title, url, position, created_at, is_active),
   social_links (id, platform, url, position, is_active),
   blocks (id, type, data, position, is_visible)

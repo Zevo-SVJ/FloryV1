@@ -14,31 +14,21 @@ import type { GalleryBlockData } from "@/lib/blocks/schemas";
  *
  * Cards are sized so the next one peeks past the right edge. That single
  * detail is what tells a visitor the row scrolls — without it, a gallery that
- * happens to end near the viewport edge looks like a gallery that ended.
+ * happens to end near the viewport edge looks like a gallery that ended. The
+ * widths, the snapping and the bleed to the page edge all live in the
+ * stylesheet, because they change with the page's width setting.
  *
- * `snap-mandatory` with `scroll-pl-5` lines each card up against the same left
- * edge as the rest of the page, so a mid-scroll gallery still reads as part of
- * the column rather than as something floating over it.
+ * The call to action is `.sm-button`: the same button as a link, so a gallery
+ * never grows its own dialect of the page's design.
  */
 
 const ASPECT: Record<GalleryBlockData["aspect"], string> = {
-  square: "aspect-square",
-  portrait: "aspect-[4/5]",
-  wide: "aspect-[16/9]",
+  square: "sm-ratio-square",
+  portrait: "sm-ratio-portrait",
+  wide: "sm-ratio-wide",
 };
 
-/*
- * Card widths, and therefore what the optimizer is asked for. `wide` gets more
- * room because a 16:9 image at 68% of a phone is unreadably small; `portrait`
- * and `square` are comfortable narrow.
- */
-const WIDTH: Record<GalleryBlockData["aspect"], string> = {
-  square: "w-[68%] sm:w-[46%]",
-  portrait: "w-[68%] sm:w-[46%]",
-  wide: "w-[86%] sm:w-[60%]",
-};
-
-const SIZES = "(max-width: 34rem) 68vw, 14rem";
+const SIZES = "(max-width: 34rem) 68vw, 17rem";
 
 export function GalleryBlock({ id, data }: { id: string; data: GalleryBlockData }) {
   const scrollerId = `gallery-${id}`;
@@ -48,25 +38,11 @@ export function GalleryBlock({ id, data }: { id: string; data: GalleryBlockData 
     <section aria-label={data.title.trim() || "Image gallery"}>
       <SectionTitle>{data.title}</SectionTitle>
 
-      {/*
-       * Negative margins pull the scroller out to the page edge so images can
-       * bleed off it, while the padding puts the first card back in line with
-       * the column. Without this the row would stop short of the edge and look
-       * boxed in.
-       */}
-      <ul
-        id={scrollerId}
-        className="-mx-5 flex snap-x snap-mandatory scroll-pl-5 gap-3 overflow-x-auto px-5 pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
-      >
+      <ul id={scrollerId} className="sm-gallery" data-aspect={data.aspect}>
         {data.items.map((item) => (
-          <li key={item.id} className={cn("shrink-0 snap-start", WIDTH[data.aspect])}>
+          <li key={item.id}>
             <figure>
-              <div
-                className={cn(
-                  "relative overflow-hidden rounded-card bg-surface-sunken",
-                  ASPECT[data.aspect],
-                )}
-              >
+              <div className={cn("sm-media relative", ASPECT[data.aspect])}>
                 <Image
                   src={item.url}
                   alt={item.alt}
@@ -76,9 +52,7 @@ export function GalleryBlock({ id, data }: { id: string; data: GalleryBlockData 
                 />
               </div>
               {item.caption.trim().length > 0 ? (
-                <figcaption className="mt-2 text-[0.8125rem] leading-snug text-ink-subtle">
-                  {item.caption}
-                </figcaption>
+                <figcaption className="sm-caption">{item.caption}</figcaption>
               ) : null}
             </figure>
           </li>
@@ -91,7 +65,8 @@ export function GalleryBlock({ id, data }: { id: string; data: GalleryBlockData 
         <a
           href={data.cta.url}
           rel="nofollow ugc noopener"
-          className="mt-4 flex min-h-12 items-center justify-center rounded-control bg-ink px-5 text-center text-[0.9375rem] font-medium text-canvas transition-opacity hover:opacity-90"
+          className="sm-button"
+          style={{ marginTop: "1rem" }}
         >
           {data.cta.label}
         </a>

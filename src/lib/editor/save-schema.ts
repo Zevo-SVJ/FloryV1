@@ -3,6 +3,7 @@ import { BLOCKS } from "@/lib/blocks/registry";
 import { SOCIAL_PLATFORMS, bioSchema, displayNameSchema } from "@/lib/validation/schemas";
 import { socialUrlSchema, urlSchema } from "@/lib/validation/url";
 import { isRenderableMediaUrl } from "@/lib/media/url";
+import { designSchema } from "@/lib/design/schema";
 import type { BlockType } from "@/types/database";
 
 /**
@@ -89,6 +90,18 @@ const blockSchema = z
   });
 
 export const savePageSchema = z.object({
+  /*
+   * Presentation, parsed by the design schema rather than restated here.
+   * Every value in it is a hex colour or a member of a literal tuple, which
+   * is what makes it safe to put inside a `style` attribute on a page that
+   * strangers load — and this is the boundary where that is decided.
+   *
+   * Optional, and `save_page` coalesces: a payload that does not mention
+   * design leaves the stored design alone rather than resetting it. That is
+   * what keeps a client which predates this phase from silently wiping a
+   * creator's theme the first time they save a link.
+   */
+  design: designSchema.optional(),
   profile: z.object({
     displayName: displayNameSchema,
     bio: bioSchema,

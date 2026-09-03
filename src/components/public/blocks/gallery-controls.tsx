@@ -106,7 +106,7 @@ function Arrow({
       onClick={onClick}
       disabled={disabled}
       aria-label={label}
-      className="flex h-10 w-10 items-center justify-center rounded-full text-ink-muted transition-colors hover:bg-surface-sunken hover:text-ink disabled:pointer-events-none disabled:opacity-30"
+      className="sm-arrow"
     >
       <svg
         viewBox="0 0 24 24"

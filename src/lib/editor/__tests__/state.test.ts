@@ -22,6 +22,7 @@ import {
 
 const draft = (over: Partial<Draft> = {}): Draft => ({
   profile: { username: "alex", displayName: "Alex", bio: "", avatarUrl: null },
+  design: {},
   socials: [],
   blocks: [],
   ...over,

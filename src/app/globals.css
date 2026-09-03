@@ -1,5 +1,10 @@
 @import "tailwindcss";
 
+/* The creator page's own design system. Kept apart from the app's tokens
+   above: those describe ShowMe's interface, these describe a page a creator
+   designed, and the two must never borrow from each other. */
+@import "./page-design.css";
+
 /* ───────────────────────────────────────────────────────────────────────────
    ShowMe — foundation tokens
 

@@ -6,24 +6,25 @@ import type { ImageBlockData } from "@/lib/blocks/schemas";
  * One picture, sometimes a button.
  *
  * The block a visual creator reaches for first: a shot of the new drop, linked
- * to the shop. It is deliberately borderless and shadowless — an image with a
- * frame around it looks like a database record, and an image that simply sits
- * on the page looks like content. The only decoration is a corner radius that
- * matches everything else.
+ * to the shop. Its corner radius, its border and its shadow are the page's
+ * block style — but never its padding and never a fill behind it. A card drawn
+ * around a photograph is what makes a page look like a database rather than
+ * something somebody made, so `.sm-media` takes the radius from the design and
+ * stops there.
  *
  * `sizes` matters more here than anywhere else on the page. The column is at
- * most 30rem wide, so telling the optimizer that keeps it from serving a
+ * most 36rem wide, so telling the optimizer that keeps it from serving a
  * 2000px original to a phone that will paint it at 390.
  */
 
 const ASPECT: Record<ImageBlockData["aspect"], string | null> = {
   auto: null,
-  square: "aspect-square",
-  wide: "aspect-[16/9]",
-  portrait: "aspect-[4/5]",
+  square: "sm-ratio-square",
+  wide: "sm-ratio-wide",
+  portrait: "sm-ratio-portrait",
 };
 
-const SIZES = "(max-width: 34rem) 100vw, 30rem";
+const SIZES = "(max-width: 40rem) 100vw, 36rem";
 
 export function ImageBlock({ data }: { data: ImageBlockData }) {
   const ratio = ASPECT[data.aspect];
@@ -40,7 +41,7 @@ export function ImageBlock({ data }: { data: ImageBlockData }) {
   const described = data.alt.trim().length > 0;
 
   const picture = (
-    <div className={cn("relative overflow-hidden rounded-card bg-surface-sunken", ratio)}>
+    <div className={cn("sm-media relative", ratio)}>
       {ratio ? (
         <Image src={data.url} alt={data.alt} fill sizes={SIZES} className="object-cover" />
       ) : (
@@ -68,7 +69,7 @@ export function ImageBlock({ data }: { data: ImageBlockData }) {
     <a
       href={data.href}
       rel="nofollow ugc noopener"
-      className="block rounded-card transition-opacity hover:opacity-90"
+      className="block transition-opacity hover:opacity-90"
     >
       {picture}
       {!described ? <span className="sr-only">Open link</span> : null}

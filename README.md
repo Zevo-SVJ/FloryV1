@@ -2,11 +2,11 @@
 
 One page for everything you make — `showme.at/<username>`.
 
-**Phase 4: the editor and the core blocks.** A creator signs in, builds a page
-out of blocks — links, images, a gallery, text, video, Spotify, socials —
-reorders them, hides what is not ready, uploads pictures, presses Save, and
-`showme.at/<username>` renders exactly that. Themes and analytics are later
-phases.
+**Phase 5: the design system.** A creator builds a page out of blocks — links,
+images, a gallery, text, video, Spotify, socials — and then decides how it
+looks: seven themes, six colours, a background, four typefaces, five button
+styles, and the page's width and rhythm. `showme.at/<username>` renders exactly
+that. Analytics is a later phase.
 
 ---
 
@@ -38,6 +38,8 @@ anything needing a session says so instead of crashing.
 src/
   app/
     page.tsx              landing placeholder
+    globals.css           the app's own tokens
+    page-design.css       the creator page's design system
     login/  signup/       functional auth
     onboarding/           for an account that arrived without a username
     api/username/         availability, while somebody is typing
@@ -54,6 +56,7 @@ src/
       blocks/             one component per block type
     editor/               the editor, its forms and its controls
   lib/
+    design/               themes, tokens, the design schema, contrast
     supabase/             server client, browser client, session refresh,
                           and a session-less client for the public page
     auth/                 the data access layer, server actions, route rules
@@ -281,6 +284,73 @@ confirms before any same-origin link takes them off the page.
 
 ---
 
+## The design system
+
+Content says what is on a page. Design says what it looks like. They meet in
+one component and nowhere else.
+
+**One column, not a table.** `profiles.design` is JSONB holding the
+*difference* between the creator's chosen theme and what they changed — a page
+on Noir with nothing else touched stores `{"theme":"noir"}`. That sparseness is
+the point: every decision they did not make keeps arriving from the theme, so
+refining a theme improves the pages that chose it instead of requiring a data
+migration. It needs no new policy, because `profiles` is already world-readable
+and owner-writable, which is exactly right for how a page looks.
+
+**Two steps, both pure.** `resolveDesign()` lays the overrides over the theme
+and answers every question the renderer can ask. `designStyle()` and
+`designAttributes()` turn that into CSS custom properties and `data-sm-*`
+attributes. The public route and the editor's preview run the identical
+functions on identical input, which is why the preview cannot drift.
+
+**Nothing a creator types becomes CSS.** This is the security property of the
+whole phase. A colour is six hex digits matched against a pattern; everything
+else is a member of a literal tuple. The one value that is neither — a
+background image URL — must already be on our own Storage host, and is then
+wrapped in `url("…")` with its quotes and parentheses escaped, so it cannot end
+the function early and start a declaration. The tokens go into a `style` prop,
+where React sets them as properties rather than concatenating a string.
+`src/lib/design/__tests__/design.test.ts` is mostly attempts to get something
+else through.
+
+**A theme is a whole design, not a palette.** Each of the seven answers
+palette, background, typeface, scale, button style and shape, block surface,
+social treatment, width, spacing, header and avatar. Two themes differing by a
+shade of grey would be one theme and a bug report; a test asserts no two are
+the same design under different names, and another asserts every theme's own
+colours pass WCAG AA.
+
+**Switching theme clears the sub-choices and keeps the colours.** Carrying
+Bold's pill buttons and tight spacing into Paper produces neither theme. A
+custom accent is different — somebody picked it for a reason and would not
+expect a theme to take it back — so it survives, and Reset is there for when it
+should not. Neither ever touches a link, a block, an image or a username;
+`supabase/tests/04_editor.sql` asserts it.
+
+**Contrast is a warning, not a rule.** A creator may know exactly what they are
+doing with a faint caption over a photograph. What they should not do is find
+out from a stranger who could not read the page, so `paletteWarnings()`
+computes the real WCAG ratio and says so beside the control that caused it —
+holding body text to 4.5:1 and muted text to 3:1, because muted text is meant
+to recede and failing it at 4.5 would fire on almost every good design and
+teach people to ignore the panel.
+
+**Four typefaces, one download.** `next/font/google` fetches them at build time
+and serves them from our own origin, so a visitor never makes a request to
+Google. All four `@font-face` rules ship — about a kilobyte — and `preload:
+false` means the browser fetches a family only when something is set in it. A
+page on the default theme downloads one font file; a page on any other
+downloads two, the second being Geist for the `@handle` line, which is the
+app's own typeface and already cached.
+
+**The editor's design panel never reaches a public page.** It is a Client
+Component behind the same tab as the block editor, and the build's emitted
+chunks are checked: no dnd-kit, no design panel, no editor UI in anything
+`/[username]` references. The whole design system costs the public page 8KB of
+gzipped CSS and no JavaScript at all.
+
+---
+
 ## Decisions worth knowing
 
 **`connection()` in the data access layer, not `export const dynamic`.**
@@ -403,8 +473,7 @@ the browser or prefixed with `NEXT_PUBLIC_`.
 
 ## What is not here yet
 
-Themes, custom fonts, backgrounds, button styles and every other visual
-customization; analytics of any kind — no page views, no link clicks, nothing
-is recorded when somebody opens a page; QR codes, monetization, Stripe,
-commerce, forms, AI and sharing. All later phases. The schema and the policies
-for them are already in place, which is the point.
+Analytics of any kind — no page views, no link clicks, nothing is recorded when
+somebody opens a page; QR codes, monetization, Stripe, commerce, forms, AI and
+sharing. All later phases. The schema and the policies for them are already in
+place, which is the point.

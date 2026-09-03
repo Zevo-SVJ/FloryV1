@@ -4,6 +4,7 @@ import { cache } from "react";
 import { createClient } from "@/lib/supabase/server";
 import { requireClaimedProfile } from "@/lib/auth/dal";
 import { BLOCKS } from "@/lib/blocks/registry";
+import { parseDesign } from "@/lib/design/schema";
 import type { Draft, DraftBlock, DraftLink, DraftSocial } from "@/lib/editor/state";
 import type { BlockType, SocialPlatform } from "@/types/database";
 
@@ -55,6 +56,7 @@ interface ProfileRow {
   display_name: string | null;
   bio: string | null;
   avatar_url: string | null;
+  design: unknown;
   links: LinkRow[] | null;
   social_links: SocialRow[] | null;
   blocks: BlockRow[] | null;
@@ -66,6 +68,7 @@ const QUERY = `
   display_name,
   bio,
   avatar_url,
+  design,
   links (id, block_id, title, url, position, created_at, is_active),
   social_links (id, platform, url, position, is_active),
   blocks (id, type, data, position, is_visible, created_at)
@@ -156,6 +159,12 @@ export const getEditorDraft = cache(async (): Promise<Draft> => {
       bio: data.bio ?? "",
       avatarUrl: data.avatar_url,
     },
+    /*
+     * Parsed, not resolved. The editor holds the creator's overrides so that
+     * "not set" stays distinguishable from "set to what the theme happens to
+     * say" — resolving here would freeze today's theme into tomorrow's save.
+     */
+    design: parseDesign(data.design),
     socials,
     blocks,
   };

@@ -2,6 +2,7 @@ import { BLOCKS } from "@/lib/blocks/registry";
 import { toPublicPage, type ProfileRow } from "@/lib/public-page/shape";
 import type { PublicPage } from "@/lib/public-page/types";
 import type { BlockType, Json, SocialPlatform } from "@/types/database";
+import type { DesignConfig } from "@/lib/design/types";
 
 /**
  * The page as the editor holds it.
@@ -55,6 +56,15 @@ export interface DraftProfile {
 
 export interface Draft {
   profile: DraftProfile;
+  /**
+   * The creator's design overrides, exactly as stored.
+   *
+   * The sparse config rather than the resolved one, because that is what gets
+   * saved: a page on Noir with nothing else changed stores `{"theme":"noir"}`
+   * and keeps receiving Noir's decisions as the theme is refined. Resolving
+   * happens at render, in the same function the public page uses.
+   */
+  design: DesignConfig;
   /**
    * Page-level rather than inside the socials block, because the database
    * holds one row per platform per creator. Two blocks cannot disagree about
@@ -124,6 +134,8 @@ export function draftToPublicPage(draft: Draft): PublicPage {
       position: index,
       is_active: social.isActive,
     })),
+
+    design: draft.design,
 
     blocks: draft.blocks.map((block, index) => ({
       id: block.id,

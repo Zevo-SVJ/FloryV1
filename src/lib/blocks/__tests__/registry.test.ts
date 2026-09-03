@@ -109,6 +109,7 @@ test("a video URL is validated by resolving it, not by pattern", () => {
 
 const payload = (over: Record<string, unknown> = {}) => ({
   profile: { displayName: "Alex", bio: "", avatarUrl: null },
+  design: {},
   socials: [],
   blocks: [],
   ...over,
@@ -137,6 +138,15 @@ test("a valid page is accepted", () => {
   assert.equal(result.success, true);
   // The bare domain was normalized on the way through.
   assert.equal(result.data?.blocks[0]?.links[0]?.url, "https://example.com/shop");
+});
+
+test("a payload with no design at all is accepted, and leaves design alone", () => {
+  const { design: _design, ...withoutDesign } = payload();
+  void _design;
+
+  const result = savePageSchema.safeParse(withoutDesign);
+  assert.equal(result.success, true);
+  assert.equal(result.data?.design, undefined);
 });
 
 test("the payload has no way to name an owner", () => {

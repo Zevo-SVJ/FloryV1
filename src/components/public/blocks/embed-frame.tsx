@@ -19,36 +19,36 @@ import type { Embed } from "@/lib/embeds/providers";
  * "frame" and nothing else. The creator's own title is used when they gave one,
  * because "YouTube video player" three times in a row tells nobody which video
  * is which.
+ *
+ * The frame takes the page's block radius through `.sm-media` and nothing else
+ * from the design. A theme may not change an aspect ratio, add padding inside
+ * a player, or otherwise reach into somebody else's document.
  */
 export function EmbedFrame({ embed, title }: { embed: Embed; title: string }) {
   const named = title.trim();
-
-  const frame = (
-    <iframe
-      src={embed.src}
-      title={named.length > 0 ? named : embed.title}
-      loading="lazy"
-      // Not `allow-top-navigation`, and not `allow-downloads`.
-      sandbox="allow-scripts allow-same-origin allow-presentation allow-popups allow-popups-to-escape-sandbox"
-      allow="accelerometer; autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture"
-      referrerPolicy="strict-origin-when-cross-origin"
-      className="absolute inset-0 h-full w-full border-0"
-    />
-  );
 
   return (
     <section aria-label={named.length > 0 ? named : embed.title}>
       <SectionTitle>{named}</SectionTitle>
 
       <div
-        className="relative overflow-hidden rounded-card bg-surface-sunken"
+        className="sm-media relative"
         style={
           embed.sizing.kind === "ratio"
             ? { aspectRatio: String(embed.sizing.ratio) }
             : { height: `${embed.sizing.height}px` }
         }
       >
-        {frame}
+        <iframe
+          src={embed.src}
+          title={named.length > 0 ? named : embed.title}
+          loading="lazy"
+          // Not `allow-top-navigation`, and not `allow-downloads`.
+          sandbox="allow-scripts allow-same-origin allow-presentation allow-popups allow-popups-to-escape-sandbox"
+          allow="accelerometer; autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture"
+          referrerPolicy="strict-origin-when-cross-origin"
+          className="absolute inset-0 h-full w-full border-0"
+        />
       </div>
     </section>
   );

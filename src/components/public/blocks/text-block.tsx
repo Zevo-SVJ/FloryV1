@@ -10,35 +10,17 @@ import type { TextBlockData } from "@/lib/blocks/schemas";
  * text field. A creator who could write markup would be writing markup into
  * somebody else's browser.
  *
- * `whitespace-pre-line` preserves the line breaks somebody typed without
- * preserving the accidental double spaces that come with them. It is the
- * difference between a three-line announcement rendering as three lines and
- * rendering as one paragraph.
+ * `white-space: pre-line` in the stylesheet preserves the line breaks somebody
+ * typed without preserving the accidental double spaces that come with them.
+ * It is the difference between a three-line announcement rendering as three
+ * lines and rendering as one paragraph.
  */
 export function TextBlock({ data }: { data: TextBlockData }) {
-  const alignment = data.align === "left" ? "text-left" : "text-center";
+  const alignment = data.align === "left" ? "sm-align-left" : "sm-align-center";
 
   if (data.style === "heading") {
-    return (
-      <h2
-        className={cn(
-          "text-[1.0625rem] leading-snug font-semibold tracking-[-0.01em] text-ink",
-          alignment,
-        )}
-      >
-        {data.text}
-      </h2>
-    );
+    return <h2 className={cn("sm-text-heading", alignment)}>{data.text}</h2>;
   }
 
-  return (
-    <p
-      className={cn(
-        "text-[0.9375rem] leading-relaxed whitespace-pre-line text-ink-muted",
-        alignment,
-      )}
-    >
-      {data.text}
-    </p>
-  );
+  return <p className={cn("sm-text", alignment)}>{data.text}</p>;
 }

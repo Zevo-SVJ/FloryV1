@@ -18,6 +18,7 @@ import {
   verticalListSortingStrategy,
 } from "@dnd-kit/sortable";
 import { AddBlock } from "@/components/editor/add-block";
+import { DesignPanel } from "@/components/editor/design-panel";
 import { BlockCard } from "@/components/editor/block-card";
 import { Preview } from "@/components/editor/preview";
 import { ProfilePanel } from "@/components/editor/profile-panel";
@@ -34,6 +35,7 @@ import {
 import { siteOrigin } from "@/lib/editor/origin";
 import { cn } from "@/lib/utils/cn";
 import type { BlockType } from "@/types/database";
+import type { DesignConfig } from "@/lib/design/types";
 
 /**
  * The editor.
@@ -81,6 +83,12 @@ export function Editor({ initial }: { initial: Draft }) {
   const [outcome, setOutcome] = useState<Outcome>({ kind: "idle" });
   const [expanded, setExpanded] = useState<string | null>(null);
   const [tab, setTab] = useState<"edit" | "preview">("edit");
+  /*
+   * Content and design are two jobs, and mixing them puts a colour picker
+   * between a creator and their links. They share one draft and one Save, so
+   * the split is presentational — which is why it is a tab and not a route.
+   */
+  const [pane, setPane] = useState<"content" | "design">("content");
   const [pending, startTransition] = useTransition();
 
   /*
@@ -159,6 +167,10 @@ export function Editor({ initial }: { initial: Draft }) {
     setDraft((current) => ({ ...current, socials }));
   }, []);
 
+  const setDesign = useCallback((design: DesignConfig) => {
+    setDraft((current) => ({ ...current, design }));
+  }, []);
+
   const updateBlock = useCallback((id: string, patch: Partial<DraftBlock>) => {
     setDraft((current) => ({
       ...current,
@@ -209,6 +221,7 @@ export function Editor({ initial }: { initial: Draft }) {
             bio: snapshot.profile.bio,
             avatarUrl: snapshot.profile.avatarUrl,
           },
+          design: snapshot.design,
           socials: snapshot.socials,
           blocks: snapshot.blocks,
         }),
@@ -279,6 +292,12 @@ export function Editor({ initial }: { initial: Draft }) {
        */}
       <div className="grid flex-1 gap-8 lg:grid-cols-[minmax(0,26rem)_minmax(0,1fr)] lg:items-start">
         <div className={cn("min-w-0 space-y-4", tab === "preview" && "hidden lg:block")}>
+          <PaneTabs pane={pane} setPane={setPane} />
+
+          {pane === "design" ? (
+            <DesignPanel design={draft.design} onChange={setDesign} />
+          ) : (
+            <>
           <ProfilePanel profile={draft.profile} onChange={setProfile} />
 
           <DndContext
@@ -318,6 +337,8 @@ export function Editor({ initial }: { initial: Draft }) {
           {draft.blocks.length === 0 ? <EmptyState /> : null}
 
           <AddBlock onAdd={addBlock} existing={existingTypes} />
+            </>
+          )}
         </div>
 
         <div
@@ -329,6 +350,40 @@ export function Editor({ initial }: { initial: Draft }) {
           <Preview draft={draft} />
         </div>
       </div>
+    </div>
+  );
+}
+
+/**
+ * Content or design.
+ *
+ * A segmented control rather than a sidebar, because on a phone there is no
+ * room for a sidebar and a creator should not meet two different editors
+ * depending on their screen.
+ */
+function PaneTabs({
+  pane,
+  setPane,
+}: {
+  pane: "content" | "design";
+  setPane: (pane: "content" | "design") => void;
+}) {
+  return (
+    <div className="flex gap-1 rounded-control bg-surface-sunken p-1">
+      {(["content", "design"] as const).map((value) => (
+        <button
+          key={value}
+          type="button"
+          onClick={() => setPane(value)}
+          aria-current={pane === value}
+          className={cn(
+            "h-8 flex-1 rounded-[7px] text-[0.8125rem] font-medium capitalize transition-colors",
+            pane === value ? "bg-surface text-ink shadow-control" : "text-ink-muted",
+          )}
+        >
+          {value}
+        </button>
+      ))}
     </div>
   );
 }
