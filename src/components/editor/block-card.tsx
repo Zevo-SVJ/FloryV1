@@ -88,7 +88,16 @@ export function BlockCard(props: BlockCardProps) {
           type="button"
           onClick={onToggleExpanded}
           aria-expanded={expanded}
-          aria-controls={definition.configurable ? panelId : undefined}
+          /*
+           * `aria-controls` only while the panel exists. An IDREF that
+           * resolves to nothing is not a harmless leftover — assistive
+           * technology is told this button controls a region and then finds
+           * no region, and the collapsed state is the common case, so that
+           * was true for most of the buttons on the page at any moment.
+           * `aria-expanded` is what carries the state; `aria-controls` is
+           * only meaningful once there is something to point at.
+           */
+          aria-controls={expanded && definition.configurable ? panelId : undefined}
           disabled={!definition.configurable}
           className="flex min-w-0 flex-1 items-center gap-2.5 rounded-control px-1.5 py-1.5 text-left transition-colors hover:bg-surface-sunken disabled:pointer-events-none"
         >

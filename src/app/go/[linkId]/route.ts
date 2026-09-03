@@ -2,7 +2,7 @@ import { after } from "next/server";
 import { createPublicClient } from "@/lib/supabase/public";
 import { isSupabaseConfigured, siteUrl } from "@/lib/env";
 import { isBot } from "@/lib/analytics/bots";
-import { allow, requestKey } from "@/lib/analytics/rate-limit";
+import { allow, requestKey } from "@/lib/security/rate-limit";
 import { recordLinkClick } from "@/lib/analytics/record";
 import { checkUrl } from "@/lib/validation/url";
 

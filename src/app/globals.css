@@ -131,10 +131,21 @@
   }
 }
 
-/* The public creator page is narrower than the app. */
-@utility container-profile {
-  margin-inline: auto;
-  width: 100%;
-  max-width: 34rem;
-  padding-inline: 1.25rem;
+/* The interface's own motion, off when the visitor has asked for that.
+
+   `page-design.css` already does this for a creator's page; this is the app
+   side of the same promise. Transitions are reduced rather than removed —
+   a hover that snaps is still a hover — and the skeleton pulse stops, which is
+   the one animation here that runs on its own. */
+@media (prefers-reduced-motion: reduce) {
+  @layer base {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+      scroll-behavior: auto !important;
+    }
+  }
 }

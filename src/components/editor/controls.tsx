@@ -272,7 +272,13 @@ export function Toggle({
   label: string;
 }) {
   return (
-    <label className="inline-flex cursor-pointer items-center gap-2">
+    /*
+      * `py-0.5` is not decoration: the switch is drawn 36×20, and a 20px-tall
+      * hit area is below the 24×24 minimum a pointer target is meant to meet.
+      * Padding the label grows what a finger can hit to 24 without changing a
+      * pixel of what is drawn.
+      */
+    <label className="inline-flex cursor-pointer items-center gap-2 py-0.5">
       <input
         type="checkbox"
         role="switch"
@@ -462,11 +468,24 @@ export function ImagePicker({
         </div>
 
         <div className="flex min-w-0 flex-col gap-1.5">
+          {/*
+            * The file picker itself is machinery, not a control.
+            *
+            * It is `sr-only` so that clicking the button below can open it,
+            * and it used to be reachable by Tab as well — which put an
+            * unlabelled file input in the tab order immediately before a
+            * button that does exactly the same thing. A keyboard user got two
+            * stops for one action and the first announced nothing. `hidden`
+            * would break `.click()` in some browsers, so it stays in the
+            * layer tree and leaves the tab order instead.
+            */}
           <input
             ref={input}
             type="file"
             accept={ACCEPT_ATTRIBUTE}
             className="sr-only"
+            tabIndex={-1}
+            aria-hidden
             onChange={(event) => {
               void choose(event.target.files?.[0]);
               // Cleared so choosing the same file twice fires a change again.

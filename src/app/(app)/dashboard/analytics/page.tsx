@@ -80,7 +80,7 @@ export default async function AnalyticsPage({ searchParams }: PageProps) {
           <h1 className="text-title">Analytics</h1>
           <Link
             href={`/${profile.username}`}
-            className="rounded font-mono text-[0.8125rem] text-ink-subtle transition-colors hover:text-ink"
+            className="rounded py-1 font-mono text-[0.8125rem] text-ink-subtle transition-colors hover:text-ink"
           >
             {address}
           </Link>

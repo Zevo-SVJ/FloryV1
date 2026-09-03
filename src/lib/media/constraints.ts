@@ -38,11 +38,6 @@ export const UPLOAD_MESSAGES: Record<UploadProblem, string> = {
   not_an_image: "That file is not an image.",
 };
 
-export const formatBytes = (bytes: number): string =>
-  bytes >= 1024 * 1024
-    ? `${(bytes / (1024 * 1024)).toFixed(1)} MB`
-    : `${Math.max(1, Math.round(bytes / 1024))} KB`;
-
 /**
  * The file's own leading bytes, rather than the type it claims.
  *

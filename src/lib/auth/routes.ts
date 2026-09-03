@@ -49,21 +49,59 @@ export const isAuthOnlyPath = (pathname: string): boolean =>
   AUTH_ONLY_PREFIXES.some((prefix) => startsWithSegment(pathname, prefix));
 
 /**
+ * A path on this site, or nothing.
+ *
+ * The one function both directions of the return-to flow go through, and it
+ * exists because the obvious version of this check is wrong. `startsWith("/")`
+ * and `!startsWith("//")` looks like it covers the cases, and it does not:
+ * `/\evil.com` passes both and resolves to `https://evil.com/`, because the
+ * URL parser treats a backslash after the leading slash exactly like a second
+ * slash. That is a phishing link that genuinely begins on showme.at, which is
+ * the entire point of an open redirect.
+ *
+ * So the value is not pattern-matched, it is *resolved* against a throwaway
+ * origin, and it is accepted only if the result is still on that origin. That
+ * closes the backslash forms, protocol-relative forms, absolute URLs, and
+ * anything else a parser would read as authority — and it returns the
+ * normalized path rather than the caller's string, so what gets redirected to
+ * is what was checked.
+ */
+const INTERNAL = "https://showme.invalid";
+
+function samePath(value: string | null | undefined): string | null {
+  if (!value || value.length > 2048) return null;
+
+  try {
+    const url = new URL(value, INTERNAL);
+    if (url.origin !== INTERNAL) return null;
+
+    /*
+     * And one more, which resolving alone does not catch: `/..//evil.com`
+     * normalizes to the pathname `//evil.com`, still on this origin as far as
+     * the parser is concerned — and protocol-relative the moment it is handed
+     * to `redirect()`. A path returned from here is used as a redirect target,
+     * so it has to be safe as one.
+     */
+    if (url.pathname.startsWith("//")) return null;
+
+    return `${url.pathname}${url.search}${url.hash}`;
+  } catch {
+    return null;
+  }
+}
+
+/**
  * Build the sign-in URL that returns someone to where they were headed.
  *
  * Only same-site paths are carried through. Accepting an arbitrary `next`
- * value would turn the login page into an open redirect — a phishing link that
- * genuinely starts on showme.at.
+ * value would turn the login page into an open redirect.
  */
 export function signInUrl(returnTo?: string | null): string {
-  if (!returnTo || !returnTo.startsWith("/") || returnTo.startsWith("//")) {
-    return SIGN_IN_PATH;
-  }
-  return `${SIGN_IN_PATH}?next=${encodeURIComponent(returnTo)}`;
+  const path = samePath(returnTo);
+  return path ? `${SIGN_IN_PATH}?next=${encodeURIComponent(path)}` : SIGN_IN_PATH;
 }
 
 /** The inverse: read a `next` parameter without trusting it. */
 export function safeReturnTo(value: string | null | undefined): string {
-  if (!value || !value.startsWith("/") || value.startsWith("//")) return AFTER_SIGN_IN;
-  return value;
+  return samePath(value) ?? AFTER_SIGN_IN;
 }

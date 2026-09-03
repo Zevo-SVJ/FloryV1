@@ -11,7 +11,10 @@ export const metadata: Metadata = {
 export default function SignupPage() {
   return (
     <main className="mx-auto flex min-h-dvh w-full max-w-sm flex-col justify-center px-5 py-16">
-      <Link href="/" className="rounded text-[0.9375rem] font-semibold tracking-tight">
+      <Link
+        href="/"
+        className="w-fit rounded py-0.5 text-[0.9375rem] font-semibold tracking-tight"
+      >
         ShowMe
       </Link>
 

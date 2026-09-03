@@ -118,6 +118,17 @@ export const getSeries = cache(async (range: RangeId): Promise<SeriesPoint[]> =>
       p_from: iso(window.from),
       p_to: iso(window.to),
       p_bucket: window.bucket,
+      /*
+       * Where the chart should begin, said rather than guessed.
+       *
+       * All time starts at the epoch, because that is what all time means for
+       * a total. A chart of it should still begin at the creator's first view
+       * — fifty-five empty years is not a shape — and no other range should,
+       * because for a chosen window the empty days at the start are the
+       * information. The function cannot tell those apart from the window
+       * alone, so this is the one place that knows saying so.
+       */
+      p_from_first_event: range === "all",
     });
     if (error || !data) return [];
 

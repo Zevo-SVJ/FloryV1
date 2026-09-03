@@ -5,11 +5,14 @@ import {
   draftToPublicPage,
   draftsEqual,
   newBlock,
+  newId,
   newLink,
   reorder,
+  savePayload,
   type Draft,
   type DraftLink,
 } from "../state.ts";
+import { savePageSchema } from "../save-schema.ts";
 
 /**
  * The promise the editor makes: what you see is what gets published.
@@ -188,4 +191,61 @@ test("a new block starts with its type's defaults and is visible", () => {
   assert.deepEqual(block.data, { text: "", align: "center", style: "body" });
   // A real uuid, because it becomes a primary key without a round trip.
   assert.match(block.id, /^[0-9a-f-]{36}$/);
+});
+
+/* ── What actually gets sent ──────────────────────────────────────────────── */
+
+/*
+ * The editor once built this object inline, listing the profile's fields by
+ * hand. When "Show in search" was added the list was not updated, so the
+ * switch worked, the page went dirty, the save succeeded — and the setting
+ * was thrown away by a `coalesce` in `save_page` that exists to be kind to
+ * old clients. Nothing failed anywhere; the toggle simply did not do
+ * anything, and only a save-then-reload showed it.
+ *
+ * These two assertions are the guard. The first says the payload parses as a
+ * complete one; the second says every field of the draft's profile except the
+ * username — which is not editable — is in it, so a field added to `Draft`
+ * cannot be quietly left out of the save.
+ */
+
+test("the save payload is a complete, valid page", () => {
+  // Real uuids: the schema refuses anything else, which is the point of it.
+  const block = { ...newBlock("links"), links: [{ ...newLink(), title: "Shop", url: "https://example.com" }] };
+  const parsed = savePageSchema.safeParse(
+    savePayload(
+      draft({
+        blocks: [block],
+        socials: [
+          { id: newId(), platform: "instagram", url: "https://instagram.com/a", isActive: true },
+        ],
+      }),
+    ),
+  );
+
+  assert.equal(parsed.success, true, parsed.error?.message ?? "");
+});
+
+test("every editable profile field is sent", () => {
+  const source = draft({
+    profile: {
+      username: "alex",
+      displayName: "Alex",
+      bio: "Photographer",
+      avatarUrl: null,
+      searchVisible: false,
+    },
+  });
+
+  const { profile } = savePayload(source);
+
+  for (const field of Object.keys(source.profile)) {
+    if (field === "username") continue;
+    assert.ok(field in profile, `${field} is missing from the save payload`);
+  }
+
+  // The one the editor used to drop, named explicitly so the reason this test
+  // exists survives a refactor of the loop above.
+  assert.equal(profile.searchVisible, false);
+  assert.equal("username" in profile, false);
 });

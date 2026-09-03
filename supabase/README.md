@@ -213,6 +213,38 @@ what the page tells a crawler. A test asserts exactly that: a page kept out of
 search is still readable by a stranger, and a stranger still cannot turn it
 back on.
 
+### Hardening
+
+`20260107000000_hardening.sql` is the Phase 8 migration, and it adds no
+feature. Four things:
+
+**The `DELETE` policy on `profiles` is dropped.** Nothing in the product deletes
+an account. A policy permitting what no code performs is one nobody is
+maintaining, and it was the only place a single mistaken statement could remove
+a creator's page, their links, their blocks and their history at once.
+
+**Three covering indexes.** `page_views` and `link_clicks` gain
+`(profile_id, created_at desc)` indexes that `include` the columns each
+breakdown groups by, so a dimension query is an index-only scan; `links` gains a
+partial index on the live-link lookup shape.
+
+**`anon` may execute nothing.** Postgres grants `EXECUTE` on a new function to
+`PUBLIC`, and `PUBLIC` includes `anon`. The analytics functions revoked it
+explicitly; four username helpers from Phase 2 never did, because nothing draws
+attention to a default. None was dangerous — they normalize and validate text —
+but the rule is worth being able to state without exceptions, and the test suite
+now asserts it for every function in the schema.
+
+**`analytics_timeseries` counts each table once.** The Phase 6 version ran two
+correlated subqueries per bucket, which at the All-time window's twenty thousand
+buckets was forty thousand index scans and a four-second page. It now groups
+each table once and left-joins the bucket list, and takes about seven
+milliseconds for the same window. The new `p_from_first_event` argument lets a
+caller that means "everything" start the series at the first bucket holding
+anything: a chart of All time should begin at the creator's first view, while
+for a seven-day window the empty leading days are the information. It defaults
+to false, so a caller that says nothing gets the old shape.
+
 ### Usernames
 
 `profiles.username` is the whole public address, so the rules are enforced in
@@ -327,6 +359,31 @@ write never answers with a success.
   early, un-feature one, delete one, or remove a page from search.
 - A page kept out of search is still readable by a stranger, which is what makes
   it a search setting rather than a privacy one.
+
+**The Phase 8 audit** (`07_hardening.sql`) asks the questions an auditor asks
+rather than testing a feature, so most of it duplicates nothing above:
+
+- RLS is on for *every* table in `public`, by enumeration rather than by list —
+  a table added later without it is the single most likely way this product
+  leaks, and it would leak silently.
+- No write policy anywhere is unconditional, and `page_views`, `link_clicks`
+  and `subscriptions` have no write policy at all.
+- `profiles` has no `DELETE` policy.
+- Every function pins `search_path`, and `handle_new_user` is the only
+  `SECURITY DEFINER` one.
+- **`anon` can execute no function.** This is the assertion that found four
+  username helpers from Phase 2 still carrying Postgres's default grant to
+  `PUBLIC`.
+- Every owned table has a foreign key to the profile that owns it; deleting a
+  link nulls its clicks' `link_id` rather than deleting the history.
+- A stranger and a rival are each walked through the whole surface: read,
+  write, delete, escalate.
+- The covering indexes exist, and both event tables are indexed by owner and
+  time.
+- `analytics_timeseries` puts every event in the bucket it belongs to,
+  including one a microsecond before midnight and one at the exact end of a
+  window; empty days are still rows; the `p_from_first_event` flag changes
+  where a chart starts and nothing about what it totals.
 
 ## Conventions
 

@@ -3,7 +3,7 @@ import { z } from "zod";
 import { createPublicClient } from "@/lib/supabase/public";
 import { isSupabaseConfigured } from "@/lib/env";
 import { isBot } from "@/lib/analytics/bots";
-import { allow, requestKey } from "@/lib/analytics/rate-limit";
+import { allow, requestKey } from "@/lib/security/rate-limit";
 import { recordPageView } from "@/lib/analytics/record";
 import { usernameFromPath } from "@/lib/validation/username";
 

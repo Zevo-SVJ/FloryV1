@@ -1,6 +1,7 @@
 "use server";
 
 import { redirect } from "next/navigation";
+import { headers } from "next/headers";
 import { revalidatePath } from "next/cache";
 import { AuthError, type AuthApiError } from "@supabase/supabase-js";
 import { createClient } from "@/lib/supabase/server";
@@ -9,6 +10,7 @@ import { requireUser } from "@/lib/auth/dal";
 import { AFTER_SIGN_IN, ONBOARDING_PATH, SIGN_IN_PATH, safeReturnTo } from "@/lib/auth/routes";
 import { checkAvailability } from "@/lib/usernames/availability";
 import { revalidatePublicPage } from "@/lib/public-page/revalidate";
+import { allow, requestKey } from "@/lib/security/rate-limit";
 import { credentialsSchema, signInSchema } from "@/lib/validation/schemas";
 import { usernameSchema } from "@/lib/validation/username";
 import type { AuthField, FormState } from "@/lib/auth/form-state";
@@ -26,6 +28,37 @@ import type { AuthField, FormState } from "@/lib/auth/form-state";
  * `form-state.ts`, because a `"use server"` module may only export async
  * functions.
  */
+
+/**
+ * A brake in front of the auth actions.
+ *
+ * Supabase rate-limits authentication itself, and that is the limit that
+ * matters. This one sits in front of it for a narrower reason: both signup and
+ * the username claim run a database query *before* Supabase ever sees the
+ * attempt, so a loop against a Server Action — which is a URL, reachable
+ * without the form — costs queries whether or not the credentials are
+ * plausible.
+ *
+ * Generous enough that a person mistyping a password never meets it. Per
+ * instance, like every limit here, and honest about that in
+ * `lib/security/rate-limit.ts`.
+ */
+const ATTEMPT_LIMIT = 12;
+const ATTEMPT_WINDOW_MS = 60_000;
+
+const TOO_MANY: FormState = {
+  error: "Too many attempts from this connection. Wait a minute and try again.",
+};
+
+async function withinAttemptLimit(scope: string): Promise<boolean> {
+  try {
+    return allow(requestKey(await headers(), scope), ATTEMPT_LIMIT, ATTEMPT_WINDOW_MS);
+  } catch {
+    // No request context — nothing to key on, and refusing would break the
+    // action rather than protect it.
+    return true;
+  }
+}
 
 const NOT_CONFIGURED: FormState = {
   error:
@@ -106,6 +139,7 @@ function describeAuthError(error: AuthError): FormState {
 
 export async function signUp(_prev: FormState, formData: FormData): Promise<FormState> {
   if (!isSupabaseConfigured()) return NOT_CONFIGURED;
+  if (!(await withinAttemptLimit("signup"))) return TOO_MANY;
 
   const parsed = credentialsSchema
     .extend({ username: usernameSchema })
@@ -182,6 +216,7 @@ export async function signUp(_prev: FormState, formData: FormData): Promise<Form
 
 export async function signIn(_prev: FormState, formData: FormData): Promise<FormState> {
   if (!isSupabaseConfigured()) return NOT_CONFIGURED;
+  if (!(await withinAttemptLimit("signin"))) return TOO_MANY;
 
   const parsed = signInSchema.safeParse({
     email: formData.get("email"),
@@ -221,6 +256,7 @@ export async function claimUsername(
   if (!isSupabaseConfigured()) return NOT_CONFIGURED;
 
   const user = await requireUser(ONBOARDING_PATH);
+  if (!(await withinAttemptLimit("claim"))) return TOO_MANY;
 
   const parsed = usernameSchema.safeParse(formData.get("username"));
   if (!parsed.success) {

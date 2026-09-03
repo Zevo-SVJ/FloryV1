@@ -30,6 +30,29 @@ export interface SessionUser {
 }
 
 /**
+ * A session with no profile behind it.
+ *
+ * The schema says this cannot happen — a trigger creates a profile inside the
+ * same transaction as the auth row, and since
+ * `20260107000000_hardening.sql` no client may delete one. So reaching here
+ * means either the database is unreachable in a way that looks like an empty
+ * result, or an administrator removed the row by hand.
+ *
+ * It is thrown rather than redirected, and that is the fix for a real bug: the
+ * old code sent these accounts to `/login`, which the proxy bounces a
+ * signed-in visitor away from, which lands on `/dashboard`, which redirects to
+ * `/login` — a loop the browser gives up on with no way out. The `(app)` error
+ * boundary catches this and offers the one action that actually helps, which
+ * is signing out.
+ */
+export class ProfileUnavailableError extends Error {
+  constructor() {
+    super("Your account is signed in but has no page.");
+    this.name = "ProfileUnavailableError";
+  }
+}
+
+/**
  * The signed-in user, or null.
  *
  * `getUser()` rather than `getSession()`: the latter decodes the cookie and
@@ -127,9 +150,8 @@ export const requireClaimedProfile = cache(async (): Promise<Profile> => {
 
 export const requireProfile = cache(async (returnTo?: string): Promise<Profile> => {
   await requireUser(returnTo);
+
   const profile = await getCurrentProfile();
-  // Signed in but no profile row means the account is in a state the schema
-  // says is impossible. Sending them to sign in again is the honest recovery.
-  if (!profile) redirect(signInUrl(returnTo ?? (await currentPath())));
+  if (!profile) throw new ProfileUnavailableError();
   return profile;
 });

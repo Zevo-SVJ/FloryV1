@@ -21,7 +21,13 @@ export default async function LoginPage({
 
   return (
     <main className="mx-auto flex min-h-dvh w-full max-w-sm flex-col justify-center px-5 py-16">
-      <Link href="/" className="rounded text-[0.9375rem] font-semibold tracking-tight">
+      <Link
+        href="/"
+        // `w-fit py-0.5`: the wordmark is a standalone navigation target, and at
+        // its natural line height it was a 23px-tall thing to hit. Two pixels
+        // of padding take it to the 24px minimum without moving anything.
+        className="w-fit rounded py-0.5 text-[0.9375rem] font-semibold tracking-tight"
+      >
         ShowMe
       </Link>
 

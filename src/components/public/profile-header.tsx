@@ -15,16 +15,31 @@ import type { PublicProfile } from "@/lib/public-page/types";
  * masthead rather than a profile. Everything else about the header — sizes,
  * spacing, the avatar's diameter — is the stylesheet reading `data-sm-header`
  * and `data-sm-avatar`, so this component describes structure and never size.
+ *
+ * The creator's name is the page's `<h1>` — on the public route, where this
+ * header is the top of the document. In the editor's preview it is not: that
+ * document's heading is "Editor", and a second `<h1>` inside a panel gives a
+ * screen reader two answers to "what is this page". `standalone` picks the
+ * element; `sm-name` carries every pixel of the styling either way, so the two
+ * renders remain identical to look at, which is the property the preview
+ * exists to have.
  */
-export function ProfileHeader({ profile }: { profile: PublicProfile }) {
+export function ProfileHeader({
+  profile,
+  standalone = false,
+}: {
+  profile: PublicProfile;
+  standalone?: boolean;
+}) {
   const name = profile.displayName ?? profile.username;
+  const Name = standalone ? "h1" : "h2";
 
   return (
     <header className="sm-header">
       <Avatar profile={profile} name={name} />
 
       <div className="sm-header-text">
-        <h1 className="sm-name">{name}</h1>
+        <Name className="sm-name">{name}</Name>
 
         {/*
          * The handle is shown only when it is not already the heading.

@@ -22,7 +22,7 @@ export function AppNav({ profile }: { profile: Profile }) {
         <div className="flex min-w-0 items-center gap-3 sm:gap-6">
           <Link
             href="/dashboard"
-            className="shrink-0 rounded text-[0.9375rem] font-semibold tracking-tight"
+            className="shrink-0 rounded py-0.5 text-[0.9375rem] font-semibold tracking-tight"
           >
             ShowMe
           </Link>
@@ -51,7 +51,7 @@ export function AppNav({ profile }: { profile: Profile }) {
         <div className="flex shrink-0 items-center gap-3">
           <Link
             href={`/${profile.username}`}
-            className="hidden rounded text-sm text-ink-subtle transition-colors hover:text-ink sm:block"
+            className="hidden rounded py-0.5 text-sm text-ink-subtle transition-colors hover:text-ink sm:block"
           >
             showme.at/{profile.username}
           </Link>

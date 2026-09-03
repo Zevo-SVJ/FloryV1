@@ -18,6 +18,7 @@ import {
   verticalListSortingStrategy,
 } from "@dnd-kit/sortable";
 import { AddBlock } from "@/components/editor/add-block";
+import { BLOCKS } from "@/lib/blocks/registry";
 import { DesignPanel } from "@/components/editor/design-panel";
 import { BlockCard } from "@/components/editor/block-card";
 import { Preview } from "@/components/editor/preview";
@@ -27,6 +28,7 @@ import {
   draftsEqual,
   newBlock,
   reorder,
+  savePayload,
   type Draft,
   type DraftBlock,
   type DraftProfile,
@@ -214,18 +216,7 @@ export function Editor({ initial }: { initial: Draft }) {
     setOutcome({ kind: "saving" });
 
     startTransition(async () => {
-      const result = await savePage(
-        JSON.stringify({
-          profile: {
-            displayName: snapshot.profile.displayName,
-            bio: snapshot.profile.bio,
-            avatarUrl: snapshot.profile.avatarUrl,
-          },
-          design: snapshot.design,
-          socials: snapshot.socials,
-          blocks: snapshot.blocks,
-        }),
-      );
+      const result = await savePage(JSON.stringify(savePayload(snapshot)));
 
       if (!result.ok) {
         setOutcome({
@@ -256,6 +247,60 @@ export function Editor({ initial }: { initial: Draft }) {
     useSensor(PointerSensor, { activationConstraint: { distance: 6 } }),
     useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
   );
+
+  /*
+   * What a screen reader hears while a block is being dragged.
+   *
+   * dnd-kit's defaults say "Picked up draggable item
+   * b0000000-0000-4000-8000-000000000001." — a uuid, read out character by
+   * character, for a control whose whole job is to tell somebody which of
+   * eleven blocks they are holding and where it has got to. These say
+   * "Picked up the Socials block, 1 of 11" instead, and no internal id ever
+   * reaches a person.
+   *
+   * `draft.blocks` is the source for both the name and the position, so the
+   * announcement is the same list the arrows and the save use — there is no
+   * second model of the order that could disagree with the one on screen.
+   */
+  const announcements = useMemo(() => {
+    const describe = (id: string | number) => {
+      const index = draft.blocks.findIndex((block) => block.id === id);
+      if (index === -1) return { name: "block", position: "" };
+      const type = draft.blocks[index]?.type;
+      return {
+        name: `${type ? BLOCKS[type].label : "block"} block`,
+        position: `${index + 1} of ${draft.blocks.length}`,
+      };
+    };
+
+    return {
+      onDragStart({ active }: { active: { id: string | number } }) {
+        const { name, position } = describe(active.id);
+        return `Picked up the ${name}, ${position}.`;
+      },
+      onDragOver({ active, over }: { active: { id: string | number }; over: { id: string | number } | null }) {
+        if (!over) return `The ${describe(active.id).name} is not over a position.`;
+        /*
+         * Silent while the block is still over its own position. dnd-kit
+         * fires this immediately after the pick-up — the block is over
+         * itself — and the announcement replaced "Picked up the Socials
+         * block, 1 of 11" within a frame, so the one message that says what
+         * you are holding was the one nobody heard. `undefined` is dnd-kit's
+         * own way of saying "nothing to announce".
+         */
+        if (over.id === active.id) return undefined;
+        return `Moved to position ${describe(over.id).position}.`;
+      },
+      onDragEnd({ active, over }: { active: { id: string | number }; over: { id: string | number } | null }) {
+        const { name } = describe(active.id);
+        if (!over) return `Dropped the ${name} back where it started.`;
+        return `Dropped the ${name} at position ${describe(over.id).position}.`;
+      },
+      onDragCancel({ active }: { active: { id: string | number } }) {
+        return `Cancelled. The ${describe(active.id).name} stayed where it was.`;
+      },
+    };
+  }, [draft.blocks]);
 
   function onDragEnd(event: DragEndEvent) {
     const { active, over } = event;
@@ -300,7 +345,27 @@ export function Editor({ initial }: { initial: Draft }) {
             <>
           <ProfilePanel profile={draft.profile} onChange={setProfile} />
 
+          {/*
+            * The `id` is not cosmetic. Without one, dnd-kit derives the id of
+            * its screen-reader instructions from a module-level counter, and
+            * that counter is a different number on the server than in a fresh
+            * browser module — so every drag handle shipped with
+            * `aria-describedby="DndDescribedBy-9"` pointing at an element the
+            * client had named `DndDescribedBy-0`. The keyboard instructions
+            * for reordering blocks were, in other words, addressed to nothing.
+            * A fixed id makes both renders agree.
+            */}
           <DndContext
+            id="editor-blocks"
+            accessibility={{
+              announcements,
+              // The default says "draggable item". This says what it is.
+              screenReaderInstructions: {
+                draggable:
+                  "Press the space bar to pick up a block. Use the up and down arrows to move it, " +
+                  "space again to drop it, or escape to leave it where it was.",
+              },
+            }}
             sensors={sensors}
             collisionDetection={closestCenter}
             modifiers={[restrictToVerticalAxis, restrictToParentElement]}
@@ -414,7 +479,7 @@ function SaveBar({
           <h1 className="shrink-0 text-[0.9375rem] font-semibold tracking-tight">Editor</h1>
           <Link
             href={`/${username}`}
-            className="hidden truncate font-mono text-[0.8125rem] text-ink-subtle transition-colors hover:text-ink sm:block"
+            className="hidden truncate py-1 font-mono text-[0.8125rem] text-ink-subtle transition-colors hover:text-ink sm:block"
           >
             {siteOrigin()}/{username}
           </Link>

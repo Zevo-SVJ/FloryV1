@@ -286,7 +286,7 @@ export interface Database {
         Returns: { views: number; clicks: number; visitors: number }[];
       };
       analytics_timeseries: {
-        Args: { p_from: string; p_to: string; p_bucket: string };
+        Args: { p_from: string; p_to: string; p_bucket: string; p_from_first_event?: boolean };
         Returns: { bucket: string; views: number; clicks: number }[];
       };
       analytics_top_links: {

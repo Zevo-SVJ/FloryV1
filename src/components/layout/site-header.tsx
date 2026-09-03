@@ -15,7 +15,7 @@ export async function SiteHeader() {
   return (
     <header className="border-b border-border">
       <div className="container-page flex h-16 items-center justify-between">
-        <Link href="/" className="rounded text-[0.9375rem] font-semibold tracking-tight">
+        <Link href="/" className="rounded py-0.5 text-[0.9375rem] font-semibold tracking-tight">
           ShowMe
         </Link>
 

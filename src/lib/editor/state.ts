@@ -194,6 +194,47 @@ export function draftToPublicPage(draft: Draft, now: Date = new Date()): PublicP
 }
 
 /**
+ * The draft, as the payload `save_page` is given.
+ *
+ * It lives here rather than inside the Save handler because of what it got
+ * wrong while it did live there: the handler listed the profile's fields by
+ * hand, and when Phase 7 added a "Show in search" switch the list was not
+ * updated. The switch moved, the page went dirty, the save succeeded and the
+ * setting was silently discarded — `save_page` coalesces an absent
+ * `searchVisible` to the stored value, which is the right behaviour for an old
+ * client and an invisible failure for a current one.
+ *
+ * As a function it is one place, and `__tests__/state.test.ts` asserts that
+ * what comes out still parses as a complete `savePageSchema` payload and
+ * carries every profile field the draft holds — so the next field added to a
+ * draft cannot quietly fail to be saved.
+ *
+ * `username` is deliberately absent. It is chosen once at onboarding and
+ * changed nowhere else; sending it would invite a save to be the place it
+ * changes.
+ */
+export function savePayload(draft: Draft): {
+  profile: Omit<DraftProfile, "username">;
+  design: DesignConfig;
+  socials: DraftSocial[];
+  blocks: DraftBlock[];
+} {
+  const { username, ...profile } = draft.profile;
+  // Referenced so that it is unmistakably a field this function chose to drop
+  // rather than one nobody noticed — which is the failure this function exists
+  // to prevent, and the reason it is a rest destructure and not a hand-written
+  // list of the other four.
+  void username;
+
+  return {
+    profile,
+    design: draft.design,
+    socials: draft.socials,
+    blocks: draft.blocks,
+  };
+}
+
+/**
  * Whether the page as saved and the page as edited are the same.
  *
  * Structural equality over a JSON round trip. The draft is a tree of plain

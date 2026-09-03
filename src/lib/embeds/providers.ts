@@ -290,10 +290,6 @@ export const EMBED_PROVIDERS: readonly EmbedProvider[] = [
   "soundcloud",
 ];
 
-export function providerLabel(provider: EmbedProvider): string {
-  return PROVIDERS.find((spec) => spec.provider === provider)?.label ?? provider;
-}
-
 export function providerExamples(allowed: readonly EmbedProvider[]): string[] {
   return PROVIDERS.filter((spec) => allowed.includes(spec.provider)).map(
     (spec) => spec.example,

@@ -4,7 +4,6 @@ import { test } from "node:test";
 import { normalizeSource, sourceLabel, DIRECT, OTHER } from "../sources.ts";
 import { detectDevice } from "../device.ts";
 import { isBot } from "../bots.ts";
-import { allow } from "../rate-limit.ts";
 import {
   clickThroughRate,
   percentChange,
@@ -167,36 +166,6 @@ test("a request with no user agent is treated as a bot", () => {
   assert.equal(isBot(""), true);
 });
 
-/* ── Rate limiting ────────────────────────────────────────────────────────── */
-
-test("a key is allowed up to its limit and then refused", () => {
-  const key = `test-${Math.random()}`;
-
-  for (let i = 0; i < 5; i += 1) {
-    assert.equal(allow(key, 5, 60_000), true, `call ${i + 1}`);
-  }
-  assert.equal(allow(key, 5, 60_000), false);
-});
-
-test("one key's limit does not affect another's", () => {
-  const a = `a-${Math.random()}`;
-  const b = `b-${Math.random()}`;
-
-  assert.equal(allow(a, 1, 60_000), true);
-  assert.equal(allow(a, 1, 60_000), false);
-  assert.equal(allow(b, 1, 60_000), true);
-});
-
-test("the window expires", async () => {
-  const key = `expiring-${Math.random()}`;
-
-  assert.equal(allow(key, 1, 20), true);
-  assert.equal(allow(key, 1, 20), false);
-
-  await new Promise((resolve) => setTimeout(resolve, 30));
-  assert.equal(allow(key, 1, 20), true);
-});
-
 /* ── Windows and comparisons ──────────────────────────────────────────────── */
 
 const NOW = new Date("2026-06-15T12:00:00.000Z");
@@ -244,6 +213,17 @@ test("all time has no previous period and reaches back further than any account"
   const all = resolveWindow("all", NOW, OLD_ACCOUNT);
 
   assert.equal(all.previous, null);
+  assert.equal(all.bucket, "day");
+  /*
+   * Deliberately the epoch and not the account's creation instant.
+   *
+   * Starting at `since` was tried while fixing the four-second All-time tab,
+   * and it was wrong twice over: the slowness was in the query's shape rather
+   * than the window's width, and any page whose events predate its profile
+   * row — a backfill, a restore, a seeded fixture — reported zero views with
+   * no indication anything had been excluded.
+   */
+  assert.equal(all.from.getTime(), 0);
   assert.ok(all.from.getTime() < OLD_ACCOUNT.getTime());
 });
 

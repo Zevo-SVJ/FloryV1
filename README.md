@@ -2,12 +2,18 @@
 
 One page for everything you make — `showme.at/<username>`.
 
-**Phase 7: growth.** A creator builds a page out of blocks, decides how it
-looks, finds out whether any of it worked — and then gets it in front of people.
-Share it in two taps or a system share sheet, put a QR code on a business card,
-schedule a drop for Friday and let it appear on its own, feature the link that
-matters, and have the page carry a real title, a generated social card and a
-sitemap entry so somebody can find it without being handed the address.
+**Phase 8: polish and production.** The product is feature-complete — a creator
+builds a page out of blocks, decides how it looks, shares it, and finds out
+whether any of it worked. This phase added almost nothing and audited
+everything: security headers, rate limits on the paths that invite a script, an
+open redirect closed, an anonymous role that can now execute no function at
+all, a keyboard path through every screen, a preview that is a picture rather
+than fifteen invisible tab stops, an All-time analytics tab that took four
+seconds and now takes a tenth of one, and a "Show in search" switch that
+worked everywhere except in the payload the editor actually sent.
+
+See **[What Phase 8 changed](#what-phase-8-changed)** for the list, and
+**[Decisions worth knowing](#decisions-worth-knowing)** for the reasoning.
 
 ---
 
@@ -620,6 +626,89 @@ deliberately absent — its player refuses to load unless a `parent` parameter
 matches the serving hostname, which the editor's in-browser preview cannot know,
 and an embed that works in production and silently fails in the preview is worse
 than a link.
+
+## What Phase 8 changed
+
+Nothing in this phase is a feature. Every item is something that was wrong,
+slow, unreachable by keyboard, or true only by accident.
+
+**Security**
+
+- `safeReturnTo` resolves a `?next=` against a fixed internal origin and
+  compares origins, instead of pattern-matching the string. `/\evil.com`,
+  `/\/evil.com` and `/..//evil.com` all passed the old guard; the last of
+  those normalizes to the pathname `//evil.com`, which is protocol-relative
+  the moment it reaches `redirect()`.
+- Four security headers on every response, and `x-powered-by` removed. No CSP:
+  Next's inline bootstrap needs a per-request nonce, and a `frame-src` list
+  would drift against `lib/embeds/providers.ts` without anything failing
+  loudly. The reasoning is written out in `next.config.ts` rather than left as
+  an omission.
+- Sign-up, sign-in and username claims are rate-limited per address, and so is
+  `/api/username`. The limiter is one module now — `lib/security/rate-limit`
+  — shared by four callers rather than living under `analytics`.
+- `anon` can execute no function in the schema. Four username helpers from
+  Phase 2 still carried Postgres's default grant to `PUBLIC`; none was
+  dangerous, and "an anonymous caller can execute nothing" is a rule worth
+  being able to state without exceptions. `supabase/tests/07_hardening.sql`
+  asserts it for every function, so the next one that forgets fails a test.
+- The `DELETE` policy on `profiles` is gone. Nothing in the product deletes an
+  account, and a policy that permits what no code performs is a policy nobody
+  is maintaining.
+
+**Correctness**
+
+- **The "Show in search" switch did nothing.** The control, the schema, the
+  validation and `save_page` were all correct; the editor's Save handler
+  listed the profile's fields by hand and had never been updated. `save_page`
+  coalesces an absent `searchVisible` to the stored value — the right
+  behaviour for an old client — so the save succeeded and the setting was
+  discarded in silence. The payload is now `savePayload()` in
+  `lib/editor/state.ts`, and a test asserts every field of the draft's profile
+  reaches it.
+- `requireProfile` throws `ProfileUnavailableError` instead of redirecting.
+  Redirecting a signed-in account with no profile row produced an infinite
+  `/login` ⇄ `/dashboard` loop.
+
+**Performance**
+
+- **The All-time analytics tab took 4.2 seconds; it now takes 0.12.**
+  `analytics_timeseries` ran two correlated subqueries for every bucket in the
+  window, which at twenty thousand buckets meant forty thousand index scans.
+  It now counts each table once and joins. A new `p_from_first_event` argument
+  lets the one range that means "everything" start its chart at the creator's
+  first view instead of in 1970 — said explicitly by the caller, because for a
+  seven-day window the empty leading days are the information.
+- Three covering indexes for the analytics dimensions and the live-link
+  lookup.
+
+**Accessibility**
+
+- The editor's preview is `inert`. It was `pointer-events-none` and
+  `aria-hidden`, which covered the mouse and the screen reader and missed the
+  keyboard: fifteen tab stops that announced nothing and did nothing.
+- Drag-and-drop announces itself in words. dnd-kit's defaults read a uuid
+  aloud, character by character; it now says "Picked up the Socials block, 1
+  of 11". The `DndContext` also has a fixed `id`, without which the drag
+  instructions were addressed to an element the client had named something
+  else.
+- `aria-controls` is set only while the panel it names exists.
+- The public page's column is a `<main>`; the preview's is not, because that
+  document already has one.
+- Standalone links and the visibility switch meet the 24px target minimum.
+  Links inside a sentence are left alone, which is the spec's own exception.
+- Loading skeletons for the three slow routes, and an error boundary for the
+  app shell that shows a digest and never a stack.
+
+**Verified, not assumed**
+
+Every page at 320, 375, 390, 430, 768, 1024, 1280 and 1440 with no horizontal
+overflow and no clipped control; every interactive element reachable by
+keyboard with a visible focus ring; nothing animating under
+`prefers-reduced-motion`; no profile id, email, column name, key or salt in
+any public HTML; no service-role reference in any of the 21 client chunks.
+
+---
 
 ## Decisions worth knowing
 

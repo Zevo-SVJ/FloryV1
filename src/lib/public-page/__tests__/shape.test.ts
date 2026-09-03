@@ -9,7 +9,8 @@ import {
   type SocialRow,
 } from "../shape.ts";
 import { isEmptyPage, type PublicBlock } from "../types.ts";
-import { avatarInitial, renderableAvatarUrl } from "../avatar.ts";
+import { avatarInitial } from "../avatar.ts";
+import { renderableMediaUrl } from "@/lib/media/url";
 
 /**
  * Everything that decides what a public page contains.
@@ -393,10 +394,10 @@ test("no database column leaks into the view model", () => {
 });
 
 test("an avatar is only rendered from our own storage host", () => {
-  assert.equal(renderableAvatarUrl("https://evil.example.com/a.png"), null);
-  assert.equal(renderableAvatarUrl("http://example.com/a.png"), null);
-  assert.equal(renderableAvatarUrl(null), null);
-  assert.equal(renderableAvatarUrl("not a url"), null);
+  assert.equal(renderableMediaUrl("https://evil.example.com/a.png"), null);
+  assert.equal(renderableMediaUrl("http://example.com/a.png"), null);
+  assert.equal(renderableMediaUrl(null), null);
+  assert.equal(renderableMediaUrl("not a url"), null);
 });
 
 test("the initial falls back through display name, then username", () => {

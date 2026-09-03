@@ -49,13 +49,17 @@ export function PublicPage({
    * and which is exactly why it must not report a view. A creator adjusting
    * their theme would otherwise spend the afternoon inflating their own
    * numbers.
+   *
+   * It carries a second meaning, and the two are the same fact: the live page
+   * is the document, so its column is the `<main>` landmark, while the preview
+   * is a panel inside a document that already has one.
    */
   tracked?: boolean;
 }) {
   return (
-    <PageSurface design={design}>
+    <PageSurface design={design} standalone={tracked}>
       {tracked ? <ViewBeacon username={page.profile.username} /> : null}
-      <ProfileHeader profile={page.profile} />
+      <ProfileHeader profile={page.profile} standalone={tracked} />
 
       {page.blocks.length > 0 ? (
         <div className="sm-stack" style={{ marginTop: "var(--sm-gap)" }}>

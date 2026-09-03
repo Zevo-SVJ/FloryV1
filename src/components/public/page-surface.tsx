@@ -22,11 +22,24 @@ import type { ResolvedDesign } from "@/lib/design/types";
  */
 export function PageSurface({
   design,
+  standalone = false,
   children,
 }: {
   design: ResolvedDesign;
+  /**
+   * Whether this render is the whole document rather than a panel inside one.
+   *
+   * It decides one thing: whether the content column is a `<main>`. On the
+   * public route it is — a screen reader's "skip to main content" has to land
+   * on the creator's page, and an audit that counts landmarks found none here
+   * at all. Inside the editor's preview it must not be, because that document
+   * already has a `<main>` around the whole editor and two of them is not a
+   * stronger landmark, it is an ambiguous one.
+   */
+  standalone?: boolean;
   children: React.ReactNode;
 }) {
+  const Shell = standalone ? "main" : "div";
   const showsBackdrop = design.background.kind === "image";
 
   return (
@@ -42,7 +55,7 @@ export function PageSurface({
         </div>
       ) : null}
 
-      <div className="sm-shell">{children}</div>
+      <Shell className="sm-shell">{children}</Shell>
     </div>
   );
 }

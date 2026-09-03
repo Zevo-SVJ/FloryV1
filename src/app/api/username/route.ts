@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { checkAvailability } from "@/lib/usernames/availability";
+import { allow, requestKey } from "@/lib/security/rate-limit";
 
 /**
  * GET /api/username?u=alex
@@ -12,9 +13,27 @@ import { checkAvailability } from "@/lib/usernames/availability";
  * returning 404, and profiles are world-readable so the public page can render.
  * What it must not do is leak anything else, so a database failure comes back
  * as "cannot check right now" rather than as a Postgres error.
+ *
+ * It does run a query per keystroke, though, which is the reason for the limit
+ * below: enumeration is not the risk here, cost is. Sixty a minute is far more
+ * than anybody types and far less than a loop manages.
  */
 
+const LIMIT = 60;
+const WINDOW_MS = 60_000;
+
 export async function GET(request: Request) {
+  if (!allow(requestKey(request.headers, "username"), LIMIT, WINDOW_MS)) {
+    return NextResponse.json(
+      {
+        username: "",
+        state: "unknown",
+        message: "Checking too fast — try again in a moment.",
+      },
+      { status: 429, headers: { "cache-control": "no-store" } },
+    );
+  }
+
   const requested = new URL(request.url).searchParams.get("u") ?? "";
 
   // Bounded before any work happens: an unbounded parameter is an invitation.

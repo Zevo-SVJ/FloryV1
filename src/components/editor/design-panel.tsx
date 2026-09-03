@@ -165,7 +165,16 @@ function Section({
           type="button"
           onClick={() => onToggle(id)}
           aria-expanded={open}
-          aria-controls={panelId}
+          /*
+           * `aria-controls` only while the panel exists. An IDREF that
+           * resolves to nothing is not a harmless leftover — assistive
+           * technology is told this button controls a region and then finds
+           * no region, and the collapsed state is the common case, so that
+           * was true for most of the buttons on the page at any moment.
+           * `aria-expanded` is what carries the state; `aria-controls` is
+           * only meaningful once there is something to point at.
+           */
+          aria-controls={open ? panelId : undefined}
           className="flex w-full items-center gap-3 px-3 py-3 text-left transition-colors hover:bg-surface-sunken"
         >
           <span className="min-w-0 flex-1">

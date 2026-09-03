@@ -15,12 +15,34 @@ export type RangeId = (typeof RANGES)[number];
 
 export const DEFAULT_RANGE: RangeId = "7d";
 
+/** The full name, for prose: a panel note, a sentence, an empty state. */
 export const RANGE_LABELS: Record<RangeId, string> = {
   today: "Today",
   "7d": "7 days",
   "30d": "30 days",
   "90d": "90 days",
   all: "All time",
+};
+
+/**
+ * The same ranges, named for a control rather than a sentence.
+ *
+ * The full labels need 362px of segmented control, which does not fit a 390px
+ * phone — the width most creators open this on — so the picker scrolled and its
+ * last option needed a swipe to reach. A segmented control you have to swipe
+ * is a broken segmented control, and being twelve pixels short of fitting
+ * looks like a bug rather than a scroller.
+ *
+ * `7d` and `30d` are what every analytics product calls these, and they are
+ * read instantly in a row of five. The prose labels above are still used
+ * wherever there is room for the words.
+ */
+export const RANGE_SHORT_LABELS: Record<RangeId, string> = {
+  today: "Today",
+  "7d": "7d",
+  "30d": "30d",
+  "90d": "90d",
+  all: "All",
 };
 
 export const isRangeId = (value: string | undefined): value is RangeId =>
@@ -54,8 +76,24 @@ export function resolveWindow(range: RangeId, now: Date, since: Date | null): Wi
   const to = new Date(now.getTime());
 
   if (range === "all") {
-    // Far enough back to precede any account. The query is still bounded, so
-    // the planner keeps using the (profile_id, created_at) index.
+    /*
+     * Genuinely all of it. Not "since the account row was created", which was
+     * this function's first attempt at the performance problem below and which
+     * silently reported zero for any page whose events predate its profile
+     * row — a backfill, a restore, a seed. "All time" that quietly means
+     * something else is worse than "all time" that is slow.
+     *
+     * It is not slow any more. The cost was never the width of this window: it
+     * was `analytics_timeseries` running two correlated subqueries for every
+     * bucket in it, which at twenty thousand buckets meant forty thousand
+     * index scans and a four-second page. Phase 8 rewrote that function to
+     * count each table once, and the same twenty thousand buckets now take
+     * seven milliseconds.
+     *
+     * What the chart does with the empty half-century before the first view is
+     * `getSeries`' business, and it says so explicitly rather than inferring
+     * it from the width of the window.
+     */
     return { from: new Date(0), to, bucket: "day", previous: null };
   }
 

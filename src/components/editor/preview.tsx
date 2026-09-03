@@ -17,9 +17,18 @@ import { draftToPublicPage, type Draft } from "@/lib/editor/state";
  * shown at desktop width would flatter every layout and warn about none of
  * them.
  *
- * `pointer-events-none` inside the frame: this is a picture of a page, not a
- * page. Letting somebody click a link in the preview would navigate the editor
- * away from unsaved work, which is a strange way to lose an afternoon.
+ * `inert` inside the frame: this is a picture of a page, not a page. Letting
+ * somebody click a link in the preview would navigate the editor away from
+ * unsaved work, which is a strange way to lose an afternoon.
+ *
+ * It replaces a `pointer-events-none` and an `aria-hidden` that between them
+ * covered the mouse and the screen reader and missed the keyboard: every link,
+ * every social icon and the footer's own share button were still in the tab
+ * order, so a keyboard user reached fifteen stops that announced nothing and
+ * did nothing. `inert` is the one attribute that says all three things at
+ * once — not focusable, not clickable, not in the accessibility tree — and it
+ * sits on the content rather than on the scroll box, so the frame still
+ * scrolls.
  */
 export function Preview({ draft }: { draft: Draft }) {
   /*
@@ -34,11 +43,8 @@ export function Preview({ draft }: { draft: Draft }) {
     <div className="flex flex-col items-center">
       <div className="relative w-full max-w-[22rem]">
         <div className="overflow-hidden rounded-[2rem] border border-border shadow-card ring-1 ring-black/5">
-          <div
-            aria-hidden
-            className="max-h-[min(76vh,44rem)] overflow-y-auto [scrollbar-width:thin]"
-          >
-            <div className="pointer-events-none [&_.sm-page]:min-h-[34rem]">
+          <div className="max-h-[min(76vh,44rem)] overflow-y-auto [scrollbar-width:thin]">
+            <div inert className="[&_.sm-page]:min-h-[34rem]">
               {/*
                 * `address` is the real page address, so the footer's share
                 * button previews with the URL it will actually carry — and
@@ -67,7 +73,7 @@ export function Preview({ draft }: { draft: Draft }) {
       </div>
 
       {/*
-       * The preview itself is `aria-hidden`: every link and heading in it is a
+       * The preview itself is inert: every link and heading in it is a
        * duplicate of something the editor already exposes as a control, and
        * announcing the whole page twice makes the editor twice as long to
        * navigate. This line is what a screen reader hears instead.

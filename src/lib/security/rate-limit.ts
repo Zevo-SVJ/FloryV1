@@ -1,15 +1,18 @@
 import "server-only";
 
 /**
- * A small brake on the two public endpoints.
+ * A small brake on every public surface that costs something to serve.
  *
- * Both `/api/track/view` and `/go/<id>` are reachable by anybody, and both
- * write a row. Without something in front of them, a loop with `curl` inflates
- * a creator's numbers or fills a table.
+ * Four callers, and they are the four places an anonymous request does work:
+ * `/api/track/view` and `/go/<id>` each write a row, `/api/username` runs a
+ * query on every keystroke somebody types, and the auth actions run a query
+ * before Supabase's own limiter sees the attempt. Without something in front
+ * of them, a loop with `curl` inflates a creator's numbers, enumerates
+ * usernames, or simply costs money.
  *
  * This is a fixed-window counter held in memory. That choice deserves its
  * limitations stated plainly rather than buried, because it is the weakest
- * part of this phase:
+ * part of the security story:
  *
  *   · It is per instance. A serverless deployment running four instances
  *     allows four times the stated rate, and a deploy resets every window.
@@ -18,17 +21,20 @@ import "server-only";
  *     script someone wrote in a minute — and does not stop a distributed
  *     attempt. Nothing without shared state can.
  *
- * The alternative is a Redis dependency, which is a service to run, pay for
- * and page someone about, in front of a feature whose failure mode is a number
- * being wrong. That trade is not worth making yet. When ShowMe has traffic
- * worth forging, this becomes a call to a shared store and nothing else in the
- * codebase changes — which is why the interface takes a key and returns a
- * boolean and nothing else.
+ * The alternative is a Redis dependency: a service to run, pay for and page
+ * someone about. That trade is not worth making at this size. When ShowMe has
+ * traffic worth forging, this becomes a call to a shared store and nothing
+ * else in the codebase changes — which is why the interface takes a key and
+ * returns a boolean and nothing else.
  *
- * The real protection is elsewhere and is structural: a forged event can only
- * ever be attributed to a profile that exists and a link that is active, it
- * carries no attacker-chosen fields, and the tables are unreadable to everyone
- * but their owner.
+ * It is also not the only protection on any of those surfaces, and on the ones
+ * that matter it is not the main one. Supabase rate-limits authentication
+ * itself; a forged analytics event can only ever be attributed to a profile
+ * that exists and a link that is live, carries no attacker-chosen fields, and
+ * lands in a table unreadable to everyone but its owner.
+ *
+ * It moved here from `lib/analytics/` in Phase 8, when it stopped being an
+ * analytics concern.
  */
 
 interface Window {
