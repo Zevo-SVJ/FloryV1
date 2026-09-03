@@ -56,3 +56,56 @@ $$;
 
 grant usage on schema auth to anon, authenticated, service_role;
 grant execute on function auth.uid() to anon, authenticated, service_role;
+
+-- ────────────────────────────────────────────────────────────────────────────
+-- storage
+-- ────────────────────────────────────────────────────────────────────────────
+
+-- Enough of Supabase Storage to create and exercise the bucket policies. The
+-- real `storage.objects` has more columns and its own triggers; what matters
+-- here is that `bucket_id`, `name` and `owner` exist, that RLS is on, and that
+-- `storage.foldername()` splits a path the same way — because those three are
+-- what every policy in the migration is written against.
+create schema if not exists storage;
+
+create table storage.buckets (
+  id text primary key,
+  name text not null unique,
+  public boolean not null default false,
+  file_size_limit bigint,
+  allowed_mime_types text[],
+  created_at timestamptz not null default now()
+);
+
+create table storage.objects (
+  id uuid primary key default gen_random_uuid(),
+  bucket_id text not null references storage.buckets (id),
+  name text not null,
+  owner uuid,
+  created_at timestamptz not null default now(),
+  metadata jsonb,
+  unique (bucket_id, name)
+);
+
+alter table storage.objects enable row level security;
+
+-- Supabase's own definition: the path split on '/', with the final segment
+-- (the file name) dropped, so `a/b/c.png` yields `{a,b}` and `uid/x.png`
+-- yields `{uid}`.
+create or replace function storage.foldername(name text)
+returns text[]
+language plpgsql
+immutable
+as $$
+declare
+  parts text[];
+begin
+  parts := string_to_array(name, '/');
+  return parts[1 : array_length(parts, 1) - 1];
+end;
+$$;
+
+grant usage on schema storage to anon, authenticated, service_role;
+grant all on storage.objects to anon, authenticated, service_role;
+grant all on storage.buckets to anon, authenticated, service_role;
+grant execute on function storage.foldername(text) to anon, authenticated, service_role;

@@ -2,11 +2,11 @@
 
 One page for everything you make — `showme.at/<username>`.
 
-**Phase 3: the public page engine.** Someone can sign up, claim an address,
-and that address renders — `showme.at/<username>` serves a real creator page,
-built from the database, to a visitor with no account. There is no editor yet:
-rows are added through Supabase, and the page shows them. Themes and analytics
-are later phases.
+**Phase 4: the editor and the core blocks.** A creator signs in, builds a page
+out of blocks — links, images, a gallery, text, video, Spotify, socials —
+reorders them, hides what is not ready, uploads pictures, presses Save, and
+`showme.at/<username>` renders exactly that. Themes and analytics are later
+phases.
 
 ---
 
@@ -51,13 +51,19 @@ src/
     layout/               site header, app nav
     auth/                 the auth form, sign out
     public/               everything the creator page renders
+      blocks/             one component per block type
+    editor/               the editor, its forms and its controls
   lib/
     supabase/             server client, browser client, session refresh,
                           and a session-less client for the public page
     auth/                 the data access layer, server actions, route rules
     validation/           usernames, URLs, reserved names, schemas
     usernames/            is this name free?
-    public-page/          the query, the shape, the block registry, the avatar
+    blocks/               the block registry and one schema per type
+    editor/               the draft, the save payload, the editor's actions
+    embeds/               which URLs may become an iframe
+    media/                what counts as an image, and where it may live
+    public-page/          the query, the shape, the avatar
     env.ts                configuration, and whether there is any
   types/database.ts       the schema, in TypeScript
   proxy.ts                runs before every route
@@ -162,21 +168,30 @@ drafts on their public page, which is the one place they must not appear.
 
 **Shaping is separate from fetching.** `src/lib/public-page/shape.ts` is a pure
 `toPublicPage(row)`: ordering, what gets dropped, what a null column means. It
-is unit-tested without a database, and Phase 4's live preview will shape editor
-state through the same function — which is what stops the preview and the
+is unit-tested without a database, and the editor's live preview shapes its
+draft through the same function — which is what stops the preview and the
 published page from disagreeing. It filters unpublished rows itself rather than
-trusting its caller, because the preview will hand it unfiltered state.
+trusting its caller, because the preview hands it unfiltered state.
 
 **Ordering is deterministic.** `position ASC`, then `created_at`, then `id`.
 `position` is not unique — mid-reorder two rows share one — and without the last
 two steps the same page can come back in a different order on two requests.
 
 **Nothing renders arbitrary HTML.** Block `data` is untrusted JSON. It goes
-through a zod registry in `src/lib/public-page/blocks.ts`, and a block whose
-type is unknown or whose data fails its schema is dropped rather than rendered
-as a fallback. There is no `dangerouslySetInnerHTML` anywhere in
-`src/components/public/`. Two block types exist today, `text` and `divider` —
-the point of this phase is the registry, not the catalogue.
+through a zod schema in `src/lib/blocks/`, and a block whose type is unknown or
+whose data fails its schema is dropped rather than rendered as a fallback.
+There is no `dangerouslySetInnerHTML` anywhere in `src/components/public/`, and
+the text block offers two styles rather than rich text for exactly that reason:
+a creator who could write markup would be writing it into somebody else's
+browser.
+
+**Only three sites can become an iframe.** A `src` taken from user input is
+arbitrary code execution on a showme.at address, so a pasted URL is never
+rendered — it is matched against a known host, reduced to an id that passed a
+narrow character class, and substituted into a template in
+`src/lib/embeds/providers.ts`. An unsupported link is refused in the editor,
+in front of the person who pasted it. `sandbox` is the second layer, and it
+withholds `allow-top-navigation`.
 
 **URLs are checked twice more than they need to be.** The database has a CHECK
 constraint on the scheme and every write goes through `urlSchema`, so a
@@ -186,9 +201,83 @@ because "impossible" is a claim about today's code and this one renders an
 `https` URL on the Supabase storage host, so a creator cannot point the page's
 one `<img>` at an arbitrary server.
 
-**No client JavaScript of its own.** No component under
-`src/components/public/` is a Client Component. The page ships the Next.js
-runtime and nothing else.
+**Almost no client JavaScript of its own.** One component under
+`src/components/public/` is a Client Component: the gallery's arrows, a few
+hundred bytes that appear only when the row actually overflows and only above
+`sm`, because a touch device already has the gesture. Everything else is server
+rendered. The editor's own dependencies — dnd-kit, every form — are in chunks
+the public route never references; `npm run build` and a look at the emitted
+chunks is how that stays true.
+
+---
+
+## The editor
+
+`/editor` is where a page gets built. It is a Client Component holding one
+object — the draft — and a single action that persists it.
+
+**Blocks are the spine.** A page is an ordered array of blocks, and the array
+*is* the order: `save_page` writes each block's index as its `position`, so
+reordering is moving an item and saving. Two block types own rows in their own
+tables rather than JSON — a links block owns `links` by `block_id`, and the
+socials block reads `social_links` — because those are first-class rows that
+Phase 6's `link_clicks` will reference by id. Everything else lives in the
+block's own `data`.
+
+**One registry, two lookups.** `src/lib/blocks/registry.ts` holds what is true
+about a block type regardless of who is asking: its name, its description, its
+schema, its defaults, whether a page may hold more than one. It contains no
+React, because the public renderer imports it and a component there would put
+every editor form inside the public page's import graph. The renderer and the
+editor each map types to components in a thin lookup, and both key off
+`BlockType` — so a type added to one and forgotten in the other is a compile
+error rather than a blank space on somebody's page.
+
+Adding a block type is: a value in the database enum, a schema, an entry in the
+registry, a renderer, an editor form. Nothing else changes.
+
+**Editing is local; saving is one request.** Every keystroke changes the draft
+in memory, which is what makes the preview instant. Nothing is written until
+Save. The alternative — a write per interaction — makes "Saved" meaningless,
+turns a reorder into eight requests, and leaves no moment at which the page is
+a thing the creator has finished composing.
+
+**Saving is one transaction, in the database.** `save_page(payload jsonb)` is a
+`security invoker` function that replaces the whole page: upsert the blocks,
+delete what is missing, then the links, then the socials. Nine statements from
+the application would let a dropped connection leave a page nobody composed —
+blocks reordered, links not yet written, a section rendering as empty. Being
+`security invoker` matters as much: Row Level Security applies to every
+statement inside it, so the function is a transaction boundary and not a
+privilege boundary. It takes no owner. The owner is `auth.uid()`, so there is
+no argument a client could set to write somebody else's page.
+
+**Ids are generated in the browser.** A new block gets a `crypto.randomUUID()`
+before it exists anywhere, so it can be dragged, previewed and given links
+without a round trip, and the save is an upsert rather than an insert followed
+by a relabel. That is safe for the same reason the rest of the payload is: a
+client that invents an id gets a row of its own, and one that sends a stranger's
+id gets a refusal from RLS — asserted in `supabase/tests/04_editor.sql`.
+
+**Uploads happen immediately; everything else waits for Save.** A `File` cannot
+survive a reload in React state, and a creator who picked four gallery images
+should not lose them to a stray refresh, so the bytes go up as the file is
+chosen and the URL travels in the draft like any other string. The cost is that
+abandoning an edit can leave an unreferenced object in the bucket. That is the
+right way round — an orphaned image is invisible and cheap, where a lost upload
+is somebody doing the work twice.
+
+**Dragging and arrows are both real.** dnd-kit moves blocks with a pointer or
+the keyboard; every card also has Move up and Move down, and every nested list
+— links, socials, gallery images — has only those. A button that says what it
+does needs no discovery, works with a thumb on a narrow screen where a drag
+competes with the page's own scroll, and is the thing a screen reader can
+actually use.
+
+**Unsaved work is defended twice.** `beforeunload` catches a reload or a closed
+tab. It does not catch a client-side navigation, which is how somebody actually
+leaves — by pressing "Dashboard" in the nav — so a capture-phase click listener
+confirms before any same-origin link takes them off the page.
 
 ---
 
@@ -212,6 +301,35 @@ not globally.
 `/a.lex` must not be three pages. `usernameFromPath()` accepts only the already
 normalized form; anything else redirects to the canonical address, so links,
 analytics and search results never fragment across spellings.
+
+**A `mailto:` is allowed in exactly one column.** `social_links.url` accepts it;
+`links.url` does not. It is safe in an href in a way `javascript:` and `data:`
+are not — it hands an address to the operating system rather than executing
+anything — but a link button that silently opens a mail composer is a surprise,
+so only the contact icon widens. The constraint refuses anything after the
+address, because `mailto:` takes headers through `?cc=` and a newline in one is
+the classic injection.
+
+**Uploaded images live in a public bucket, and the write side is what is
+locked.** These are the content of a public page: fetched by strangers, cached
+by a CDN, embedded in HTML that Next.js caches for a minute. Signed URLs would
+expire inside that window and leave a cached page pointing at dead images. So
+reads are public, writes are `(storage.foldername(name))[1] = auth.uid()`, and
+nothing private is ever put there — the path carries no email, no token, and
+not the filename the uploader chose.
+
+**A file's type is decided by its leading bytes.** `File.type` in a multipart
+body is a string the client picked; a script named `photo.png` arrives claiming
+`image/png` if the uploader says so. `sniffImageMime` reads the signature, and
+that is what chooses the stored extension. SVG is absent from the list on
+purpose: it is a document that can carry script.
+
+**Grid items need `min-w-0`.** A grid item's automatic minimum size is its
+min-content width, so the editor column refused to shrink below its widest
+block summary — and a phone browser answers that by widening the layout
+viewport rather than showing a scrollbar, which silently zooms the whole page
+out. It looks like a font bug and is a layout one. The responsive check now
+fails on a widened layout viewport, not only on `scrollWidth`.
 
 **No `robots` directive in the root layout.** An absent one already means index
 and follow, so declaring it bought nothing — and on a 404 it was actively wrong.
@@ -285,8 +403,8 @@ the browser or prefixed with `NEXT_PUBLIC_`.
 
 ## What is not here yet
 
-The editor and drag and drop, themes, custom fonts and backgrounds, the rich
-block types, analytics of any kind — no page views, no link clicks, nothing is
-recorded when somebody opens a page — QR codes, monetization, Stripe, AI, and
-sharing. All later phases. The schema and the policies for them are already in
-place, which is the point.
+Themes, custom fonts, backgrounds, button styles and every other visual
+customization; analytics of any kind — no page views, no link clicks, nothing
+is recorded when somebody opens a page; QR codes, monetization, Stripe,
+commerce, forms, AI and sharing. All later phases. The schema and the policies
+for them are already in place, which is the point.

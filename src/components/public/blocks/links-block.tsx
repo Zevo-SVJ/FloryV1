@@ -1,3 +1,5 @@
+import { SectionTitle } from "@/components/public/section-title";
+import type { LinksBlockData } from "@/lib/blocks/schemas";
 import type { PublicLink } from "@/lib/public-page/types";
 
 /**
@@ -16,19 +18,26 @@ import type { PublicLink } from "@/lib/public-page/types";
  * becoming a link farm — without it, signing up to place a backlink is a
  * strategy. `noopener` is defensive: it costs nothing and holds if a link ever
  * does open in a new context.
+ *
+ * A page may hold several of these. `aria-label` falls back to a generic name
+ * when the section is untitled, so two unlabelled navs are still
+ * distinguishable to a screen reader by their contents rather than colliding
+ * under one identical name.
  */
-export function LinkList({ links }: { links: PublicLink[] }) {
-  if (links.length === 0) return null;
+export function LinksBlock({ data, links }: { data: LinksBlockData; links: PublicLink[] }) {
+  const title = data.title.trim();
 
   return (
-    <nav aria-label="Links" className="mt-8">
+    <nav aria-label={title.length > 0 ? title : "Links"}>
+      <SectionTitle>{data.title}</SectionTitle>
+
       <ul className="flex flex-col gap-3">
         {links.map((link) => (
           <li key={link.id}>
             <a
               href={link.url}
               rel="nofollow ugc noopener"
-              className="flex min-h-14 items-center justify-center rounded-card border border-border bg-surface px-5 py-4 text-center text-[0.9375rem] font-medium leading-snug shadow-control transition-colors hover:border-border-strong hover:bg-surface-sunken"
+              className="flex min-h-14 items-center justify-center rounded-card border border-border bg-surface px-5 py-4 text-center text-[0.9375rem] leading-snug font-medium shadow-control transition-colors hover:border-border-strong hover:bg-surface-sunken"
             >
               {link.title}
             </a>

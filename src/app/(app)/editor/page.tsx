@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
-import { requireProfile } from "@/lib/auth/dal";
+import { Editor } from "@/components/editor/editor";
+import { getEditorDraft } from "@/lib/editor/load";
 
 export const metadata: Metadata = {
   title: "Editor",
@@ -9,24 +10,18 @@ export const metadata: Metadata = {
 /**
  * The editor route.
  *
- * A protected placeholder. The editor itself is phase 4; this exists now so the
- * route, its protection and its place in the shell are settled before anything
- * is built on top of them.
+ * A thin server shell: it loads the page the creator already has and hands it
+ * to a Client Component, which owns everything from there. Loading on the
+ * server rather than fetching after mount means the editor arrives with the
+ * page in it — no spinner, no flash of an empty list on a page that turns out
+ * to have twelve blocks.
+ *
+ * `getEditorDraft` calls `requireClaimedProfile()`, so protection is not this
+ * file's job and cannot be forgotten here. The `(app)` layout checks the same
+ * thing again, and Row Level Security is what holds if both were bypassed.
  */
 export default async function EditorPage() {
-  const profile = await requireProfile();
+  const draft = await getEditorDraft();
 
-  return (
-    <div className="max-w-2xl">
-      <h1 className="text-title">Editor</h1>
-      <p className="mt-2 text-sm text-ink-muted">
-        This is where you will build{" "}
-        <span className="font-mono text-ink">showme.at/{profile.username}</span>.
-      </p>
-      <p className="mt-6 rounded-card border border-border bg-surface-sunken px-4 py-3.5 text-sm text-ink-muted">
-        Nothing to edit yet. The route is protected and the schema behind it —
-        links, socials and blocks — is in place.
-      </p>
-    </div>
-  );
+  return <Editor initial={draft} />;
 }

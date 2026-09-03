@@ -68,3 +68,67 @@ export const urlSchema = z
     if (problem) ctx.addIssue({ code: "custom", message: PROBLEM_MESSAGES[problem] });
   })
   .transform((value) => new URL(value).toString());
+
+/* ── Email, for a contact icon ────────────────────────────────────────────── */
+
+/**
+ * `mailto:` is allowed in exactly one place: a social link.
+ *
+ * It is safe in an href in a way `javascript:` and `data:` are not — it hands
+ * an address to the operating system rather than executing anything in the
+ * page — but it is still not a *link*. A button on somebody's page that opens
+ * a mail composer instead of a website is a surprise, so `links` keeps the
+ * http(s) rule and only the contact row widens.
+ *
+ * The pattern refuses anything after the address. `mailto:` accepts headers
+ * through `?subject=` and `?cc=`, and a creator's contact icon has no need of
+ * them — while a newline inside one is the classic header injection.
+ */
+const MAILTO = /^mailto:[^\s@,;:<>()[\]\\"]+@[^\s@,;:<>()[\]\\"]+\.[a-zA-Z]{2,}$/;
+const EMAIL = /^[^\s@,;:<>()[\]\\"]+@[^\s@,;:<>()[\]\\"]+\.[a-zA-Z]{2,}$/;
+
+export const isMailto = (value: string): boolean => MAILTO.test(value.trim());
+
+export const isEmailAddress = (value: string): boolean => EMAIL.test(value.trim());
+
+/** The address inside a `mailto:`, or the value unchanged if it is not one. */
+export const emailFromMailto = (value: string): string =>
+  value.trim().replace(/^mailto:/i, "");
+
+/**
+ * A social link's address: a web page, or an email.
+ *
+ * Mirrors the `social_links_url_scheme` constraint, which is the one that
+ * decides. Returns null when the value is acceptable, matching `checkUrl`.
+ */
+export function checkSocialUrl(input: string): UrlProblem | null {
+  const value = input.trim();
+  if (value.length === 0) return "empty";
+  if (isMailto(value)) return null;
+  return checkUrl(value);
+}
+
+/**
+ * Normalizes a social address, turning a bare email into a `mailto:`.
+ *
+ * Ordered so an email is recognised before `normalizeUrl` gets a chance to
+ * prepend `https://` to it — `name@example.com` is a plausible hostname to a
+ * URL parser and would sail through as a broken link.
+ */
+export function normalizeSocialUrl(input: string): string {
+  const value = input.trim();
+  if (value.length === 0) return "";
+  if (isMailto(value)) return `mailto:${emailFromMailto(value)}`;
+  if (isEmailAddress(value)) return `mailto:${value}`;
+  return normalizeUrl(value);
+}
+
+/** The schema the server uses for a social link's address. */
+export const socialUrlSchema = z
+  .string()
+  .max(MAX_URL_LENGTH + 64, PROBLEM_MESSAGES.too_long)
+  .transform(normalizeSocialUrl)
+  .superRefine((value, ctx) => {
+    const problem = checkSocialUrl(value);
+    if (problem) ctx.addIssue({ code: "custom", message: PROBLEM_MESSAGES[problem] });
+  });

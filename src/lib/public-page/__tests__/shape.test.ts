@@ -1,9 +1,14 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
-import { toPublicPage, type LinkRow, type ProfileRow, type SocialRow } from "../shape.ts";
-import { isEmptyPage } from "../types.ts";
-import { parseBlockData } from "../blocks.ts";
+import {
+  toPublicPage,
+  type BlockRow,
+  type LinkRow,
+  type ProfileRow,
+  type SocialRow,
+} from "../shape.ts";
+import { isEmptyPage, type PublicBlock } from "../types.ts";
 import { avatarInitial, renderableAvatarUrl } from "../avatar.ts";
 
 /**
@@ -12,7 +17,14 @@ import { avatarInitial, renderableAvatarUrl } from "../avatar.ts";
  * These are the parts that can be wrong without the database being wrong: the
  * order rows come out in, what gets dropped, and what a null column means. The
  * query around them is I/O and is covered by the SQL suite instead.
+ *
+ * Phase 4 made blocks the spine, so most of what is asserted here is now about
+ * a block's relationship to the rows it owns — a links section that renders
+ * only its own links, a gallery that drops an image from a foreign host, a
+ * video whose provider no longer resolves.
  */
+
+const LINKS_BLOCK = "b1";
 
 const row = (over: Partial<ProfileRow> = {}): ProfileRow => ({
   username: "alex",
@@ -27,6 +39,7 @@ const row = (over: Partial<ProfileRow> = {}): ProfileRow => ({
 
 const link = (over: Partial<LinkRow> = {}): LinkRow => ({
   id: "l1",
+  block_id: LINKS_BLOCK,
   title: "My shop",
   url: "https://example.com/shop",
   position: 0,
@@ -44,190 +57,346 @@ const social = (over: Partial<SocialRow> = {}): SocialRow => ({
   ...over,
 });
 
+const block = (over: Partial<BlockRow> = {}): BlockRow => ({
+  id: LINKS_BLOCK,
+  type: "links",
+  data: {},
+  position: 0,
+  is_visible: true,
+  ...over,
+});
+
+/** Narrow a block from the page, failing the test if it is the wrong kind. */
+function only<K extends PublicBlock["kind"]>(
+  page: ReturnType<typeof toPublicPage>,
+  kind: K,
+): Extract<PublicBlock, { kind: K }> {
+  const found = page.blocks.find((entry) => entry.kind === kind);
+  assert.ok(found, `expected a ${kind} block`);
+  return found as Extract<PublicBlock, { kind: K }>;
+}
+
+/* ── The page as a whole ──────────────────────────────────────────────────── */
+
 test("a full profile shapes into a page", () => {
   const page = toPublicPage(
     row({
       links: [link()],
       social_links: [social()],
+      blocks: [block(), block({ id: "b2", type: "socials", position: 1 })],
     }),
   );
 
   assert.equal(page.profile.username, "alex");
   assert.equal(page.profile.displayName, "Alex");
   assert.equal(page.profile.bio, "Creator & entrepreneur");
-  assert.deepEqual(page.links, [
+
+  assert.deepEqual(only(page, "links").links, [
     { id: "l1", title: "My shop", url: "https://example.com/shop" },
   ]);
-  assert.equal(page.socials[0]?.platform, "instagram");
-  assert.equal(isEmptyPage(page), false);
+  assert.deepEqual(only(page, "socials").socials, [
+    { id: "s1", platform: "instagram", url: "https://instagram.com/alex" },
+  ]);
 });
 
-test("links come out in position order, deterministically", () => {
+test("block order is the page order", () => {
   const page = toPublicPage(
     row({
-      links: [
-        link({ id: "c", title: "Third", position: 2 }),
-        link({ id: "a", title: "First", position: 0 }),
-        link({ id: "b", title: "Second", position: 1 }),
+      blocks: [
+        block({ id: "c", type: "divider", position: 2 }),
+        block({ id: "a", type: "text", data: { text: "first" }, position: 0 }),
+        block({ id: "b", type: "divider", position: 1 }),
       ],
     }),
   );
 
-  assert.deepEqual(page.links.map((entry) => entry.title), ["First", "Second", "Third"]);
+  assert.deepEqual(
+    page.blocks.map((entry) => entry.id),
+    ["a", "b", "c"],
+  );
 });
 
-test("rows sharing a position still order the same way every time", () => {
-  // Mid-reorder, two links legitimately hold the same position. Without a tie
-  // break the page renders differently on two requests for no visible reason.
-  const build = () =>
-    toPublicPage(
-      row({
-        links: [
-          link({ id: "b", title: "Newer", position: 0, created_at: "2026-02-01T00:00:00Z" }),
-          link({ id: "a", title: "Older", position: 0, created_at: "2026-01-01T00:00:00Z" }),
-        ],
-      }),
-    );
-
-  assert.deepEqual(build().links.map((l) => l.title), ["Older", "Newer"]);
-  assert.deepEqual(build().links.map((l) => l.title), build().links.map((l) => l.title));
-});
-
-test("a link with a dangerous or malformed URL never reaches the page", () => {
+test("blocks sharing a position fall back to a stable tie-break", () => {
   const page = toPublicPage(
     row({
-      links: [
-        link({ id: "ok", title: "Safe", url: "https://example.com" }),
-        link({ id: "js", title: "Tap me", url: "javascript:alert(1)" }),
-        link({ id: "data", title: "Tap me", url: "data:text/html,<script>alert(1)</script>" }),
-        link({ id: "vb", title: "Tap me", url: "vbscript:msgbox(1)" }),
-        link({ id: "junk", title: "Tap me", url: "not a url" }),
+      blocks: [
+        block({ id: "zzz", type: "divider", position: 0 }),
+        block({ id: "aaa", type: "divider", position: 0 }),
       ],
     }),
   );
 
-  assert.deepEqual(page.links.map((entry) => entry.id), ["ok"]);
+  assert.deepEqual(
+    page.blocks.map((entry) => entry.id),
+    ["aaa", "zzz"],
+  );
 });
 
-test("a link with no usable title is dropped rather than rendered blank", () => {
+test("a hidden block never reaches the page", () => {
   const page = toPublicPage(
-    row({ links: [link({ id: "blank", title: "   " }), link({ id: "ok" })] }),
+    row({
+      blocks: [
+        block({ id: "shown", type: "text", data: { text: "visible" } }),
+        block({ id: "gone", type: "text", data: { text: "secret" }, is_visible: false }),
+      ],
+    }),
   );
 
-  assert.deepEqual(page.links.map((entry) => entry.id), ["ok"]);
-  assert.equal(page.links[0]?.title, "My shop");
+  assert.equal(page.blocks.length, 1);
+  assert.equal(JSON.stringify(page).includes("secret"), false);
 });
 
-test("unpublished rows never reach the page, even unfiltered by the caller", () => {
-  // Phase 4's preview will hand this function raw editor state. If the filter
-  // lived only in the query, a draft would show up in the preview as published.
+test("an empty page is empty", () => {
+  assert.equal(isEmptyPage(toPublicPage(row())), true);
+});
+
+/* ── Links ────────────────────────────────────────────────────────────────── */
+
+test("a links block renders only its own links", () => {
+  const page = toPublicPage(
+    row({
+      links: [
+        link({ id: "mine", block_id: "b1" }),
+        link({ id: "theirs", block_id: "b2", title: "Other section" }),
+      ],
+      blocks: [
+        block({ id: "b1", position: 0 }),
+        block({ id: "b2", position: 1, data: { title: "Shop" } }),
+      ],
+    }),
+  );
+
+  const [first, second] = page.blocks;
+  assert.equal(first?.kind === "links" && first.links[0]?.id, "mine");
+  assert.equal(second?.kind === "links" && second.links[0]?.id, "theirs");
+});
+
+test("links come out in position order, with a deterministic tie-break", () => {
+  const page = toPublicPage(
+    row({
+      links: [
+        link({ id: "third", position: 2 }),
+        link({ id: "second-b", position: 1, created_at: "2026-01-02T00:00:00Z" }),
+        link({ id: "second-a", position: 1, created_at: "2026-01-01T00:00:00Z" }),
+        link({ id: "first", position: 0 }),
+      ],
+      blocks: [block()],
+    }),
+  );
+
+  assert.deepEqual(
+    only(page, "links").links.map((entry) => entry.id),
+    ["first", "second-a", "second-b", "third"],
+  );
+});
+
+test("an inactive link is dropped", () => {
   const page = toPublicPage(
     row({
       links: [link({ id: "live" }), link({ id: "draft", is_active: false })],
-      social_links: [social({ id: "on" }), social({ id: "off", is_active: false })],
+      blocks: [block()],
+    }),
+  );
+
+  assert.deepEqual(
+    only(page, "links").links.map((entry) => entry.id),
+    ["live"],
+  );
+});
+
+test("a links block with nothing published in it does not render", () => {
+  const page = toPublicPage(
+    row({
+      links: [link({ is_active: false })],
+      blocks: [block()],
+    }),
+  );
+
+  assert.deepEqual(page.blocks, []);
+});
+
+test("a dangerous URL is dropped even though the database should refuse it", () => {
+  for (const url of ["javascript:alert(1)", "data:text/html,<script>", "vbscript:msgbox(1)"]) {
+    const page = toPublicPage(
+      row({ links: [link({ url })], blocks: [block()] }),
+    );
+    assert.deepEqual(page.blocks, [], url);
+  }
+});
+
+test("a link with a blank title is dropped", () => {
+  const page = toPublicPage(
+    row({ links: [link({ title: "   " })], blocks: [block()] }),
+  );
+  assert.deepEqual(page.blocks, []);
+});
+
+/* ── Socials ──────────────────────────────────────────────────────────────── */
+
+test("an inactive social link is dropped", () => {
+  const page = toPublicPage(
+    row({
+      social_links: [social({ id: "live" }), social({ id: "off", platform: "tiktok", is_active: false })],
+      blocks: [block({ id: "s", type: "socials" })],
+    }),
+  );
+
+  assert.deepEqual(
+    only(page, "socials").socials.map((entry) => entry.id),
+    ["live"],
+  );
+});
+
+test("a mailto social link survives, and a javascript one does not", () => {
+  const page = toPublicPage(
+    row({
+      social_links: [
+        social({ id: "mail", platform: "email", url: "mailto:hello@example.com" }),
+        social({ id: "bad", platform: "website", url: "javascript:alert(1)" }),
+      ],
+      blocks: [block({ id: "s", type: "socials" })],
+    }),
+  );
+
+  assert.deepEqual(
+    only(page, "socials").socials.map((entry) => entry.id),
+    ["mail"],
+  );
+});
+
+test("a socials block with nothing active does not render", () => {
+  const page = toPublicPage(
+    row({
+      social_links: [social({ is_active: false })],
+      blocks: [block({ id: "s", type: "socials" })],
+    }),
+  );
+
+  assert.deepEqual(page.blocks, []);
+});
+
+/* ── Images ───────────────────────────────────────────────────────────────── */
+
+test("an image on a foreign host is refused", () => {
+  const page = toPublicPage(
+    row({
       blocks: [
-        { id: "shown", type: "text", data: { text: "a" }, position: 0, is_visible: true },
-        { id: "hidden", type: "text", data: { text: "b" }, position: 1, is_visible: false },
+        block({
+          id: "img",
+          type: "image",
+          data: { url: "https://evil.example.com/x.png", alt: "", href: null, aspect: "auto" },
+        }),
       ],
     }),
   );
 
-  assert.deepEqual(page.links.map((entry) => entry.id), ["live"]);
-  assert.deepEqual(page.socials.map((entry) => entry.id), ["on"]);
-  assert.deepEqual(page.blocks.map((entry) => entry.id), ["shown"]);
+  assert.deepEqual(page.blocks, []);
 });
 
-test("empty strings are treated as absent, not rendered", () => {
+test("a gallery drops foreign images and disappears when none are left", () => {
+  const page = toPublicPage(
+    row({
+      blocks: [
+        block({
+          id: "g",
+          type: "image_gallery",
+          data: {
+            title: "Work",
+            aspect: "portrait",
+            cta: null,
+            items: [{ id: "i1", url: "https://evil.example.com/a.png", alt: "", caption: "" }],
+          },
+        }),
+      ],
+    }),
+  );
+
+  assert.deepEqual(page.blocks, []);
+});
+
+/* ── Video and embeds ─────────────────────────────────────────────────────── */
+
+test("a video with an unsupported provider is dropped", () => {
+  const page = toPublicPage(
+    row({
+      blocks: [
+        block({ id: "v", type: "video", data: { url: "https://example.com/clip.mp4", title: "" } }),
+      ],
+    }),
+  );
+
+  assert.deepEqual(page.blocks, []);
+});
+
+test("a Spotify link in a video block is refused, and in an embed block is not", () => {
+  const url = "https://open.spotify.com/track/4cOdK2wGLETKBW3PvgPWqT";
+
+  const asVideo = toPublicPage(
+    row({ blocks: [block({ id: "v", type: "video", data: { url, title: "" } })] }),
+  );
+  assert.deepEqual(asVideo.blocks, []);
+
+  const asEmbed = toPublicPage(
+    row({ blocks: [block({ id: "e", type: "embed", data: { url, title: "" } })] }),
+  );
+  assert.equal(asEmbed.blocks.length, 1);
+});
+
+/* ── Text ─────────────────────────────────────────────────────────────────── */
+
+test("text block defaults are applied to data saved without them", () => {
+  const page = toPublicPage(
+    row({ blocks: [block({ id: "t", type: "text", data: { text: "Hello" } })] }),
+  );
+
+  const text = only(page, "text");
+  assert.equal(text.data.align, "center");
+  assert.equal(text.data.style, "body");
+});
+
+test("a block whose data fails its schema is dropped", () => {
+  const page = toPublicPage(
+    row({ blocks: [block({ id: "t", type: "text", data: { text: "" } })] }),
+  );
+
+  assert.deepEqual(page.blocks, []);
+});
+
+/* ── Profile ──────────────────────────────────────────────────────────────── */
+
+test("empty profile strings become null", () => {
   const page = toPublicPage(row({ display_name: "   ", bio: "" }));
 
   assert.equal(page.profile.displayName, null);
   assert.equal(page.profile.bio, null);
 });
 
-test("a profile with nothing on it is still a page", () => {
-  const page = toPublicPage(row({ links: null, social_links: null, blocks: null }));
-
-  assert.deepEqual(page.links, []);
-  assert.deepEqual(page.socials, []);
-  assert.deepEqual(page.blocks, []);
-  assert.equal(isEmptyPage(page), true);
-});
-
-test("no row ever carries profile_id or is_active into the page", () => {
+test("no database column leaks into the view model", () => {
   const page = toPublicPage(
     row({
       links: [link()],
-      social_links: [social({ platform: "tiktok", url: "https://tiktok.com/@alex" })],
+      social_links: [social()],
+      blocks: [block(), block({ id: "s", type: "socials", position: 1 })],
     }),
   );
 
-  // The shape is the contract: anything extra would end up in the HTML that a
-  // stranger receives.
-  assert.deepEqual(Object.keys(page.links[0]!).sort(), ["id", "title", "url"]);
-  assert.deepEqual(Object.keys(page.socials[0]!).sort(), ["id", "platform", "url"]);
-  assert.deepEqual(
-    Object.keys(page.profile).sort(),
-    ["avatarUrl", "bio", "displayName", "username"],
-  );
-});
-
-/* ── Blocks ───────────────────────────────────────────────────────────────── */
-
-test("a block is rendered only when its data matches its schema", () => {
-  assert.deepEqual(parseBlockData("text", { text: "Hello" }), { text: "Hello" });
-  assert.deepEqual(parseBlockData("divider", {}), {});
-
-  assert.equal(parseBlockData("text", {}), null);
-  assert.equal(parseBlockData("text", { text: "" }), null);
-  assert.equal(parseBlockData("text", { text: 42 }), null);
-  assert.equal(parseBlockData("text", null), null);
-});
-
-test("a block type the renderer does not implement is dropped", () => {
-  // The enum can gain a value before the renderer knows what to do with it.
-  for (const type of ["image", "video", "embed", "links", "socials"] as const) {
-    assert.equal(parseBlockData(type, { anything: true }), null, type);
+  const serialized = JSON.stringify(page);
+  for (const forbidden of ["profile_id", "is_active", "is_visible", "created_at", "position"]) {
+    assert.equal(serialized.includes(forbidden), false, forbidden);
   }
 });
 
-test("block data is narrowed to the schema, never passed through wholesale", () => {
-  const parsed = parseBlockData("text", { text: "Hi", onClick: "alert(1)", html: "<b>x</b>" });
-
-  // Extra keys an attacker or a future migration put in the column must not
-  // survive into something a component might spread onto an element.
-  assert.deepEqual(parsed, { text: "Hi" });
-});
-
-test("blocks keep their position order and drop the invalid ones", () => {
-  const page = toPublicPage(
-    row({
-      blocks: [
-        { id: "b2", type: "text", data: { text: "second" }, position: 1, is_visible: true },
-        { id: "bad", type: "text", data: { text: "" }, position: 0, is_visible: true },
-        { id: "b1", type: "divider", data: {}, position: 0, is_visible: true },
-      ],
-    }),
-  );
-
-  assert.deepEqual(page.blocks.map((block) => block.id), ["b1", "b2"]);
-});
-
-/* ── Avatars ──────────────────────────────────────────────────────────────── */
-
-test("an avatar from an unconfigured or foreign host is not loaded", () => {
-  // No NEXT_PUBLIC_SUPABASE_URL in the test environment, so every host is
-  // foreign — which is the safe default and what a misconfigured deploy gets.
-  assert.equal(renderableAvatarUrl("https://evil.example/a.png"), null);
-  assert.equal(renderableAvatarUrl("javascript:alert(1)"), null);
-  assert.equal(renderableAvatarUrl("not a url"), null);
+test("an avatar is only rendered from our own storage host", () => {
+  assert.equal(renderableAvatarUrl("https://evil.example.com/a.png"), null);
+  assert.equal(renderableAvatarUrl("http://example.com/a.png"), null);
   assert.equal(renderableAvatarUrl(null), null);
-  assert.equal(renderableAvatarUrl(""), null);
+  assert.equal(renderableAvatarUrl("not a url"), null);
 });
 
 test("the initial falls back through display name, then username", () => {
-  assert.equal(avatarInitial("Alex", "alex"), "A");
-  assert.equal(avatarInitial(null, "alex"), "A");
-  assert.equal(avatarInitial("   ", "8zevo"), "8");
+  assert.equal(avatarInitial("Alex", "zevo"), "A");
+  assert.equal(avatarInitial(null, "zevo"), "Z");
+  assert.equal(avatarInitial("  ", "zevo"), "Z");
   // One glyph, not half a surrogate pair.
-  assert.equal(avatarInitial("🔥 studio", "alex"), "🔥");
+  assert.equal(avatarInitial("🔥 studio", "zevo"), "🔥");
 });

@@ -4,7 +4,7 @@ The schema, its policies, and a suite that proves the policies do what they say.
 
 ```
 migrations/   applied in filename order by the Supabase CLI
-tests/        a Supabase shim, three suites, and a runner
+tests/        a Supabase shim, four suites, and a runner
 ```
 
 Each suite runs against its own database, cloned from the migrated one, because
@@ -27,8 +27,9 @@ Or paste `migrations/*.sql` into the SQL editor, in filename order.
 The suite needs a PostgreSQL 16+ server and `psql`. It does **not** need a
 Supabase project: `tests/00_supabase_shim.sql` recreates the parts the schema
 depends on — the `auth` schema, `auth.users`, `auth.uid()` reading the request's
-JWT claim, and the `anon` / `authenticated` / `service_role` roles with the same
-grants Supabase gives them.
+JWT claim, the `anon` / `authenticated` / `service_role` roles with the same
+grants Supabase gives them, and enough of `storage` (`buckets`, `objects`,
+`foldername()`) to create and exercise the bucket policies.
 
 ```bash
 npm run test:db
@@ -61,6 +62,39 @@ webhook will write them server-side with the service-role key, which bypasses
 RLS. An anonymous insert policy on analytics would let anyone forge a creator's
 traffic; a client-writable `subscriptions` row would mean a user could grant
 themselves a paid plan.
+
+### Blocks, links and media
+
+A page is an ordered list of **blocks**. Two kinds own rows elsewhere rather
+than carrying them as JSON: a `links` block owns `links` through `block_id`, and
+the `socials` block reads `social_links`. Both are first-class tables because
+`link_clicks` will reference a link by id in Phase 6, and burying links inside a
+JSONB blob would make per-link analytics a rewrite.
+
+`links_block_same_owner` is the trigger that makes `block_id` safe. Row Level
+Security already stops a creator from inserting a link they do not own; it does
+not stop them from pointing a link they *do* own at a block they do not, which
+would be an attempt to place content on a stranger's page. Today the public
+query reaches links through the profile rather than through the block, so the
+attempt renders nothing — but that is a property of one query, and the trigger
+is a property of the database.
+
+`save_page(payload jsonb)` replaces a whole page in one transaction. It is
+`security invoker`, so every statement inside it is subject to the same
+policies as a statement from the application: it is a transaction boundary, not
+a privilege boundary, and it grants nothing the caller did not already have.
+The owner is `auth.uid()` and never an argument, which is a stronger guarantee
+than validating a profile id would be. Execute is granted to `authenticated`
+only.
+
+**page-media** is a public bucket with a locked write side. The images are the
+content of a public page — fetched by strangers, cached by a CDN, embedded in
+HTML that Next.js caches for a minute — and signed URLs would expire inside
+that window and leave a cached page pointing at dead images. So reads are open
+and writes require the first path segment to be the caller's own id. The
+bucket also enforces its own 5 MiB limit and MIME list, so a request that never
+passes through the application is still refused. SVG is deliberately absent: it
+is a document that can carry script.
 
 ### Usernames
 
@@ -118,6 +152,20 @@ write never answers with a success.
   hides them by filtering, not by a policy the owner would also hit.
 - `javascript:`, `data:` and `vbscript:` URLs cannot be stored in `links` or
   `social_links` in the first place.
+- `save_page` writes a whole page: array order becomes `position`, hidden blocks
+  stay hidden, unpublished links stay saved, a cleared bio becomes null, and
+  anything left out of the payload is deleted.
+- An empty payload empties the page rather than failing.
+- `save_page` cannot upsert a block owned by another creator — and when it
+  refuses, nothing partial is left behind, which is what the single transaction
+  is for.
+- A link cannot be placed in another creator's block, moved into one, or
+  attached to a block that is not a links block.
+- Deleting a links block deletes the links inside it.
+- A creator can upload into their own folder and into no other; cannot delete
+  another creator's media; and cannot move their own object into somebody
+  else's folder.
+- A stranger can read media and can neither write it nor call `save_page`.
 
 ## Conventions
 

@@ -80,10 +80,18 @@ update public.profiles set username = 'alice', display_name = 'Alice'
 update public.profiles set username = 'bob'
   where id = '22222222-2222-2222-2222-222222222222';
 
-insert into public.links (id, profile_id, title, url, position, is_active) values
+-- Every link lives inside a links block from Phase 4 onwards, so the block is
+-- part of the fixture rather than an afterthought.
+insert into public.blocks (id, profile_id, type, position) values
+  ('b10c0000-0000-0000-0000-00000000000a', '11111111-1111-1111-1111-111111111111', 'links', 0),
+  ('b10c0000-0000-0000-0000-00000000000b', '22222222-2222-2222-2222-222222222222', 'links', 0);
+
+insert into public.links (id, profile_id, block_id, title, url, position, is_active) values
   ('aaaaaaaa-0000-0000-0000-000000000001', '11111111-1111-1111-1111-111111111111',
+   'b10c0000-0000-0000-0000-00000000000a',
    'Alice public', 'https://example.com/a', 0, true),
   ('aaaaaaaa-0000-0000-0000-000000000002', '11111111-1111-1111-1111-111111111111',
+   'b10c0000-0000-0000-0000-00000000000a',
    'Alice draft', 'https://example.com/draft', 1, false);
 
 insert into public.page_views (profile_id, country) values
@@ -125,8 +133,9 @@ select pg_temp.denied(
 );
 
 select pg_temp.denied(
-  $$insert into public.links (profile_id, title, url)
-      values ('11111111-1111-1111-1111-111111111111', 'x', 'javascript:alert(1)')$$,
+  $$insert into public.links (profile_id, block_id, title, url)
+      values ('11111111-1111-1111-1111-111111111111',
+              'b10c0000-0000-0000-0000-00000000000a', 'x', 'javascript:alert(1)')$$,
   'a link with a javascript: URL is rejected'
 );
 
@@ -209,8 +218,9 @@ select pg_temp.denied(
 
 -- The attack the WITH CHECK clauses exist for: claiming someone else as owner.
 select pg_temp.denied(
-  $$insert into public.links (profile_id, title, url)
-      values ('11111111-1111-1111-1111-111111111111', 'planted', 'https://evil.example')$$,
+  $$insert into public.links (profile_id, block_id, title, url)
+      values ('11111111-1111-1111-1111-111111111111',
+              'b10c0000-0000-0000-0000-00000000000a', 'planted', 'https://evil.example')$$,
   'Bob cannot insert a link owned by Alice'
 );
 
@@ -221,9 +231,10 @@ select pg_temp.denied(
 );
 
 -- The subtler one: owning the row, then handing it to someone else.
-insert into public.links (id, profile_id, title, url)
+insert into public.links (id, profile_id, block_id, title, url)
   values ('bbbbbbbb-0000-0000-0000-000000000001',
-          '22222222-2222-2222-2222-222222222222', 'Bob link', 'https://example.com/b');
+          '22222222-2222-2222-2222-222222222222',
+          'b10c0000-0000-0000-0000-00000000000b', 'Bob link', 'https://example.com/b');
 
 select pg_temp.denied(
   $$update public.links set profile_id = '11111111-1111-1111-1111-111111111111'

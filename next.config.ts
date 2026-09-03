@@ -32,6 +32,22 @@ const nextConfig: NextConfig = {
   images: {
     remotePatterns: supabaseImageHost(),
   },
+  experimental: {
+    serverActions: {
+      /*
+       * Images are uploaded through a Server Action, and the default cap on an
+       * action's body is 1MB — below the 5MB an image is allowed to be, so
+       * without this every large upload would fail at the framework before any
+       * of our own checks ran. The extra megabyte covers multipart overhead:
+       * boundaries, part headers and field metadata all count toward the raw
+       * body, and a file at exactly the limit would otherwise be refused.
+       *
+       * This is a ceiling, not a policy. The upload action and the Storage
+       * bucket both enforce 5MB, and they are what decide.
+       */
+      bodySizeLimit: "6mb",
+    },
+  },
 };
 
 export default nextConfig;

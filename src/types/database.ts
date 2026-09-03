@@ -38,6 +38,7 @@ export type BlockType =
   | "socials"
   | "text"
   | "image"
+  | "image_gallery"
   | "video"
   | "embed"
   | "divider";
@@ -85,6 +86,12 @@ type ProfileRow = Timestamps & {
 type LinkRow = Timestamps & {
   id: string;
   profile_id: string;
+  /**
+   * The links block this link renders inside. Never null: a link with no
+   * section has nowhere to appear, and a database trigger refuses a block
+   * belonging to a different profile.
+   */
+  block_id: string;
   title: string;
   url: string;
   position: number;
@@ -155,7 +162,7 @@ export interface Database {
       };
       links: {
         Row: LinkRow;
-        Insert: Insert<LinkRow, "profile_id" | "title" | "url">;
+        Insert: Insert<LinkRow, "profile_id" | "block_id" | "title" | "url">;
         Update: Partial<LinkRow>;
         Relationships: [];
       };
@@ -205,7 +212,20 @@ export interface Database {
      * writes.
      */
     Views: Record<string, never>;
-    Functions: Record<string, never>;
+    Functions: {
+      /**
+       * Replace the calling user's page in one transaction.
+       *
+       * `security invoker`, so Row Level Security applies to every statement
+       * inside it and the function grants no authority the caller lacked. The
+       * owner is `auth.uid()` rather than an argument, which is why there is
+       * no profile id in `Args`.
+       */
+      save_page: {
+        Args: { payload: Record<string, unknown> };
+        Returns: undefined;
+      };
+    };
     Enums: {
       social_platform: SocialPlatform;
       block_type: BlockType;

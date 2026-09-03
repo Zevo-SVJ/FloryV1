@@ -58,15 +58,26 @@ update public.profiles
    set display_name = 'John'
  where username = 'john';
 
-insert into public.links (id, profile_id, title, url, position, is_active) values
+-- Each creator's links live in their own links block.
+insert into public.blocks (id, profile_id, type, position) values
+  ('55555555-0000-4000-8000-00000000000a',
+   '0a5e7d31-64bc-4e02-9c88-000000000001', 'links', 2),
+  ('55555555-0000-4000-8000-00000000000b',
+   '7c02e9b4-51aa-4c37-8f60-000000000002', 'links', 0);
+
+insert into public.links (id, profile_id, block_id, title, url, position, is_active) values
   ('11111111-0000-4000-8000-000000000001',
-   '0a5e7d31-64bc-4e02-9c88-000000000001', 'Alex second', 'https://example.com/2', 1, true),
+   '0a5e7d31-64bc-4e02-9c88-000000000001', '55555555-0000-4000-8000-00000000000a',
+   'Alex second', 'https://example.com/2', 1, true),
   ('11111111-0000-4000-8000-000000000002',
-   '0a5e7d31-64bc-4e02-9c88-000000000001', 'Alex first', 'https://example.com/1', 0, true),
+   '0a5e7d31-64bc-4e02-9c88-000000000001', '55555555-0000-4000-8000-00000000000a',
+   'Alex first', 'https://example.com/1', 0, true),
   ('11111111-0000-4000-8000-000000000003',
-   '0a5e7d31-64bc-4e02-9c88-000000000001', 'Alex draft', 'https://example.com/draft', 2, false),
+   '0a5e7d31-64bc-4e02-9c88-000000000001', '55555555-0000-4000-8000-00000000000a',
+   'Alex draft', 'https://example.com/draft', 2, false),
   ('22222222-0000-4000-8000-000000000001',
-   '7c02e9b4-51aa-4c37-8f60-000000000002', 'John only', 'https://example.com/john', 0, true);
+   '7c02e9b4-51aa-4c37-8f60-000000000002', '55555555-0000-4000-8000-00000000000b',
+   'John only', 'https://example.com/john', 0, true);
 
 insert into public.social_links (id, profile_id, platform, url, position, is_active) values
   ('33333333-0000-4000-8000-000000000001',
@@ -120,8 +131,11 @@ select pg_temp.ok(
   'an inactive social link is invisible'
 );
 
+-- Scoped to the text blocks the fixture created: the links blocks above are
+-- visible too, and counting every row would make this assertion break each
+-- time the fixture grows rather than each time the policy does.
 select pg_temp.ok(
-  (select count(*) from public.blocks) = 1,
+  (select count(*) from public.blocks where type = 'text') = 1,
   'a stranger sees only visible blocks'
 );
 
@@ -190,8 +204,9 @@ select pg_temp.denied(
 );
 
 select pg_temp.denied(
-  $$insert into public.links (profile_id, title, url)
-      values ('0a5e7d31-64bc-4e02-9c88-000000000001', 'planted', 'https://evil.example')$$,
+  $$insert into public.links (profile_id, block_id, title, url)
+      values ('0a5e7d31-64bc-4e02-9c88-000000000001',
+              '55555555-0000-4000-8000-00000000000a', 'planted', 'https://evil.example')$$,
   'a stranger cannot plant a link on a creator''s page'
 );
 
@@ -235,14 +250,16 @@ reset role;
 -- ── URLs the page would put in an href ───────────────────────────────────
 
 select pg_temp.denied(
-  $$insert into public.links (profile_id, title, url) values
-      ('0a5e7d31-64bc-4e02-9c88-000000000001', 'x', 'javascript:alert(1)')$$,
+  $$insert into public.links (profile_id, block_id, title, url) values
+      ('0a5e7d31-64bc-4e02-9c88-000000000001',
+       '55555555-0000-4000-8000-00000000000a', 'x', 'javascript:alert(1)')$$,
   'a javascript: link cannot be stored'
 );
 
 select pg_temp.denied(
-  $$insert into public.links (profile_id, title, url) values
-      ('0a5e7d31-64bc-4e02-9c88-000000000001', 'x', 'data:text/html,<script>')$$,
+  $$insert into public.links (profile_id, block_id, title, url) values
+      ('0a5e7d31-64bc-4e02-9c88-000000000001',
+       '55555555-0000-4000-8000-00000000000a', 'x', 'data:text/html,<script>')$$,
   'a data: link cannot be stored'
 );
 

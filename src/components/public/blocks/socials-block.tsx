@@ -11,11 +11,9 @@ import type { PublicSocial } from "@/lib/public-page/types";
  * Each is a real link with a real accessible name — the mark is decorative and
  * the platform is spelled out for anyone not looking at it.
  */
-export function SocialRow({ socials }: { socials: PublicSocial[] }) {
-  if (socials.length === 0) return null;
-
+export function SocialsBlock({ socials }: { socials: PublicSocial[] }) {
   return (
-    <nav aria-label="Social profiles" className="mt-7">
+    <nav aria-label="Social profiles">
       <ul className="flex flex-wrap items-center justify-center gap-1">
         {socials.map((social) => (
           <li key={social.id}>

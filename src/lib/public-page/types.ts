@@ -1,16 +1,30 @@
-import type { BlockType, SocialPlatform } from "@/types/database";
+import type { SocialPlatform } from "@/types/database";
+import type {
+  EmbedBlockData,
+  GalleryBlockData,
+  ImageBlockData,
+  LinksBlockData,
+  TextBlockData,
+  VideoBlockData,
+} from "@/lib/blocks/schemas";
 
 /**
  * What a public page is, as the renderer sees it.
  *
  * Deliberately not the database rows. A row carries things a stranger has no
  * business receiving — `profile_id` on every link, `is_active`, timestamps, the
- * owner's uuid — and shipping them inside the server-rendered payload leaks
- * the shape of the schema to anyone who reads the HTML. This is the subset the
- * page actually renders, and the query is written to produce exactly it.
+ * owner's uuid — and shipping them inside the server-rendered payload leaks the
+ * shape of the schema to anyone who reads the HTML. This is the subset the page
+ * actually renders, and the query is written to produce exactly it.
  *
- * Phase 4's live preview consumes the same type, so the editor and the public
- * page cannot drift apart.
+ * Phase 4 made blocks the spine. A page used to be a profile plus three
+ * parallel lists; it is now a profile plus an ordered list of blocks, two of
+ * which carry rows from their own tables. The change matters because the order
+ * a creator arranges is now the order of one array, rather than a convention
+ * about which section comes first.
+ *
+ * The editor's live preview consumes this same type, produced by the same
+ * `toPublicPage`, so the two cannot drift apart.
  */
 
 export interface PublicProfile {
@@ -35,20 +49,28 @@ export interface PublicSocial {
   url: string;
 }
 
-export interface PublicBlock {
-  id: string;
-  type: BlockType;
-  /** Parsed and validated against the block's own schema. Never raw JSON. */
-  data: Record<string, unknown>;
-}
+/**
+ * One block, narrowed to what it actually is.
+ *
+ * A discriminated union rather than `{ type, data: Record<string, unknown> }`,
+ * so the renderer destructures real fields and a missing case is a compile
+ * error. The narrowing happens once, in `shape.ts`, where the data is
+ * validated — after that nothing downstream needs to check anything.
+ */
+export type PublicBlock =
+  | { id: string; kind: "links"; data: LinksBlockData; links: PublicLink[] }
+  | { id: string; kind: "socials"; socials: PublicSocial[] }
+  | { id: string; kind: "text"; data: TextBlockData }
+  | { id: string; kind: "image"; data: ImageBlockData }
+  | { id: string; kind: "image_gallery"; data: GalleryBlockData }
+  | { id: string; kind: "video"; data: VideoBlockData }
+  | { id: string; kind: "embed"; data: EmbedBlockData }
+  | { id: string; kind: "divider" };
 
 export interface PublicPage {
   profile: PublicProfile;
-  links: PublicLink[];
-  socials: PublicSocial[];
   blocks: PublicBlock[];
 }
 
 /** Nothing to show, but the page is a real one. */
-export const isEmptyPage = (page: PublicPage): boolean =>
-  page.links.length === 0 && page.socials.length === 0 && page.blocks.length === 0;
+export const isEmptyPage = (page: PublicPage): boolean => page.blocks.length === 0;
