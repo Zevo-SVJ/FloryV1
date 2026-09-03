@@ -3,16 +3,45 @@
 import { useState } from "react";
 import {
   ChoiceField,
+  DateTimeField,
   Icon,
   ICONS,
   IconButton,
   ImagePicker,
+  SelectField,
   TextAreaField,
   TextField,
   Toggle,
 } from "@/components/editor/controls";
 import { SocialIcon, socialLabel } from "@/components/public/social-icon";
-import { newId, reorder, type DraftBlock, type DraftLink, type DraftSocial } from "@/lib/editor/state";
+import {
+  newId,
+  newLink,
+  reorder,
+  type DraftBlock,
+  type DraftLink,
+  type DraftSocial,
+} from "@/lib/editor/state";
+import { useNow } from "@/lib/editor/use-now";
+import { useBrowserValue } from "@/lib/hooks/use-browser-value";
+import {
+  formatInstant,
+  fromLocalInput,
+  linkState,
+  localZoneName,
+  scheduleProblem,
+  toLocalInput,
+  type LinkState,
+} from "@/lib/links/schedule";
+import {
+  CONTACT_KINDS,
+  CONTACT_LABELS,
+  CONTACT_PLACEHOLDERS,
+  contactItemSchema,
+  type ContactItem,
+  type ContactKind,
+} from "@/lib/contact/actions";
+import { cn } from "@/lib/utils/cn";
 import { SOCIAL_PLATFORMS } from "@/lib/validation/schemas";
 import {
   checkSocialUrl,
@@ -31,11 +60,15 @@ import {
   type EmbedProvider,
 } from "@/lib/embeds/providers";
 import type {
+  ContactBlockData,
+  DividerBlockData,
   EmbedBlockData,
   GalleryBlockData,
   GalleryItem,
+  HeadingBlockData,
   ImageBlockData,
   LinksBlockData,
+  SpacerBlockData,
   TextBlockData,
   VideoBlockData,
 } from "@/lib/blocks/schemas";
@@ -75,6 +108,8 @@ export function BlockForm(props: BlockFormProps) {
       return <SocialsForm {...props} />;
     case "text":
       return <TextForm {...props} />;
+    case "heading":
+      return <HeadingForm {...props} />;
     case "image":
       return <ImageForm {...props} />;
     case "image_gallery":
@@ -83,8 +118,12 @@ export function BlockForm(props: BlockFormProps) {
       return <EmbedForm {...props} allowed={VIDEO_PROVIDERS} noun="video" />;
     case "embed":
       return <EmbedForm {...props} allowed={EMBED_PROVIDERS} noun="track, album or playlist" />;
+    case "contact":
+      return <ContactForm {...props} />;
     case "divider":
-      return null;
+      return <DividerForm {...props} />;
+    case "spacer":
+      return <SpacerForm {...props} />;
   }
 }
 
@@ -107,6 +146,22 @@ function LinksForm({ block, update }: BlockFormProps) {
         maxLength={60}
       />
 
+      {/*
+        * A grid is a layout of this section, not a different kind of section.
+        * The links keep their ids, so switching does not restart a single
+        * link's click history — which a second "link grid" block type would
+        * have done, silently, the first time somebody tried it.
+        */}
+      <ChoiceField
+        label="Layout"
+        value={data.layout}
+        onChange={(layout) => update({ data: { ...data, layout } })}
+        options={[
+          { value: "list", label: "Stacked" },
+          { value: "grid", label: "Grid" },
+        ]}
+      />
+
       <div className="space-y-2">
         {block.links.map((link, index) => (
           <LinkRow
@@ -127,16 +182,92 @@ function LinksForm({ block, update }: BlockFormProps) {
         ) : null}
       </div>
 
-      <AddRow
-        label="Add link"
-        onClick={() =>
-          setLinks([...block.links, { id: newId(), title: "", url: "", isActive: true }])
-        }
-      />
+      <AddRow label="Add link" onClick={() => setLinks([...block.links, newLink()])} />
     </div>
   );
 }
 
+/* ── A link's state, as a badge ───────────────────────────────────────────── */
+
+const STATE_LABELS: Record<LinkState, string> = {
+  live: "Live",
+  hidden: "Hidden",
+  scheduled: "Scheduled",
+  expired: "Expired",
+};
+
+const STATE_STYLES: Record<LinkState, string> = {
+  live: "bg-success/12 text-success",
+  hidden: "bg-surface text-ink-subtle ring-1 ring-border",
+  scheduled: "bg-accent/12 text-accent",
+  expired: "bg-surface text-ink-muted ring-1 ring-border",
+};
+
+/**
+ * Why this link is, or is not, on the page.
+ *
+ * The single most useful thing this whole feature adds. A link that has been
+ * scheduled, expired or switched off is absent from the public page for three
+ * different reasons, and a creator looking at a list of links they can see in
+ * the editor and cannot see on their page needs to be told which — not left
+ * to work it out from two date fields.
+ *
+ * `now` is null until the component has mounted, and the badge falls back to
+ * the two answers that do not depend on the clock. That is what keeps the
+ * server's render and the browser's first render identical.
+ */
+function StateBadge({ link, now }: { link: DraftLink; now: Date | null }) {
+  const state: LinkState = now
+    ? linkState(link, now)
+    : link.isActive
+      ? "live"
+      : "hidden";
+
+  return (
+    <span className="flex flex-wrap items-center gap-1.5">
+      <span
+        className={cn(
+          "inline-flex h-5 items-center rounded-full px-2 text-[0.6875rem] font-medium",
+          STATE_STYLES[state],
+        )}
+      >
+        {STATE_LABELS[state]}
+      </span>
+
+      {link.isFeatured ? (
+        <span className="inline-flex h-5 items-center rounded-full bg-ink/8 px-2 text-[0.6875rem] font-medium text-ink-muted">
+          Featured
+        </span>
+      ) : null}
+    </span>
+  );
+}
+
+/** "from 10 Sep, 18:00", "until 15 Sep, 23:59", or nothing. */
+function scheduleSummary(link: DraftLink): string | null {
+  const from = link.startsAt ? formatInstant(link.startsAt) : null;
+  const until = link.endsAt ? formatInstant(link.endsAt) : null;
+
+  if (from && until) return `${from} → ${until}`;
+  if (from) return `From ${from}`;
+  if (until) return `Until ${until}`;
+  return null;
+}
+
+/**
+ * One link, and everything that decides when it appears.
+ *
+ * Two fields are always visible — a title and an address — and everything
+ * else is behind "Options". That split is the whole design of this row: the
+ * common case is a creator adding a link, and a card that met them with a
+ * featured switch, an icon picker and two date fields would make the common
+ * case worse to serve the rare one.
+ *
+ * The badge is not behind the disclosure, because it answers the question a
+ * creator actually arrives with: this link is in my editor and not on my page,
+ * why. A schedule summary sits beside it when there is one, so a collapsed row
+ * still says "Until 15 Sep, 23:59" without being opened.
+ */
 function LinkRow({
   link,
   first,
@@ -153,6 +284,8 @@ function LinkRow({
   onRemove: () => void;
 }) {
   const [urlError, setUrlError] = useState<string | null>(null);
+  const [open, setOpen] = useState(false);
+  const now = useNow();
 
   /**
    * Checked when the field is left, not while it is being typed.
@@ -172,8 +305,18 @@ function LinkRow({
     setUrlError(checkUrl(normalized) ? "That does not look like a valid link." : null);
   }
 
+  const summary = scheduleSummary(link);
+  const problem = scheduleProblem(link);
+
   return (
     <div className="rounded-card bg-surface-sunken p-2.5">
+      <div className="mb-2 flex items-center justify-between gap-2">
+        <StateBadge link={link} now={now} />
+        {summary ? (
+          <span className="truncate text-[0.6875rem] text-ink-subtle">{summary}</span>
+        ) : null}
+      </div>
+
       <div className="flex items-start gap-2">
         <div className="min-w-0 flex-1 space-y-2">
           <input
@@ -212,9 +355,24 @@ function LinkRow({
           onChange={(isActive) => onChange({ isActive })}
           label={`Show “${link.title || "this link"}” on the page`}
         />
-        <IconButton label="Delete link" onClick={onRemove} danger>
-          <Icon d={ICONS.trash} className="h-3.5 w-3.5" />
-        </IconButton>
+
+        <span className="flex items-center gap-1">
+          <button
+            type="button"
+            onClick={() => setOpen((current) => !current)}
+            aria-expanded={open}
+            className="flex h-8 items-center gap-1 rounded-control px-2 text-[0.75rem] font-medium text-ink-muted transition-colors hover:bg-surface hover:text-ink"
+          >
+            Options
+            <Icon
+              d={ICONS.chevron}
+              className={cn("h-3 w-3 transition-transform", open && "rotate-180")}
+            />
+          </button>
+          <IconButton label="Delete link" onClick={onRemove} danger>
+            <Icon d={ICONS.trash} className="h-3.5 w-3.5" />
+          </IconButton>
+        </span>
       </div>
 
       {urlError ? (
@@ -222,6 +380,165 @@ function LinkRow({
           {urlError}
         </p>
       ) : null}
+
+      {open ? (
+        <div className="mt-3 space-y-4 border-t border-border pt-3">
+          <div className="flex items-center justify-between gap-3">
+            <span className="text-[0.8125rem] font-medium text-ink">Feature this link</span>
+            <Toggle
+              checked={link.isFeatured}
+              onChange={(isFeatured) => onChange({ isFeatured })}
+              label="Give this link more weight on the page"
+            />
+          </div>
+          <p className="-mt-3 text-[0.75rem] text-ink-subtle">
+            Taller, heavier, and ringed in your accent colour. In a grid it takes
+            the full row.
+          </p>
+
+          <LinkIconPicker link={link} onChange={onChange} />
+          <LinkSchedule link={link} onChange={onChange} problem={problem} />
+        </div>
+      ) : null}
+
+      {/*
+        * Shown whether or not the options are open. A backwards window is the
+        * one mistake here that makes a link invisible forever, and it is
+        * refused by the database — so a creator must not be able to leave it
+        * behind a collapsed disclosure and press Save.
+        */}
+      {problem && !open ? (
+        <p role="alert" className="mt-1.5 text-[0.8125rem] text-danger">
+          {problem}
+        </p>
+      ) : null}
+    </div>
+  );
+}
+
+/**
+ * A link's icon: a platform mark, an uploaded image, or none.
+ *
+ * Three options and no fourth. The absent fourth is "fetch the site's
+ * favicon", which sounds free and is not: it would mean this server making a
+ * request to whatever address a creator typed, which is a server-side request
+ * forgery with a friendly name. The platform marks cover the cases that
+ * actually come up — a creator's links are mostly to platforms we already draw
+ * — and an upload covers the rest.
+ *
+ * Setting one clears the other, here as well as in the schema and in the
+ * database, because "both" has no rendering.
+ */
+function LinkIconPicker({
+  link,
+  onChange,
+}: {
+  link: DraftLink;
+  onChange: (next: Partial<DraftLink>) => void;
+}) {
+  const mode = link.iconUrl ? "upload" : link.iconPlatform ? "platform" : "none";
+
+  return (
+    <div className="space-y-2">
+      <ChoiceField
+        label="Icon"
+        value={mode}
+        onChange={(next) => {
+          if (next === "none") onChange({ iconPlatform: null, iconUrl: null });
+          if (next === "platform") onChange({ iconPlatform: "website", iconUrl: null });
+          if (next === "upload") onChange({ iconPlatform: null, iconUrl: null });
+        }}
+        options={[
+          { value: "none", label: "None" },
+          { value: "platform", label: "Platform" },
+          { value: "upload", label: "Upload" },
+        ]}
+      />
+
+      {mode === "platform" ? (
+        <div className="flex items-center gap-2">
+          <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-control bg-surface text-ink-muted ring-1 ring-border">
+            <SocialIcon platform={link.iconPlatform ?? "website"} className="h-4 w-4" />
+          </span>
+          <div className="min-w-0 flex-1">
+            <SelectField
+              label="Mark"
+              value={link.iconPlatform ?? "website"}
+              onChange={(iconPlatform) => onChange({ iconPlatform, iconUrl: null })}
+              options={SOCIAL_PLATFORMS.map((platform) => ({
+                value: platform,
+                label: socialLabel(platform),
+              }))}
+            />
+          </div>
+        </div>
+      ) : null}
+
+      {mode === "upload" || link.iconUrl ? (
+        <ImagePicker
+          label="icon"
+          shape="square"
+          url={link.iconUrl}
+          onChange={(iconUrl) => onChange({ iconUrl, iconPlatform: null })}
+        />
+      ) : null}
+    </div>
+  );
+}
+
+/**
+ * When a link starts and when it stops.
+ *
+ * Both optional and independent: a launch with no end, an offer with no
+ * announcement, or a window with both. The times are the creator's own —
+ * entered and read in their device's zone, stored as absolute instants — and
+ * the zone is printed under the fields rather than assumed, because a number
+ * on screen with no zone beside it is the ambiguity this whole design exists
+ * to avoid.
+ *
+ * The note about the cache is there because it is true and a creator would
+ * otherwise think the feature was broken: the public page is cached for a
+ * minute, so a link can appear up to a minute after its start.
+ */
+function LinkSchedule({
+  link,
+  onChange,
+  problem,
+}: {
+  link: DraftLink;
+  onChange: (next: Partial<DraftLink>) => void;
+  problem: string | null;
+}) {
+  /*
+   * The zone name is a browser fact, not a render-time one. `Intl` resolves to
+   * the server's zone when this component is server-rendered, and printing one
+   * zone's name over another zone's numbers is worse than printing nothing for
+   * a tick.
+   */
+  const zone = useBrowserValue(localZoneName, "your device's time zone");
+
+  return (
+    <div className="space-y-3">
+      <DateTimeField
+        label="Starts"
+        value={toLocalInput(link.startsAt)}
+        onChange={(value) => onChange({ startsAt: fromLocalInput(value) })}
+        hint="Leave blank to show it straight away."
+      />
+
+      <DateTimeField
+        label="Ends"
+        value={toLocalInput(link.endsAt)}
+        onChange={(value) => onChange({ endsAt: fromLocalInput(value) })}
+        min={toLocalInput(link.startsAt) || undefined}
+        error={problem}
+        hint="Leave blank for no end. The link disappears at this time."
+      />
+
+      <p className="text-[0.75rem] leading-relaxed text-ink-subtle">
+        Times are in {zone}. Your page is cached for a minute, so a scheduled
+        link can appear up to a minute late.
+      </p>
     </div>
   );
 }
@@ -518,6 +835,16 @@ function GalleryForm({ block, update }: BlockFormProps) {
         maxLength={60}
       />
 
+      <ChoiceField
+        label="Layout"
+        value={data.layout}
+        onChange={(layout) => set({ layout })}
+        options={[
+          { value: "carousel", label: "Swipe" },
+          { value: "grid", label: "Grid" },
+        ]}
+      />
+
       <div className="space-y-2">
         {data.items.map((item, index) => (
           <div key={item.id} className="rounded-card bg-surface-sunken p-2.5">
@@ -544,6 +871,27 @@ function GalleryForm({ block, update }: BlockFormProps) {
                   maxLength={200}
                   aria-label="Alt text"
                   className="h-9 w-full rounded-control bg-surface px-2.5 text-sm ring-1 ring-border focus:ring-2 focus:ring-accent focus:outline-none"
+                />
+                {/*
+                  * A destination per image. Not tracked, and the hint says so
+                  * rather than leaving a creator to discover it from an
+                  * analytics page that never mentions the gallery.
+                  */}
+                <input
+                  value={item.href ?? ""}
+                  onChange={(event) =>
+                    patch(item.id, {
+                      href: event.target.value.length > 0 ? event.target.value : null,
+                    })
+                  }
+                  onBlur={(event) => {
+                    const value = event.target.value.trim();
+                    patch(item.id, { href: value.length > 0 ? normalizeUrl(value) : null });
+                  }}
+                  placeholder="Links to (optional)"
+                  inputMode="url"
+                  aria-label="Image link"
+                  className="h-9 w-full rounded-control bg-surface px-2.5 font-mono text-[0.8125rem] ring-1 ring-border focus:ring-2 focus:ring-accent focus:outline-none"
                 />
               </div>
 
@@ -585,7 +933,7 @@ function GalleryForm({ block, update }: BlockFormProps) {
         <AddRow
           label="Add image"
           onClick={() =>
-            setItems([...data.items, { id: newId(), url: "", alt: "", caption: "" }])
+            setItems([...data.items, { id: newId(), url: "", alt: "", caption: "", href: null }])
           }
         />
       ) : (
@@ -716,6 +1064,308 @@ function EmbedForm({
         placeholder="Optional heading above the player"
         maxLength={60}
       />
+    </div>
+  );
+}
+
+/* ── Heading ──────────────────────────────────────────────────────────────── */
+
+/**
+ * A real heading.
+ *
+ * The level is offered as "Section" and "Subsection" rather than as `h2` and
+ * `h3`, because the creator's question is about a page and not about HTML —
+ * and because there is no third option to offer. The page's `h1` is the
+ * creator's name, and a block that could emit another one would be a block
+ * that gives a page two titles.
+ */
+function HeadingForm({ block, update }: BlockFormProps) {
+  const data = block.data as HeadingBlockData;
+  const set = (next: Partial<HeadingBlockData>) => update({ data: { ...data, ...next } });
+
+  return (
+    <div className="space-y-4">
+      <TextField
+        label="Heading"
+        value={data.text}
+        onChange={(text) => set({ text })}
+        placeholder="My content"
+        maxLength={80}
+      />
+
+      <div className="flex flex-wrap gap-5">
+        <ChoiceField
+          label="Level"
+          value={data.level}
+          onChange={(level) => set({ level })}
+          options={[
+            { value: "section", label: "Section" },
+            { value: "subsection", label: "Subsection" },
+          ]}
+        />
+        <ChoiceField
+          label="Alignment"
+          value={data.align}
+          onChange={(align) => set({ align })}
+          options={[
+            { value: "center", label: "Centred" },
+            { value: "left", label: "Left" },
+            { value: "right", label: "Right" },
+          ]}
+        />
+      </div>
+
+      <p className="text-[0.75rem] leading-relaxed text-ink-subtle">
+        Unlike a Text block styled as a heading, this one is a real heading in
+        the page&rsquo;s outline — which is how screen readers and search
+        engines find their way around it.
+      </p>
+    </div>
+  );
+}
+
+/* ── Divider and spacer ───────────────────────────────────────────────────── */
+
+function DividerForm({ block, update }: BlockFormProps) {
+  const data = block.data as DividerBlockData;
+
+  return (
+    <ChoiceField
+      label="Style"
+      value={data.style}
+      onChange={(style) => update({ data: { ...data, style } })}
+      options={[
+        { value: "line", label: "Line" },
+        { value: "subtle", label: "Subtle" },
+        { value: "space", label: "Just space" },
+      ]}
+    />
+  );
+}
+
+function SpacerForm({ block, update }: BlockFormProps) {
+  const data = block.data as SpacerBlockData;
+
+  return (
+    <div className="space-y-2">
+      <ChoiceField
+        label="Size"
+        value={data.size}
+        onChange={(size) => update({ data: { ...data, size } })}
+        options={[
+          { value: "small", label: "Small" },
+          { value: "medium", label: "Medium" },
+          { value: "large", label: "Large" },
+        ]}
+      />
+      <p className="text-[0.75rem] text-ink-subtle">
+        Scaled to your page&rsquo;s spacing, so it stays in proportion if you
+        change the layout.
+      </p>
+    </div>
+  );
+}
+
+/* ── Contact ──────────────────────────────────────────────────────────────── */
+
+/**
+ * Ways to be reached.
+ *
+ * Each row is a kind and a value, and the value is validated for its kind
+ * when the field is left — an email against the address pattern, a phone
+ * against digits, a WhatsApp number against digits *with* a country code,
+ * because `wa.me` resolves a national number to somebody else's phone.
+ *
+ * Changing a row's kind clears its value. An email address is not a phone
+ * number, and carrying one into the other field would leave a row that fails
+ * validation for a reason the creator did not cause.
+ */
+function ContactForm({ block, update }: BlockFormProps) {
+  const data = block.data as ContactBlockData;
+  const set = (next: Partial<ContactBlockData>) => update({ data: { ...data, ...next } });
+
+  const setItems = (items: ContactItem[]) => set({ items });
+  const patch = (id: string, next: Partial<ContactItem>) =>
+    setItems(
+      data.items.map((item) =>
+        item.id === id ? ({ ...item, ...next } as ContactItem) : item,
+      ),
+    );
+
+  return (
+    <div className="space-y-4">
+      <TextField
+        label="Section title"
+        value={data.title}
+        onChange={(title) => set({ title })}
+        placeholder="Optional — “Get in touch”"
+        maxLength={60}
+      />
+
+      <div className="space-y-2">
+        {data.items.map((item, index) => (
+          <ContactRow
+            key={item.id}
+            item={item}
+            first={index === 0}
+            last={index === data.items.length - 1}
+            onChange={(next) => patch(item.id, next)}
+            onMove={(delta) => setItems(reorder(data.items, index, index + delta))}
+            onRemove={() => setItems(data.items.filter((entry) => entry.id !== item.id))}
+          />
+        ))}
+
+        {data.items.length === 0 ? (
+          <p className="rounded-card bg-surface-sunken px-3 py-3 text-[0.8125rem] text-ink-subtle">
+            No contact details yet.
+          </p>
+        ) : null}
+      </div>
+
+      {data.items.length < 6 ? (
+        <AddRow
+          label="Add a way to reach you"
+          onClick={() =>
+            setItems([...data.items, { id: newId(), kind: "email", label: "", value: "" }])
+          }
+        />
+      ) : (
+        <p className="text-[0.8125rem] text-ink-subtle">That is enough ways to be reached.</p>
+      )}
+    </div>
+  );
+}
+
+function ContactRow({
+  item,
+  first,
+  last,
+  onChange,
+  onMove,
+  onRemove,
+}: {
+  item: ContactItem;
+  first: boolean;
+  last: boolean;
+  onChange: (next: Partial<ContactItem>) => void;
+  onMove: (delta: 1 | -1) => void;
+  onRemove: () => void;
+}) {
+  const [error, setError] = useState<string | null>(null);
+
+  /**
+   * Validated against the item's own kind, by the schema that will judge it
+   * on save.
+   *
+   * Reusing `contactItemSchema` rather than restating the rules means the
+   * message a creator reads here is the message the server would have given,
+   * and there is no second copy of "what counts as a phone number" to drift.
+   */
+  function settle() {
+    if (item.value.trim().length === 0) {
+      setError(null);
+      return;
+    }
+    const parsed = contactItemSchema.safeParse(item);
+    setError(parsed.success ? null : (parsed.error.issues[0]?.message ?? null));
+  }
+
+  return (
+    <div className="rounded-card bg-surface-sunken p-2.5">
+      <div className="flex items-start gap-2">
+        <div className="min-w-0 flex-1 space-y-2">
+          <select
+            value={item.kind}
+            onChange={(event) => {
+              setError(null);
+              /*
+               * A fresh row of the new kind, keeping only the id. An address
+               * item carries a `url` the other kinds have no field for, so
+               * spreading the old item across would leave a stray key that
+               * the discriminated union does not allow.
+               */
+              onChange({
+                kind: event.target.value as ContactKind,
+                value: "",
+                label: "",
+              } as Partial<ContactItem>);
+            }}
+            aria-label="Kind"
+            className="h-9 w-full cursor-pointer rounded-control bg-surface px-2.5 text-sm ring-1 ring-border focus:ring-2 focus:ring-accent focus:outline-none"
+          >
+            {CONTACT_KINDS.map((kind) => (
+              <option key={kind} value={kind}>
+                {CONTACT_LABELS[kind]}
+              </option>
+            ))}
+          </select>
+
+          <input
+            value={item.value}
+            onChange={(event) => {
+              if (error) setError(null);
+              onChange({ value: event.target.value });
+            }}
+            onBlur={settle}
+            placeholder={CONTACT_PLACEHOLDERS[item.kind]}
+            inputMode={
+              item.kind === "email" ? "email" : item.kind === "address" ? "text" : "tel"
+            }
+            aria-label={`${CONTACT_LABELS[item.kind]} value`}
+            aria-invalid={error ? true : undefined}
+            className="h-9 w-full rounded-control bg-surface px-2.5 text-sm ring-1 ring-border focus:ring-2 focus:ring-accent focus:outline-none aria-invalid:ring-danger"
+          />
+
+          <input
+            value={item.label}
+            onChange={(event) => onChange({ label: event.target.value })}
+            placeholder={`Button label (default “${CONTACT_LABELS[item.kind]}”)`}
+            maxLength={40}
+            aria-label="Button label"
+            className="h-9 w-full rounded-control bg-surface px-2.5 text-sm ring-1 ring-border focus:ring-2 focus:ring-accent focus:outline-none"
+          />
+
+          {/* An address can carry a link the creator chose. Only an address. */}
+          {item.kind === "address" ? (
+            <input
+              value={item.url ?? ""}
+              onChange={(event) =>
+                onChange({
+                  url: event.target.value.length > 0 ? event.target.value : null,
+                } as Partial<ContactItem>)
+              }
+              onBlur={(event) => {
+                const value = event.target.value.trim();
+                onChange({
+                  url: value.length > 0 ? normalizeUrl(value) : null,
+                } as Partial<ContactItem>);
+              }}
+              placeholder="Map link (optional)"
+              inputMode="url"
+              aria-label="Map link"
+              className="h-9 w-full rounded-control bg-surface px-2.5 font-mono text-[0.8125rem] ring-1 ring-border focus:ring-2 focus:ring-accent focus:outline-none"
+            />
+          ) : null}
+        </div>
+
+        <div className="flex flex-col items-center">
+          <IconButton label="Move up" onClick={() => onMove(-1)} disabled={first}>
+            <Icon d={ICONS.up} className="h-3.5 w-3.5" />
+          </IconButton>
+          <IconButton label="Move down" onClick={() => onMove(1)} disabled={last}>
+            <Icon d={ICONS.down} className="h-3.5 w-3.5" />
+          </IconButton>
+          <IconButton label="Remove" danger onClick={onRemove}>
+            <Icon d={ICONS.trash} className="h-3.5 w-3.5" />
+          </IconButton>
+        </div>
+      </div>
+
+      {error ? (
+        <p role="alert" className="mt-1.5 text-[0.8125rem] text-danger">
+          {error}
+        </p>
+      ) : null}
     </div>
   );
 }

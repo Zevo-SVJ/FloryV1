@@ -4,6 +4,7 @@ import { SOCIAL_PLATFORMS, bioSchema, displayNameSchema } from "@/lib/validation
 import { socialUrlSchema, urlSchema } from "@/lib/validation/url";
 import { isRenderableMediaUrl } from "@/lib/media/url";
 import { designSchema } from "@/lib/design/schema";
+import { scheduleProblem } from "@/lib/links/schedule";
 import type { BlockType } from "@/types/database";
 
 /**
@@ -36,16 +37,61 @@ import type { BlockType } from "@/types/database";
  */
 const rowId = z.uuid("Malformed id.");
 
-const linkSchema = z.object({
-  id: rowId,
-  title: z
-    .string()
-    .trim()
-    .min(1, "Give the link a title.")
-    .max(80, "That title is too long."),
-  url: urlSchema,
-  isActive: z.boolean(),
-});
+/**
+ * An absolute instant, or nothing.
+ *
+ * `z.iso.datetime({ offset: true })` and not a loose `Date.parse` refinement:
+ * this string is cast to `timestamptz` inside `save_page`, so anything the
+ * parser would merely tolerate becomes a database error rather than a
+ * sentence. `offset: true` accepts both the `Z` the editor produces and an
+ * explicit offset, and refuses a bare wall-clock time — which is the one form
+ * whose meaning would depend on who read it.
+ */
+const scheduledAt = z.iso
+  .datetime({ offset: true, message: "That is not a valid date and time." })
+  .nullable()
+  .default(null);
+
+const linkSchema = z
+  .object({
+    id: rowId,
+    title: z
+      .string()
+      .trim()
+      .min(1, "Give the link a title.")
+      .max(80, "That title is too long."),
+    url: urlSchema,
+    isActive: z.boolean(),
+    startsAt: scheduledAt,
+    endsAt: scheduledAt,
+    isFeatured: z.boolean().default(false),
+    /*
+     * A platform mark, or an image in our own bucket, or neither — the same
+     * rule as the `links_icon_one_of` constraint, said in the layer that can
+     * explain itself. No third option: a favicon would be this server fetching
+     * whatever host a creator typed.
+     */
+    iconPlatform: z.enum(SOCIAL_PLATFORMS).nullable().default(null),
+    iconUrl: z
+      .string()
+      .trim()
+      .max(2048)
+      .refine(isRenderableMediaUrl, "That icon is not stored on ShowMe.")
+      .nullable()
+      .default(null),
+  })
+  .superRefine((link, ctx) => {
+    const problem = scheduleProblem(link);
+    if (problem) ctx.addIssue({ code: "custom", path: ["endsAt"], message: problem });
+
+    if (link.iconPlatform !== null && link.iconUrl !== null) {
+      ctx.addIssue({
+        code: "custom",
+        path: ["iconUrl"],
+        message: "A link can have a platform icon or an uploaded one, not both.",
+      });
+    }
+  });
 
 const socialSchema = z.object({
   id: rowId,
@@ -116,6 +162,12 @@ export const savePageSchema = z.object({
       .max(2048)
       .refine(isRenderableMediaUrl, "That image is not stored on ShowMe.")
       .nullable(),
+    /*
+     * Optional, and `save_page` coalesces to the stored value — so a client
+     * that predates this setting cannot turn a creator's page invisible to
+     * search by saving a link. Same courtesy `design` gets.
+     */
+    searchVisible: z.boolean().optional(),
   }),
   socials: z.array(socialSchema).max(SOCIAL_PLATFORMS.length),
   blocks: z.array(blockSchema).max(60),

@@ -9,10 +9,14 @@ import { BLOCKS } from "@/lib/blocks/registry";
 import { cn } from "@/lib/utils/cn";
 import type { DraftBlock, DraftSocial } from "@/lib/editor/state";
 import type {
+  ContactBlockData,
+  DividerBlockData,
   EmbedBlockData,
   GalleryBlockData,
+  HeadingBlockData,
   ImageBlockData,
   LinksBlockData,
+  SpacerBlockData,
   TextBlockData,
   VideoBlockData,
 } from "@/lib/blocks/schemas";
@@ -186,12 +190,29 @@ function summarize({ block, socials }: BlockCardProps): string {
 
   switch (block.type) {
     case "links": {
-      const { title } = block.data as LinksBlockData;
+      const { title, layout } = block.data as LinksBlockData;
       const live = block.links.filter((link) => link.isActive).length;
       const count = block.links.length;
       const noun = `${count} ${count === 1 ? "link" : "links"}`;
       const drafts = count - live > 0 ? `, ${count - live} hidden` : "";
-      return `${hidden}${title.trim() || noun}${title.trim() ? ` · ${noun}` : ""}${drafts}`;
+      /*
+       * Links with a schedule are counted separately from hidden ones. A
+       * creator looking at "4 links, 1 hidden" when one of them is actually
+       * waiting for Friday would go looking for a switch that is not the
+       * problem.
+       *
+       * "with dates" rather than "scheduled", deliberately: the badge on a row
+       * uses "Scheduled" to mean *not started yet*, and an expired link would
+       * be counted here under a word that says the opposite of its own badge.
+       * This count is also time-independent, which keeps a server-rendered
+       * summary from disagreeing with the browser's clock.
+       */
+      const timed = block.links.filter(
+        (link) => link.startsAt !== null || link.endsAt !== null,
+      ).length;
+      const scheduled = timed > 0 ? `, ${timed} with dates` : "";
+      const grid = layout === "grid" ? "Grid · " : "";
+      return `${hidden}${grid}${title.trim() || noun}${title.trim() ? ` · ${noun}` : ""}${drafts}${scheduled}`;
     }
 
     case "socials": {
@@ -204,6 +225,24 @@ function summarize({ block, socials }: BlockCardProps): string {
       return `${hidden}${text.trim() || "Empty"}`;
     }
 
+    case "heading": {
+      const { text, level } = block.data as HeadingBlockData;
+      const kind = level === "subsection" ? "Subsection" : "Section";
+      return `${hidden}${text.trim() ? `${text.trim()} · ${kind}` : "Empty"}`;
+    }
+
+    case "contact": {
+      const { title, items } = block.data as ContactBlockData;
+      if (items.length === 0) return `${hidden}Nothing to reach you by yet`;
+      const kinds = [...new Set(items.map((item) => item.kind))].join(", ");
+      return `${hidden}${title.trim() ? `${title.trim()} · ${kinds}` : kinds}`;
+    }
+
+    case "spacer": {
+      const { size } = block.data as SpacerBlockData;
+      return `${hidden}${size.charAt(0).toUpperCase()}${size.slice(1)} gap`;
+    }
+
     case "image": {
       const { url, alt } = block.data as ImageBlockData;
       if (url.length === 0) return `${hidden}No image yet`;
@@ -211,9 +250,10 @@ function summarize({ block, socials }: BlockCardProps): string {
     }
 
     case "image_gallery": {
-      const { title, items } = block.data as GalleryBlockData;
+      const { title, items, layout } = block.data as GalleryBlockData;
       const noun = `${items.length} ${items.length === 1 ? "image" : "images"}`;
-      return `${hidden}${title.trim() ? `${title.trim()} · ${noun}` : noun}`;
+      const shape = layout === "grid" ? "Grid · " : "";
+      return `${hidden}${shape}${title.trim() ? `${title.trim()} · ${noun}` : noun}`;
     }
 
     case "video":
@@ -223,8 +263,10 @@ function summarize({ block, socials }: BlockCardProps): string {
       return `${hidden}${title.trim() || url}`;
     }
 
-    case "divider":
-      return `${hidden}A line`;
+    case "divider": {
+      const { style } = block.data as DividerBlockData;
+      return `${hidden}${style === "space" ? "Just space" : style === "subtle" ? "A faint line" : "A line"}`;
+    }
 
     default:
       return hidden;

@@ -1,6 +1,7 @@
 "use client";
 
 import { PublicPage } from "@/components/public/public-page";
+import { siteUrl } from "@/lib/env";
 import { draftToPublicPage, type Draft } from "@/lib/editor/state";
 
 /**
@@ -38,7 +39,16 @@ export function Preview({ draft }: { draft: Draft }) {
             className="max-h-[min(76vh,44rem)] overflow-y-auto [scrollbar-width:thin]"
           >
             <div className="pointer-events-none [&_.sm-page]:min-h-[34rem]">
-              <PublicPage page={page} design={page.design} />
+              {/*
+                * `address` is the real page address, so the footer's share
+                * button previews with the URL it will actually carry — and
+                * `tracked` is absent, so the preview never reports a view.
+                */}
+              <PublicPage
+                page={page}
+                design={page.design}
+                address={`${siteUrl()}/${draft.profile.username}`}
+              />
             </div>
           </div>
         </div>

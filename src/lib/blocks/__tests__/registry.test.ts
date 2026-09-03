@@ -32,7 +32,15 @@ test("every block's defaults parse against its own schema", () => {
      * save action turns that failure into "this block is empty" rather than
      * into a schema message.
      */
-    const startsEmpty = ["text", "image", "image_gallery", "video", "embed"].includes(type);
+    const startsEmpty = [
+      "text",
+      "heading",
+      "image",
+      "image_gallery",
+      "video",
+      "embed",
+      "contact",
+    ].includes(type);
     assert.equal(parsed.success, !startsEmpty, type);
   }
 });
@@ -222,4 +230,79 @@ test("a block whose data fails its schema fails the whole save", () => {
   assert.equal(result.success, false);
   // Pathed at the block, so the action can name which one and open it.
   assert.deepEqual(result.error?.issues[0]?.path.slice(0, 2), ["blocks", 0]);
+});
+
+/* ── Phase 7: the new blocks, and the ones that grew ──────────────────────── */
+
+test("a heading has a level, and no way to reach h1", () => {
+  const parsed = BLOCKS.heading.schema.safeParse({ text: "My work" });
+  assert.equal(parsed.success, true);
+  assert.equal(parsed.success && parsed.data.level, "section");
+
+  /*
+   * The page's `h1` is the creator's name. A block that could emit another
+   * would give a page two competing titles — so the level is a two-member
+   * enum and there is no numeric field to widen.
+   */
+  for (const level of ["h1", "title", 1, "page"]) {
+    assert.equal(
+      BLOCKS.heading.schema.safeParse({ text: "x", level }).success,
+      false,
+      String(level),
+    );
+  }
+});
+
+test("a heading refuses to be empty, so no page grows a blank heading", () => {
+  assert.equal(BLOCKS.heading.schema.safeParse({ text: "  " }).success, false);
+});
+
+test("a spacer takes a named size and never a number of pixels", () => {
+  assert.equal(BLOCKS.spacer.schema.safeParse({ size: "large" }).success, true);
+
+  for (const size of [24, "24px", "huge", ""]) {
+    assert.equal(BLOCKS.spacer.schema.safeParse({ size }).success, false, String(size));
+  }
+});
+
+test("a divider has three treatments and no colour of its own", () => {
+  for (const style of ["line", "subtle", "space"]) {
+    assert.equal(BLOCKS.divider.schema.safeParse({ style }).success, true, style);
+  }
+  assert.equal(BLOCKS.divider.schema.safeParse({ style: "dotted" }).success, false);
+  // A colour would be a creator value becoming CSS, which the design system
+  // exists to prevent. It takes the page's own text token instead.
+  const parsed = BLOCKS.divider.schema.safeParse({ style: "line", color: "#ff0000" });
+  assert.equal(parsed.success && "color" in parsed.data, false);
+});
+
+test("a links block is a stack or a grid, and nothing else", () => {
+  assert.equal(BLOCKS.links.schema.safeParse({}).success, true);
+  assert.equal(
+    BLOCKS.links.schema.safeParse({}).success &&
+      BLOCKS.links.schema.parse({}).layout,
+    "list",
+  );
+  assert.equal(BLOCKS.links.schema.safeParse({ layout: "grid" }).success, true);
+  assert.equal(BLOCKS.links.schema.safeParse({ layout: "masonry" }).success, false);
+});
+
+test("a contact block refuses to be empty and caps how long it gets", () => {
+  const email = { id: "c1", kind: "email", label: "", value: "hi@example.com" };
+
+  assert.equal(BLOCKS.contact.schema.safeParse({ items: [email] }).success, true);
+  assert.equal(BLOCKS.contact.schema.safeParse({ items: [] }).success, false);
+  assert.equal(
+    BLOCKS.contact.schema.safeParse({
+      items: Array.from({ length: 7 }, (_, i) => ({ ...email, id: `c${i}` })),
+    }).success,
+    false,
+  );
+});
+
+test("a text block can be aligned three ways now, and still refuses a fourth", () => {
+  for (const align of ["left", "center", "right"]) {
+    assert.equal(BLOCKS.text.schema.safeParse({ text: "x", align }).success, true, align);
+  }
+  assert.equal(BLOCKS.text.schema.safeParse({ text: "x", align: "justify" }).success, false);
 });

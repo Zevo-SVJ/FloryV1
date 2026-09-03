@@ -27,6 +27,34 @@ export interface DraftLink {
   title: string;
   url: string;
   isActive: boolean;
+  /**
+   * Absolute instants, ISO-8601, or null for "no bound".
+   *
+   * Stored as instants rather than as a wall-clock time and a zone, which is
+   * what makes the editor and the public page incapable of disagreeing about
+   * when a link appears. See `lib/links/schedule.ts`.
+   */
+  startsAt: string | null;
+  endsAt: string | null;
+  isFeatured: boolean;
+  /** One of the platform marks, or an uploaded image. Never both. */
+  iconPlatform: SocialPlatform | null;
+  iconUrl: string | null;
+}
+
+/** A link with nothing decided about it yet. */
+export function newLink(): DraftLink {
+  return {
+    id: newId(),
+    title: "",
+    url: "",
+    isActive: true,
+    startsAt: null,
+    endsAt: null,
+    isFeatured: false,
+    iconPlatform: null,
+    iconUrl: null,
+  };
 }
 
 export interface DraftSocial {
@@ -52,6 +80,8 @@ export interface DraftProfile {
   displayName: string;
   bio: string;
   avatarUrl: string | null;
+  /** Whether the page asks to be indexed and appears in the sitemap. */
+  searchVisible: boolean;
 }
 
 export interface Draft {
@@ -108,13 +138,18 @@ export function newBlock(type: BlockType): DraftBlock {
  *
  * The one thing it cannot show is a page that was saved from another tab. That
  * is a property of a draft, not a bug in the preview.
+ *
+ * `now` is threaded through so a scheduled link is absent from the preview for
+ * exactly the reason it will be absent from the page — the same comparison,
+ * not a second one written to look like it.
  */
-export function draftToPublicPage(draft: Draft): PublicPage {
+export function draftToPublicPage(draft: Draft, now: Date = new Date()): PublicPage {
   const row: ProfileRow = {
     username: draft.profile.username,
     display_name: draft.profile.displayName,
     bio: draft.profile.bio,
     avatar_url: draft.profile.avatarUrl,
+    search_visible: draft.profile.searchVisible,
 
     links: draft.blocks.flatMap((block) =>
       block.links.map((link, index) => ({
@@ -124,6 +159,11 @@ export function draftToPublicPage(draft: Draft): PublicPage {
         url: link.url,
         position: index,
         is_active: link.isActive,
+        starts_at: link.startsAt,
+        ends_at: link.endsAt,
+        is_featured: link.isFeatured,
+        icon_platform: link.iconPlatform,
+        icon_url: link.iconUrl,
       })),
     ),
 
@@ -150,7 +190,7 @@ export function draftToPublicPage(draft: Draft): PublicPage {
     })),
   };
 
-  return toPublicPage(row);
+  return toPublicPage(row, now);
 }
 
 /**

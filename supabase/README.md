@@ -4,7 +4,7 @@ The schema, its policies, and a suite that proves the policies do what they say.
 
 ```
 migrations/   applied in filename order by the Supabase CLI
-tests/        a Supabase shim, five suites, and a runner
+tests/        a Supabase shim, six suites, and a runner
 ```
 
 Each suite runs against its own database, cloned from the migrated one, because
@@ -51,8 +51,9 @@ chose to publish — no email, no tokens, no billing.
 
 Everything a creator owns — **links**, **social_links**, **blocks** — hangs off
 that profile. The world may read a row only once the creator has published it
-(`is_active` / `is_visible`); the creator may read all of theirs, including
-drafts; and only the creator may write. Every write policy is
+(`is_active` / `is_visible`) *and*, for a link, only while it is inside its
+schedule; the creator may read all of theirs, including drafts and links that
+have not started; and only the creator may write. Every write policy is
 `profile_id = (select auth.uid())` in both `USING` and `WITH CHECK`, so a client
 can neither create a row owned by somebody else nor hand one of its own away.
 
@@ -156,6 +157,62 @@ a `CASE` before it reaches `date_trunc` — an interpolated identifier there wou
 be an injection point. It fills empty buckets with `generate_series` so a quiet
 Tuesday is a gap in the chart rather than a missing column.
 
+### A link's life
+
+`20260106000001_growth.sql` gives a link a schedule, a featured flag and an
+icon. Only the first is a security boundary, and it is worth being precise
+about why it is in a policy rather than in a `where` clause.
+
+`live links are readable by anyone` replaces the policy that only looked at
+`is_active`:
+
+```sql
+using (
+  is_active
+  and (starts_at is null or starts_at <= now())
+  and (ends_at is null or ends_at > now())
+)
+```
+
+Every reader of a link goes through it: the public page's session-less query, a
+direct `supabase-js` call from a browser console, and — the one that matters
+most — the `/go/<id>` redirect, which refuses a scheduled or expired link
+without a line of application code being added to it. A link that has not
+started is indistinguishable from one that does not exist, which is the right
+answer to a stranger asking about a drop that has not happened yet. The
+owner's own `owners read all their links` policy is untouched, so the editor
+still sees everything it manages.
+
+The window is **inclusive at its start and exclusive at its end**, the same
+convention every window in the product uses. Two links scheduled back to back
+are therefore never both on the page. `src/lib/links/schedule.ts` states the
+same rule for the editor and the preview, and both ends stand on the same two
+instants in their tests.
+
+Times are absolute. `starts_at` and `ends_at` are `timestamptz`, written from
+ISO-8601 strings with an explicit offset, so there is exactly one moment at
+which a link appears and the server's own zone never enters into it.
+
+`is_featured` is presentation and nothing else — a featured link is not
+readable for one second longer than an unfeatured one, which the suite
+asserts directly. An icon is either one of the eighteen platform marks the
+socials row already ships or an image in `page-media`, never both, and never
+a favicon: fetching one would mean this server making requests to whatever
+host a creator typed.
+
+### Search visibility
+
+`profiles.search_visible` decides whether a page asks to be indexed and whether
+it appears in the sitemap. It defaults to true, because a creator page exists to
+be found.
+
+It is deliberately **not** an access control, and the column's name and comment
+both say so. The page stays readable by anyone holding the address — it has to,
+because that address is in somebody's bio — and turning this off only changes
+what the page tells a crawler. A test asserts exactly that: a page kept out of
+search is still readable by a stranger, and a stranger still cannot turn it
+back on.
+
 ### Usernames
 
 `profiles.username` is the whole public address, so the rules are enforced in
@@ -252,6 +309,24 @@ write never answers with a success.
   column at all.
 - A URL-shaped source, a non-hash visitor hash and an off-enum device are all
   refused by the database.
+- A stranger sees only the links that are live *right now*: one that has not
+  started, one that has ended and one switched off are all invisible at the row
+  level, so the click redirect refuses them without knowing scheduling exists.
+- A link is live from the instant its window opens and gone at the instant it
+  closes.
+- Featuring a scheduled link does not make it readable.
+- A window that ends before it begins, or lasts no time at all, is refused.
+- A link cannot carry a platform mark and an uploaded icon at once, and an icon
+  served over http is refused.
+- A link keeps its id — and therefore its clicks — through every status change,
+  and a scheduled link deleted through `save_page` still keeps them.
+- `save_page` writes a schedule, a featured flag, an icon, a grid layout and the
+  three new block types in one transaction.
+- A client that has never heard of search visibility cannot reset it by saving.
+- A rival can read a live link, like anybody, and cannot publish a scheduled one
+  early, un-feature one, delete one, or remove a page from search.
+- A page kept out of search is still readable by a stranger, which is what makes
+  it a search setting rather than a privacy one.
 
 ## Conventions
 

@@ -37,11 +37,14 @@ export type BlockType =
   | "links"
   | "socials"
   | "text"
+  | "heading"
   | "image"
   | "image_gallery"
   | "video"
   | "embed"
-  | "divider";
+  | "contact"
+  | "divider"
+  | "spacer";
 
 export type SubscriptionStatus =
   | "trialing"
@@ -81,6 +84,14 @@ type ProfileRow = Timestamps & {
    * trigger — a client that could write it could rename itself freely.
    */
   username_claimed_at: string | null;
+  /**
+   * Whether the public page asks to be indexed and appears in the sitemap.
+   *
+   * Not an access control, and the name is chosen so nobody mistakes it for
+   * one: the page stays readable by anyone holding the address either way,
+   * because that address is in somebody's bio.
+   */
+  search_visible: boolean;
 };
 
 type LinkRow = Timestamps & {
@@ -96,6 +107,23 @@ type LinkRow = Timestamps & {
   url: string;
   position: number;
   is_active: boolean;
+  /**
+   * The window in which the link is publicly readable, as absolute instants.
+   *
+   * Null on either side means "no bound". Enforced by the `live links are
+   * readable by anyone` policy rather than by a filter in the application, so
+   * `/go/<id>` refuses an unstarted or expired link without knowing that
+   * scheduling exists.
+   */
+  starts_at: string | null;
+  /** Exclusive: at exactly this instant the link is already gone. */
+  ends_at: string | null;
+  /** Presentation only. Never affects whether the row can be read. */
+  is_featured: boolean;
+  /** One of the platform marks the socials row already ships. */
+  icon_platform: SocialPlatform | null;
+  /** An image in our own bucket. Mutually exclusive with `icon_platform`. */
+  icon_url: string | null;
 };
 
 type SocialLinkRow = Timestamps & {

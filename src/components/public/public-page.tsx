@@ -1,5 +1,6 @@
 import { ProfileHeader } from "@/components/public/profile-header";
 import { PublicBlockView } from "@/components/public/blocks";
+import { PageFooter } from "@/components/public/page-footer";
 import { PageSurface } from "@/components/public/page-surface";
 import { ViewBeacon } from "@/components/public/view-beacon";
 import { isEmptyPage, type PublicPage as PublicPageData } from "@/lib/public-page/types";
@@ -27,10 +28,20 @@ import type { ResolvedDesign } from "@/lib/design/types";
 export function PublicPage({
   page,
   design,
+  address,
   tracked = false,
 }: {
   page: PublicPageData;
   design: ResolvedDesign;
+  /**
+   * The page's own absolute URL, for the footer's share button.
+   *
+   * Passed in rather than built here, because the canonical origin is a piece
+   * of server configuration and this component also renders inside the
+   * editor's preview in a browser. One place decides what a page's address
+   * is, and it is the same place the canonical tag and the QR code read.
+   */
+  address: string;
   /**
    * Whether this render is the live page rather than the editor's preview.
    *
@@ -55,6 +66,11 @@ export function PublicPage({
       ) : null}
 
       {isEmptyPage(page) ? <EmptyPage /> : null}
+
+      <PageFooter
+        url={address}
+        title={page.profile.displayName ?? `@${page.profile.username}`}
+      />
     </PageSurface>
   );
 }

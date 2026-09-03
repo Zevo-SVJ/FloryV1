@@ -13,7 +13,13 @@
  * else in the application changes.
  */
 
-export type EmbedProvider = "youtube" | "vimeo" | "spotify";
+export type EmbedProvider =
+  | "youtube"
+  | "vimeo"
+  | "tiktok"
+  | "spotify"
+  | "apple_music"
+  | "soundcloud";
 
 export interface Embed {
   provider: EmbedProvider;
@@ -47,6 +53,21 @@ interface ProviderSpec {
 const YOUTUBE_ID = /^[A-Za-z0-9_-]{11}$/;
 const VIMEO_ID = /^[0-9]{6,12}$/;
 const SPOTIFY_ID = /^[A-Za-z0-9]{22}$/;
+/** TikTok video ids are a snowflake: nineteen digits today, room to grow. */
+const TIKTOK_ID = /^[0-9]{15,21}$/;
+/** One SoundCloud path segment — a user, a track, or `sets`. */
+const SOUNDCLOUD_SEGMENT = /^[a-z0-9_-]{1,60}$/i;
+const APPLE_COUNTRY = /^[a-z]{2}$/i;
+/*
+ * An id's shape depends on what it identifies, and pairing the two is what
+ * keeps the matcher narrow. Apple's playlist ids are `pl.` plus a hex string;
+ * everything else is numeric. Accepting either for either kind would let
+ * `/us/album/x/pl.anything` through, which is not an address Apple has —
+ * caught by the tests rather than reasoned about.
+ */
+const APPLE_NUMERIC_ID = /^[0-9]{4,15}$/;
+const APPLE_PLAYLIST_ID = /^pl\.[A-Za-z0-9]{20,40}$/;
+const APPLE_KINDS = new Set(["album", "playlist", "song", "artist", "station"]);
 const SPOTIFY_KINDS = new Set(["track", "album", "playlist", "artist", "episode", "show"]);
 
 const hostIs = (url: URL, ...hosts: string[]): boolean => {
@@ -137,11 +158,137 @@ const spotify: ProviderSpec = {
   },
 };
 
-const PROVIDERS: readonly ProviderSpec[] = [youtube, vimeo, spotify];
+const tiktok: ProviderSpec = {
+  provider: "tiktok",
+  label: "TikTok",
+  example: "https://www.tiktok.com/@name/video/…",
+  match(url) {
+    if (!hostIs(url, "tiktok.com", "m.tiktok.com")) return null;
 
-/** What each block type is allowed to embed. */
-export const VIDEO_PROVIDERS: readonly EmbedProvider[] = ["youtube", "vimeo"];
-export const EMBED_PROVIDERS: readonly EmbedProvider[] = ["spotify"];
+    const parts = segments(url);
+    /*
+     * `/@handle/video/ID` and `/@handle/photo/ID`. A `vm.tiktok.com` short
+     * link is deliberately refused: resolving one means this server following
+     * a redirect chain on a creator's behalf, which is a request to an
+     * arbitrary address decided by somebody else — and the editor can say
+     * "paste the full link" instead, in front of the person who pasted it.
+     */
+    const at = parts.findIndex((part) => part === "video" || part === "photo");
+    const id = at === -1 ? null : (parts[at + 1] ?? null);
+    if (!id || !TIKTOK_ID.test(id)) return null;
+
+    return {
+      provider: "tiktok",
+      src: `https://www.tiktok.com/embed/v2/${id}`,
+      title: "TikTok video player",
+      /*
+       * Fixed, not a ratio. TikTok's frame is a vertical video plus a caption,
+       * a follow button and a comment count, and the chrome does not scale
+       * with the video — a 9:16 box leaves the player letterboxed inside it at
+       * every width. 740px is the height TikTok's own embed uses.
+       */
+      sizing: { kind: "fixed", height: 740 },
+    };
+  },
+};
+
+const appleMusic: ProviderSpec = {
+  provider: "apple_music",
+  label: "Apple Music",
+  example: "https://music.apple.com/us/album/…",
+  match(url) {
+    if (!hostIs(url, "music.apple.com", "embed.music.apple.com")) return null;
+
+    const parts = segments(url);
+    const [country, kind, , id] = parts;
+    if (!country || !APPLE_COUNTRY.test(country)) return null;
+    if (!kind || !APPLE_KINDS.has(kind)) return null;
+    if (!id) return null;
+    if (kind === "playlist" ? !APPLE_PLAYLIST_ID.test(id) : !APPLE_NUMERIC_ID.test(id)) {
+      return null;
+    }
+
+    /*
+     * The slug between the kind and the id is a human-readable album name and
+     * is not reproduced: Apple ignores it, and it is the one segment of the
+     * path a creator could put anything into. The embed is addressed by
+     * country, kind and id, all three of which passed a character class above.
+     */
+    const track = url.searchParams.get("i");
+    const song = track && /^[0-9]{4,15}$/.test(track) ? `?i=${track}` : "";
+
+    return {
+      provider: "apple_music",
+      src: `https://embed.music.apple.com/${country.toLowerCase()}/${kind}/${id}${song}`,
+      title: "Apple Music player",
+      // A single song is a compact bar; an album or playlist is a track list.
+      sizing: { kind: "fixed", height: kind === "song" || song ? 175 : 450 },
+    };
+  },
+};
+
+const soundcloud: ProviderSpec = {
+  provider: "soundcloud",
+  label: "SoundCloud",
+  example: "https://soundcloud.com/artist/track",
+  match(url) {
+    if (!hostIs(url, "soundcloud.com", "m.soundcloud.com")) return null;
+
+    /*
+     * SoundCloud's player takes the track's own page URL as a parameter rather
+     * than an id. That is the one embed here whose `src` contains a URL, so
+     * the URL is rebuilt from segments this function validated — not passed
+     * through from what the creator typed. Every segment matches
+     * `[a-z0-9_-]`, the host is `soundcloud.com` because we write it, and the
+     * result is percent-encoded into the parameter.
+     */
+    const parts = segments(url);
+    if (parts.length < 2 || parts.length > 3) return null;
+    if (!parts.every((part) => SOUNDCLOUD_SEGMENT.test(part))) return null;
+    // Three segments is only meaningful as a set: /user/sets/name.
+    if (parts.length === 3 && parts[1] !== "sets") return null;
+
+    const page = `https://soundcloud.com/${parts.join("/")}`;
+    const src =
+      "https://w.soundcloud.com/player/?url=" +
+      encodeURIComponent(page) +
+      "&color=%23000000&visual=false&show_comments=false&hide_related=true";
+
+    return {
+      provider: "soundcloud",
+      src,
+      title: "SoundCloud player",
+      sizing: { kind: "fixed", height: parts[1] === "sets" ? 320 : 166 },
+    };
+  },
+};
+
+const PROVIDERS: readonly ProviderSpec[] = [
+  youtube,
+  vimeo,
+  tiktok,
+  spotify,
+  appleMusic,
+  soundcloud,
+];
+
+/**
+ * What each block type is allowed to embed.
+ *
+ * Twitch is deliberately absent, and the reason is worth writing down so it is
+ * not mistaken for an oversight. A Twitch player refuses to load unless its
+ * `parent` parameter matches the hostname serving the page, which means the
+ * frame source depends on where the app is deployed — and the editor's preview
+ * renders the same component in the browser, where the deployment hostname is
+ * not reliably known. An embed that works in production and silently fails in
+ * the preview is worse than a link.
+ */
+export const VIDEO_PROVIDERS: readonly EmbedProvider[] = ["youtube", "vimeo", "tiktok"];
+export const EMBED_PROVIDERS: readonly EmbedProvider[] = [
+  "spotify",
+  "apple_music",
+  "soundcloud",
+];
 
 export function providerLabel(provider: EmbedProvider): string {
   return PROVIDERS.find((spec) => spec.provider === provider)?.label ?? provider;

@@ -2,6 +2,8 @@ import type { Metadata } from "next";
 import { requireClaimedProfile, getUser } from "@/lib/auth/dal";
 import { ButtonLink } from "@/components/ui/button";
 import { CopyAddress } from "@/components/dashboard/copy-address";
+import { ShareButton } from "@/components/share/share-button";
+import { renderableMediaUrl } from "@/lib/media/url";
 import { siteUrl } from "@/lib/env";
 
 export const metadata: Metadata = {
@@ -31,7 +33,22 @@ export default async function DashboardPage() {
 
       <h1 className="mt-2 font-mono text-title break-all">{address}</h1>
 
-      <div className="mt-6 flex flex-wrap gap-3">
+      <div className="mt-6 flex flex-wrap items-center gap-3">
+        {/*
+          * Share first, copy second. Sharing is the action this whole phase
+          * exists to make easy, and the sheet behind it contains the copy
+          * button anyway — but a creator who only ever wants the link on
+          * their clipboard should not have to open a dialog for it.
+          */}
+        <ShareButton
+          url={`${siteUrl()}/${profile.username}`}
+          address={address}
+          profile={{
+            displayName: profile.display_name,
+            username: profile.username,
+            avatarUrl: renderableMediaUrl(profile.avatar_url),
+          }}
+        />
         <CopyAddress url={`${siteUrl()}/${profile.username}`} />
         <ButtonLink href={`/${profile.username}`} size="sm" variant="secondary">
           View page

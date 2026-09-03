@@ -16,7 +16,12 @@ import type { TextBlockData } from "@/lib/blocks/schemas";
  * lines and rendering as one paragraph.
  */
 export function TextBlock({ data }: { data: TextBlockData }) {
-  const alignment = data.align === "left" ? "sm-align-left" : "sm-align-center";
+  const alignment =
+    data.align === "left"
+      ? "sm-align-left"
+      : data.align === "right"
+        ? "sm-align-right"
+        : "sm-align-center";
 
   if (data.style === "heading") {
     return <h2 className={cn("sm-text-heading", alignment)}>{data.text}</h2>;

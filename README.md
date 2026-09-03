@@ -2,14 +2,12 @@
 
 One page for everything you make — `showme.at/<username>`.
 
-**Phase 6: analytics.** A creator builds a page out of blocks — links, images,
-a gallery, text, video, Spotify, socials — decides how it looks with seven
-themes, six colours, a background, four typefaces and five button styles, and
-then finds out whether any of it worked. `showme.at/<username>` renders the
-page; `/dashboard/analytics` shows what happened on it: views, clicks,
-click-through rate, which links people actually pick, where they arrived from,
-what they were holding. Every figure comes from a recorded event. Nothing on
-that page is estimated, projected, or written by a model.
+**Phase 7: growth.** A creator builds a page out of blocks, decides how it
+looks, finds out whether any of it worked — and then gets it in front of people.
+Share it in two taps or a system share sheet, put a QR code on a business card,
+schedule a drop for Friday and let it appear on its own, feature the link that
+matters, and have the page carry a real title, a generated social card and a
+sitemap entry so somebody can find it without being handed the address.
 
 ---
 
@@ -47,11 +45,14 @@ src/
     onboarding/           for an account that arrived without a username
     api/username/         availability, while somebody is typing
     api/track/view/       the page-view beacon's endpoint
+    sitemap.ts            creator pages, in chunks of five thousand
+    sitemap-index.xml/    the index that names those chunks
     go/[linkId]/          the click redirect — every link button goes through it
     (app)/                the signed-in shell — protection lives in its layout
       dashboard/  editor/
       dashboard/analytics/  what the page did
     [username]/           the public creator page, and its 404
+      opengraph-image.tsx the 1200×630 card a shared link previews as
     robots.ts             what a crawler may visit
     error.tsx  global-error.tsx  not-found.tsx
   components/
@@ -62,6 +63,7 @@ src/
       blocks/             one component per block type
     editor/               the editor, its forms and its controls
     analytics/            the dashboard's stats, bars, chart and range picker
+    share/                the share sheet, and the QR panel behind it
   lib/
     design/               themes, tokens, the design schema, contrast
     supabase/             server client, browser client, session refresh,
@@ -77,12 +79,17 @@ src/
     public-page/          the query, the shape, the avatar
     analytics/            sources, devices, bots, the visitor hash, recording,
                           the ranges, and the dashboard's queries
+    links/                when a link is on the page, and when it is not
+    contact/              email, phone, WhatsApp and an address, as actions
+    share/                where a creator can send their page, and how
+    seo/                  titles, descriptions, structured data, the sitemap
+    qr/                   a QR encoder, written rather than installed
     env.ts                configuration, and whether there is any
   types/database.ts       the schema, in TypeScript
   proxy.ts                runs before every route
 supabase/
   migrations/             the schema and its policies
-  tests/                  a Postgres shim, five RLS suites, a runner
+  tests/                  a Postgres shim, six RLS suites, a runner
 ```
 
 ---
@@ -449,6 +456,171 @@ creator's own page, so traffic sources are computed from views. Recovering the
 original source of a click would mean carrying it in a cookie, which is the one
 thing this phase refuses to do.
 
+---
+
+## Sharing, and the QR code
+
+**Two taps, or one.** The dashboard's Share button opens a sheet with the page's
+own preview — avatar, name, address — a Copy link button, the platform list, and
+a QR code behind one more tap. Where the browser has a native share sheet the
+sheet offers it; where it does not, that button is simply absent, because a
+button that opens nothing is worse than one button.
+
+**Instagram and TikTok copy the link, and say where to paste it.** Neither has a
+public URL that composes a post containing a link — on Instagram a link goes in
+a bio or a story sticker, on TikTok in a bio, and both are done by pasting. X,
+WhatsApp, Telegram and email have real intents and get them. Pretending
+otherwise is how a share sheet ends up with a button that opens a broken
+composer.
+
+**The QR encoder is ours.** Not a dependency: the libraries that do this well
+weigh twenty to fifty kilobytes because they encode eight modes across forty
+versions, and a page address is a short ASCII URL. `src/lib/qr/encode.ts` is
+byte mode, level M, versions 1–10 — 213 bytes of payload where the longest
+possible address is 48. It was verified module-for-module against an independent
+reference encoder over 546 payloads, which found three bugs that each produced a
+symbol that scanned perfectly and disagreed with the standard; the results are
+pinned as golden digests in its tests.
+
+**The download is a 999px PNG with the address underneath.** Nothing is drawn
+over the symbol. A logo in the middle of a QR code works by spending the error
+correction that was there to survive a scratched card, and text over the modules
+is worse — so the useful thing goes below the quiet zone, where it also rescues
+a scan that fails. The downloaded file decodes back to exactly the encoder's
+matrix; that is asserted from the pixels.
+
+**None of it reaches a visitor.** The encoder and the sheet are in chunks only
+the dashboard references, and the sheet is fetched when the button is pressed.
+The public page's own share affordance is one small button in the footer that
+uses `navigator.share` or the clipboard and nothing else.
+
+---
+
+## A link's life
+
+A link can now start, end, be featured, and carry an icon. Only the first is a
+security property.
+
+**Scheduling is a policy, not a filter.** `live links are readable by anyone` in
+`20260106000001_growth.sql` adds the window to the rule that decides who may
+read the row at all. Every reader goes through it — the public page's
+session-less query, a browser console with the anon key, and the `/go/<id>`
+redirect, which refuses a scheduled or expired link without a line of code being
+added to it. A link that has not started is indistinguishable from one that does
+not exist.
+
+**Times are absolute instants, and the editor says which zone it is showing them
+in.** `starts_at` and `ends_at` are `timestamptz`; the editor reads and writes
+them in the device's own zone and prints the zone's name under the fields. There
+is exactly one moment at which a link appears, and the server's zone never
+enters into it. The one consequence worth stating: a creator who schedules a
+drop in Paris and opens the editor in New York sees the same instant written as
+a different clock time — the link did not move, the reader did.
+
+**The window is inclusive at the start, exclusive at the end.** The same
+convention the analytics ranges use, so two links scheduled back to back are
+never both on the page.
+
+**A cached page is up to a minute behind.** `/<username>` is ISR-cached for sixty
+seconds, so a scheduled link can appear up to a minute after its start. That is
+a property of caching a page rather than of scheduling; the editor says so next
+to the field, and the alternative — rendering every creator page dynamically to
+serve the minority that have a schedule — would cost every visitor a round trip.
+
+**A status is never something to guess at.** The editor shows Live, Scheduled,
+Expired, Hidden and Featured on the row itself, with the window summarised
+beside it, so a creator who cannot find a link on their page is told which of
+the four reasons applies rather than left to deduce it from two date fields.
+
+**A link keeps its id through all of it.** Featuring, scheduling, expiring and
+hiding are columns on the row a click already references, so per-link analytics
+survives every status change — and a link deleted afterwards still keeps its
+clicks under its snapshotted title, as it has since Phase 6.
+
+**A grid is a layout, not a second kind of link.** "Link grid" is a value in the
+links block's own data, so a creator switching a section to a grid renders the
+same rows through the same `/go/<id>` and does not restart a single link's
+history. A separate block type would have meant a second set of link rows and
+clicks attributed to identities nobody created.
+
+**An icon is a platform mark or an upload, never a favicon.** The eighteen glyphs
+the socials row already ships cost nothing extra; an uploaded icon lives in the
+same bucket under the same ownership rules. Fetching a site's favicon would mean
+this server making requests to whatever host a creator typed, which is
+server-side request forgery with a friendly name.
+
+---
+
+## Being found
+
+**Every public page carries its own metadata.** A title that is the creator's
+name and handle, a description that is their bio or a plain factual sentence
+when there is none, one canonical URL, Open Graph, and a Twitter card. Nothing is
+generated about a person we know nothing about, and nothing from the analytics
+tables appears anywhere in it.
+
+**The social card is generated per creator, in their own palette.**
+`opengraph-image.tsx` renders 1200×630 with the avatar, name, handle, bio and
+address, using the same resolved design the page wears — so a link to a Noir page
+previews dark. The avatar is fetched explicitly with a timeout and a size cap
+rather than handed to the renderer, because a failed fetch inside the renderer
+throws and a throw here means every shared link loses its preview.
+
+**Structured data says only what is true.** A `ProfilePage` whose `mainEntity` is
+a `Person`, carrying name, handle, bio, avatar and `sameAs` — the last being the
+whole reason it earns its bytes, since it is how a search engine learns that this
+page and an Instagram account are the same person. No ratings, no job title, no
+view counts. The serialization escapes `<`, `>` and `&`, which is what stops a
+bio containing `</script>` from ending the element; its tests attack it directly.
+
+**The sitemap is chunked and read one page at a time.** `/sitemap-index.xml`
+names `/sitemap/<n>.xml`, five thousand creators each, ordered by username so a
+signup between two chunks cannot shift a row out of both. `robots.txt` names the
+index alone, so the file does not grow with the creator count.
+
+**A creator can leave search.** `profiles.search_visible` defaults to true,
+because a page exists to be found. Turned off, the page carries `noindex` and
+leaves the sitemap — and still opens normally for anyone holding the address, as
+it must, because that address is in their bio. It is a search setting, not a
+privacy one, and the editor says so in those words.
+
+---
+
+## The blocks, as of now
+
+Links, socials, text, **heading**, image, gallery, video, music, **contact**,
+divider and **spacer**. The five that are new or changed in this phase:
+
+**Heading** is the semantic article the text block's "heading" style only
+imitated: a real `<h2>` or `<h3>` in the document outline, which is what a screen
+reader navigates by. Two levels and no way to reach `<h1>` — the creator's name
+is the page's title.
+
+**Contact** is four actions rather than four links: email, call, WhatsApp and an
+address. Each is a different scheme built from a differently validated value —
+`mailto:` from an address that passed the same pattern the database constraint
+uses, `tel:` from digits, `https://wa.me/<digits>` from a number that had to
+carry a country code, because `wa.me` without one reaches somebody else's phone.
+An address is text plus a link the creator chose; there is no constructed map
+URL, because which map somebody uses is not ours to pick.
+
+**Spacer**, and the divider's new treatments, are the page's own rhythm — scaled
+to its spacing setting rather than to a number of pixels.
+
+**Links** gained a grid layout, featured links and per-link icons; **gallery**
+gained a grid layout and a destination per image. Gallery image links are not
+tracked, and the reason is worth being straight about: a click row references a
+link id, and a gallery image is JSON inside a block with no row of its own.
+Shadow `links` rows would double every page's link count and put entries in the
+dashboard's top links that the creator never made.
+
+**Music** is what the Spotify block became: Spotify, Apple Music and SoundCloud,
+one entry each in `lib/embeds/providers.ts`. Video gained TikTok. Twitch is
+deliberately absent — its player refuses to load unless a `parent` parameter
+matches the serving hostname, which the editor's in-browser preview cannot know,
+and an embed that works in production and silently fails in the preview is worse
+than a link.
+
 ## Decisions worth knowing
 
 **`connection()` in the data access layer, not `export const dynamic`.**
@@ -498,6 +670,22 @@ block summary — and a phone browser answers that by widening the layout
 viewport rather than showing a scrollbar, which silently zooms the whole page
 out. It looks like a font bug and is a layout one. The responsive check now
 fails on a widened layout viewport, not only on `scrollWidth`.
+
+**Satori is not a browser, and it throws.** The Open Graph card is rendered by
+`next/og`, which lays out a subset of CSS and refuses the rest at request time
+rather than approximating it. Two rules bite: every element with more than one
+child must declare `display` — and `@{username}` in JSX is *two* children, a
+string and an expression, which cost a 500 on a metadata route to discover — and
+there is no `text-overflow`, so long text is clamped with `maxHeight` and
+`overflow: hidden`. Both are noted in the file itself.
+
+**The share sheet is a `<dialog>` opened with `showModal()`.** The platform
+already implements the focus trap, the inert background, the Escape key and the
+backdrop, and every hand-rolled modal gets one of the four wrong. What is left
+to write is the label association and closing on a backdrop click. Verified in a
+browser: focus enters the dialog, no control outside it is reachable while it is
+open, every control shows a focus ring, and focus returns to the button that
+opened it.
 
 **No `robots` directive in the root layout.** An absent one already means index
 and follow, so declaring it bought nothing — and on a 404 it was actively wrong.
@@ -580,7 +768,7 @@ the data is unavailable.
 
 ## What is not here yet
 
-QR codes, advanced sharing and SEO tools, social publishing, monetization,
-Stripe, commerce, bookings, forms, email, and anything that would call a model
-to tell a creator what to do. All later phases. The schema and the policies for
-them are already in place, which is the point.
+Monetization, Stripe, commerce, bookings, forms, email marketing, social
+publishing, and anything that would call a model to tell a creator what to do.
+All later phases. The schema and the policies for them are already in place,
+which is the point.

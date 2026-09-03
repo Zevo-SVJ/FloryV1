@@ -5,8 +5,10 @@ import {
   draftToPublicPage,
   draftsEqual,
   newBlock,
+  newLink,
   reorder,
   type Draft,
+  type DraftLink,
 } from "../state.ts";
 
 /**
@@ -21,16 +23,31 @@ import {
  */
 
 const draft = (over: Partial<Draft> = {}): Draft => ({
-  profile: { username: "alex", displayName: "Alex", bio: "", avatarUrl: null },
+  profile: {
+    username: "alex",
+    displayName: "Alex",
+    bio: "",
+    avatarUrl: null,
+    searchVisible: true,
+  },
   design: {},
   socials: [],
   blocks: [],
   ...over,
 });
 
+/** A link with only what the assertion cares about spelled out. */
+const link = (over: Partial<DraftLink> = {}): DraftLink => ({
+  ...newLink(),
+  id: "l1",
+  title: "Shop",
+  url: "https://example.com",
+  ...over,
+});
+
 const linksBlock = (over: Partial<ReturnType<typeof newBlock>> = {}) => ({
   ...newBlock("links"),
-  links: [{ id: "l1", title: "Shop", url: "https://example.com", isActive: true }],
+  links: [link()],
   ...over,
 });
 
@@ -58,8 +75,8 @@ test("an unpublished link is absent from the preview", () => {
       blocks: [
         linksBlock({
           links: [
-            { id: "l1", title: "Live", url: "https://example.com/a", isActive: true },
-            { id: "l2", title: "Draft", url: "https://example.com/b", isActive: false },
+            link({ id: "l1", title: "Live", url: "https://example.com/a", isActive: true }),
+            link({ id: "l2", title: "Draft", url: "https://example.com/b", isActive: false }),
           ],
         }),
       ],
@@ -86,8 +103,8 @@ test("array order becomes page order, with no position arithmetic anywhere", () 
 });
 
 test("links belong to the block they were edited in", () => {
-  const a = linksBlock({ links: [{ id: "a1", title: "A", url: "https://a.example", isActive: true }] });
-  const b = linksBlock({ links: [{ id: "b1", title: "B", url: "https://b.example", isActive: true }] });
+  const a = linksBlock({ links: [link({ id: "a1", title: "A", url: "https://a.example" })] });
+  const b = linksBlock({ links: [link({ id: "b1", title: "B", url: "https://b.example" })] });
 
   const page = draftToPublicPage(draft({ blocks: [a, b] }));
   const [first, second] = page.blocks;
@@ -98,7 +115,15 @@ test("links belong to the block they were edited in", () => {
 
 test("an empty display name previews as the username, like the live page", () => {
   const page = draftToPublicPage(
-    draft({ profile: { username: "alex", displayName: "  ", bio: "", avatarUrl: null } }),
+    draft({
+      profile: {
+        username: "alex",
+        displayName: "  ",
+        bio: "",
+        avatarUrl: null,
+        searchVisible: true,
+      },
+    }),
   );
 
   assert.equal(page.profile.displayName, null);

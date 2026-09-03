@@ -45,7 +45,11 @@ const QUERY = `
   bio,
   avatar_url,
   design,
-  links (id, block_id, title, url, position, created_at, is_active),
+  search_visible,
+  links (
+    id, block_id, title, url, position, created_at, is_active,
+    starts_at, ends_at, is_featured, icon_platform, icon_url
+  ),
   social_links (id, platform, url, position, is_active),
   blocks (id, type, data, position, is_visible)
 ` as const;
@@ -73,8 +77,17 @@ export const getPublicPage = cache(async (username: string): Promise<PublicPage 
       .from("profiles")
       .select(QUERY)
       .eq("username", username)
-      // Published content only. RLS says the same thing for an anonymous
-      // reader; this says it for every reader.
+      /*
+       * Published content only. RLS says the same thing for an anonymous
+       * reader; this says it for every reader.
+       *
+       * The schedule window is not repeated here, and that is not an
+       * oversight. `live links are readable by anyone` already applies it to
+       * this session-less client, and `toPublicPage` applies it again to
+       * whatever survives — a filter here would be a third copy of the rule
+       * expressed in PostgREST's `or` syntax, which is the one of the three
+       * that is easiest to get subtly wrong and hardest to test.
+       */
       .eq("links.is_active", true)
       .eq("social_links.is_active", true)
       .eq("blocks.is_visible", true)

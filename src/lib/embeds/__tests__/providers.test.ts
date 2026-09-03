@@ -143,10 +143,149 @@ test("a provider outside the allowed list is refused even when it parses", () =>
 test("the unsupported message names the providers that would work", () => {
   assert.equal(
     unsupportedMessage(VIDEO_PROVIDERS),
-    "That link is not supported. Paste a YouTube or Vimeo link.",
+    "That link is not supported. Paste a YouTube, Vimeo or TikTok link.",
   );
   assert.equal(
     unsupportedMessage(EMBED_PROVIDERS),
-    "That link is not supported. Paste a Spotify link.",
+    "That link is not supported. Paste a Spotify, Apple Music or SoundCloud link.",
+  );
+});
+
+/* ── Phase 7: the providers a creator page actually needs ─────────────────── */
+
+test("a TikTok video resolves to TikTok's own embed", () => {
+  const embed = resolveEmbed(
+    "https://www.tiktok.com/@someone/video/7231234567890123456",
+    VIDEO_PROVIDERS,
+  );
+
+  assert.equal(embed?.provider, "tiktok");
+  assert.equal(embed?.src, "https://www.tiktok.com/embed/v2/7231234567890123456");
+});
+
+test("a TikTok photo post is the same id in the same frame", () => {
+  const embed = resolveEmbed(
+    "https://www.tiktok.com/@someone/photo/7231234567890123456",
+    VIDEO_PROVIDERS,
+  );
+  assert.equal(embed?.src, "https://www.tiktok.com/embed/v2/7231234567890123456");
+});
+
+test("a vm.tiktok.com short link is refused rather than resolved", () => {
+  /*
+   * Resolving one means following a redirect chain to wherever it points,
+   * which is this server making a request to an address somebody else chose.
+   * Refusing it lets the editor say "paste the full link" instead.
+   */
+  assert.equal(resolveEmbed("https://vm.tiktok.com/ZMabcdefg/", VIDEO_PROVIDERS), null);
+});
+
+test("a TikTok id that is not a snowflake is refused", () => {
+  for (const id of ["123", "abcdefghijklmnop", "7231234567890123456789012"]) {
+    assert.equal(
+      resolveEmbed(`https://www.tiktok.com/@x/video/${id}`, VIDEO_PROVIDERS),
+      null,
+      id,
+    );
+  }
+});
+
+test("an Apple Music album resolves without reproducing the slug", () => {
+  const embed = resolveEmbed(
+    "https://music.apple.com/us/album/some-record-name/1440857781",
+    EMBED_PROVIDERS,
+  );
+
+  assert.equal(embed?.provider, "apple_music");
+  // The slug is the one path segment a creator could put anything into, and
+  // Apple ignores it — so it is not carried through.
+  assert.equal(embed?.src, "https://embed.music.apple.com/us/album/1440857781");
+  assert.equal(embed?.src.includes("some-record-name"), false);
+});
+
+test("an Apple Music playlist id keeps its pl. prefix", () => {
+  const embed = resolveEmbed(
+    "https://music.apple.com/gb/playlist/todays-hits/pl.f4d106fed2bd41149aaacabb233eb5eb",
+    EMBED_PROVIDERS,
+  );
+  assert.equal(
+    embed?.src,
+    "https://embed.music.apple.com/gb/playlist/pl.f4d106fed2bd41149aaacabb233eb5eb",
+  );
+});
+
+test("a track inside an Apple Music album carries the i parameter and nothing else", () => {
+  const embed = resolveEmbed(
+    "https://music.apple.com/us/album/x/1440857781?i=1440857785&uo=4&app=music",
+    EMBED_PROVIDERS,
+  );
+  assert.equal(embed?.src, "https://embed.music.apple.com/us/album/1440857781?i=1440857785");
+});
+
+test("an Apple Music URL with a hostile country or kind is refused", () => {
+  for (const url of [
+    "https://music.apple.com/us/evil/x/123456",
+    "https://music.apple.com/usa/album/x/123456",
+    "https://music.apple.com/us/album/x/notanid",
+    // A playlist id under an album path: not an address Apple has.
+    "https://music.apple.com/us/album/x/pl.f4d106fed2bd41149aaacabb233eb5eb",
+    // And a numeric id under a playlist path.
+    "https://music.apple.com/us/playlist/x/1440857781",
+    "https://music.apple.com/us/playlist/x/pl.short",
+  ]) {
+    assert.equal(resolveEmbed(url, EMBED_PROVIDERS), null, url);
+  }
+});
+
+test("a SoundCloud track becomes a player pointed at a URL we rebuilt", () => {
+  const embed = resolveEmbed("https://soundcloud.com/artist/track-name", EMBED_PROVIDERS);
+
+  assert.equal(embed?.provider, "soundcloud");
+  /*
+   * The one embed here whose src contains a URL. It is rebuilt from segments
+   * that each passed a character class, with a host this file wrote — never
+   * passed through from what the creator typed.
+   */
+  assert.ok(
+    embed?.src.startsWith(
+      "https://w.soundcloud.com/player/?url=https%3A%2F%2Fsoundcloud.com%2Fartist%2Ftrack-name",
+    ),
+  );
+});
+
+test("a SoundCloud set is recognised and a three-segment path that is not one is refused", () => {
+  assert.ok(resolveEmbed("https://soundcloud.com/artist/sets/an-album", EMBED_PROVIDERS));
+  assert.equal(
+    resolveEmbed("https://soundcloud.com/artist/track/extra", EMBED_PROVIDERS),
+    null,
+  );
+  assert.equal(resolveEmbed("https://soundcloud.com/artist", EMBED_PROVIDERS), null);
+});
+
+test("a SoundCloud path that could escape the host is refused", () => {
+  for (const url of [
+    "https://soundcloud.com/artist/..%2F..%2Fevil",
+    "https://soundcloud.com/artist/track?x=%22onload%3D",
+  ]) {
+    const embed = resolveEmbed(url, EMBED_PROVIDERS);
+    if (embed) {
+      // If it resolved at all, the parameter must still be one encoded value
+      // pointing at soundcloud.com and nothing else.
+      assert.match(
+        embed.src,
+        /^https:\/\/w\.soundcloud\.com\/player\/\?url=https%3A%2F%2Fsoundcloud\.com%2F[A-Za-z0-9_%-]+/,
+        url,
+      );
+    }
+  }
+});
+
+test("each block type still refuses the other's providers", () => {
+  // A music link in a video block would render an audio player where a video
+  // was expected, so the editor refuses it in front of whoever pasted it.
+  assert.equal(resolveEmbed("https://soundcloud.com/a/b", VIDEO_PROVIDERS), null);
+  assert.equal(
+    resolveEmbed("https://www.tiktok.com/@x/video/7231234567890123456", EMBED_PROVIDERS),
+    null,
   );
 });

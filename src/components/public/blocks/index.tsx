@@ -1,5 +1,7 @@
+import { ContactBlock } from "@/components/public/blocks/contact-block";
 import { EmbedFrame } from "@/components/public/blocks/embed-frame";
 import { GalleryBlock } from "@/components/public/blocks/gallery-block";
+import { HeadingBlock } from "@/components/public/blocks/heading-block";
 import { ImageBlock } from "@/components/public/blocks/image-block";
 import { LinksBlock } from "@/components/public/blocks/links-block";
 import { SocialsBlock } from "@/components/public/blocks/socials-block";
@@ -29,6 +31,9 @@ export function PublicBlockView({ block }: { block: PublicBlock }) {
     case "text":
       return <TextBlock data={block.data} />;
 
+    case "heading":
+      return <HeadingBlock data={block.data} />;
+
     case "image":
       return <ImageBlock data={block.data} />;
 
@@ -51,7 +56,28 @@ export function PublicBlockView({ block }: { block: PublicBlock }) {
       return embed ? <EmbedFrame embed={embed} title={block.data.title} /> : null;
     }
 
+    case "contact":
+      return <ContactBlock data={block.data} />;
+
+    /*
+     * A rule, a quieter rule, or nothing but the gap the stack already puts
+     * between blocks. The third is `space`, and it is a real answer: sometimes
+     * what a page needs between two sections is air rather than a line, and
+     * the `.sm-stack` gap plus a spacer's own margin is exactly that.
+     */
     case "divider":
-      return <hr className="border-border" />;
+      return block.data.style === "space" ? (
+        <div className="sm-divider-space" aria-hidden />
+      ) : (
+        <hr className="sm-divider" data-style={block.data.style} />
+      );
+
+    /*
+     * `aria-hidden` and no content. A spacer is a decision about rhythm, and a
+     * screen reader announcing "group" between two sections would be reading
+     * out the layout.
+     */
+    case "spacer":
+      return <div className="sm-spacer" data-size={block.data.size} aria-hidden />;
   }
 }

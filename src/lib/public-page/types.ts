@@ -1,10 +1,14 @@
 import type { SocialPlatform } from "@/types/database";
 import type { ResolvedDesign } from "@/lib/design/types";
 import type {
+  ContactBlockData,
+  DividerBlockData,
   EmbedBlockData,
   GalleryBlockData,
+  HeadingBlockData,
   ImageBlockData,
   LinksBlockData,
+  SpacerBlockData,
   TextBlockData,
   VideoBlockData,
 } from "@/lib/blocks/schemas";
@@ -35,13 +39,35 @@ export interface PublicProfile {
   bio: string | null;
   /** Already checked to be a URL this deployment is willing to load. */
   avatarUrl: string | null;
+  /**
+   * Whether the page asks search engines to index it.
+   *
+   * Public information — it becomes a `robots` meta tag — and not an access
+   * control: the page renders for anyone holding the address either way.
+   */
+  searchVisible: boolean;
 }
 
+/**
+ * A link's optional visual identity.
+ *
+ * Two possibilities and no third. A platform mark costs nothing, because the
+ * eighteen glyphs are already inlined for the socials row; an uploaded image
+ * lives in our own bucket. There is no favicon option, because fetching one
+ * means this server making a request to whatever host a creator typed.
+ */
+export type LinkIcon =
+  | { kind: "platform"; platform: SocialPlatform }
+  | { kind: "image"; url: string };
+
 export interface PublicLink {
-  /** Row id. A React key, never part of a URL. */
+  /** Row id. A React key, and the `/go/<id>` the button points at. */
   id: string;
   title: string;
   url: string;
+  /** Rendered with more weight. Presentation only. */
+  featured: boolean;
+  icon: LinkIcon | null;
 }
 
 export interface PublicSocial {
@@ -62,11 +88,14 @@ export type PublicBlock =
   | { id: string; kind: "links"; data: LinksBlockData; links: PublicLink[] }
   | { id: string; kind: "socials"; socials: PublicSocial[] }
   | { id: string; kind: "text"; data: TextBlockData }
+  | { id: string; kind: "heading"; data: HeadingBlockData }
   | { id: string; kind: "image"; data: ImageBlockData }
   | { id: string; kind: "image_gallery"; data: GalleryBlockData }
   | { id: string; kind: "video"; data: VideoBlockData }
   | { id: string; kind: "embed"; data: EmbedBlockData }
-  | { id: string; kind: "divider" };
+  | { id: string; kind: "contact"; data: ContactBlockData }
+  | { id: string; kind: "divider"; data: DividerBlockData }
+  | { id: string; kind: "spacer"; data: SpacerBlockData };
 
 export interface PublicPage {
   profile: PublicProfile;

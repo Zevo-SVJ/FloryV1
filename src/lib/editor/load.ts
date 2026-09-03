@@ -31,6 +31,11 @@ interface LinkRow {
   position: number;
   created_at: string;
   is_active: boolean;
+  starts_at: string | null;
+  ends_at: string | null;
+  is_featured: boolean;
+  icon_platform: SocialPlatform | null;
+  icon_url: string | null;
 }
 
 interface SocialRow {
@@ -56,6 +61,7 @@ interface ProfileRow {
   display_name: string | null;
   bio: string | null;
   avatar_url: string | null;
+  search_visible: boolean;
   design: unknown;
   links: LinkRow[] | null;
   social_links: SocialRow[] | null;
@@ -69,7 +75,11 @@ const QUERY = `
   bio,
   avatar_url,
   design,
-  links (id, block_id, title, url, position, created_at, is_active),
+  search_visible,
+  links (
+    id, block_id, title, url, position, created_at, is_active,
+    starts_at, ends_at, is_featured, icon_platform, icon_url
+  ),
   social_links (id, platform, url, position, is_active),
   blocks (id, type, data, position, is_visible, created_at)
 ` as const;
@@ -128,6 +138,11 @@ export const getEditorDraft = cache(async (): Promise<Draft> => {
       title: link.title,
       url: link.url,
       isActive: link.is_active,
+      startsAt: link.starts_at,
+      endsAt: link.ends_at,
+      isFeatured: link.is_featured,
+      iconPlatform: link.icon_platform,
+      iconUrl: link.icon_url,
     };
     const bucket = linksByBlock.get(link.block_id);
     if (bucket) bucket.push(draft);
@@ -158,6 +173,7 @@ export const getEditorDraft = cache(async (): Promise<Draft> => {
       displayName: data.display_name ?? "",
       bio: data.bio ?? "",
       avatarUrl: data.avatar_url,
+      searchVisible: data.search_visible,
     },
     /*
      * Parsed, not resolved. The editor holds the creator's overrides so that

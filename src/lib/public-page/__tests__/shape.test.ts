@@ -92,7 +92,13 @@ test("a full profile shapes into a page", () => {
   assert.equal(page.profile.bio, "Creator & entrepreneur");
 
   assert.deepEqual(only(page, "links").links, [
-    { id: "l1", title: "My shop", url: "https://example.com/shop" },
+    {
+      id: "l1",
+      title: "My shop",
+      url: "https://example.com/shop",
+      featured: false,
+      icon: null,
+    },
   ]);
   assert.deepEqual(only(page, "socials").socials, [
     { id: "s1", platform: "instagram", url: "https://instagram.com/alex" },
@@ -399,4 +405,169 @@ test("the initial falls back through display name, then username", () => {
   assert.equal(avatarInitial("  ", "zevo"), "Z");
   // One glyph, not half a surrogate pair.
   assert.equal(avatarInitial("🔥 studio", "zevo"), "🔥");
+});
+
+/* ── Phase 7: a link's life, and the blocks that arrived with it ──────────── */
+
+/**
+ * The rule these assertions cover is duplicated on purpose, and the
+ * duplication is the point. `live links are readable by anyone` in
+ * `20260106000001_growth.sql` is what actually decides — a direct query with
+ * the anon key gets nothing else. This is the copy that makes the editor's
+ * preview tell the same truth, because the preview hands over unfiltered draft
+ * state that no policy has ever seen.
+ *
+ * `toPublicPage` takes the instant as a parameter so a test can stand exactly
+ * on a boundary instead of racing the clock.
+ */
+
+const AT = new Date("2026-09-10T12:00:00Z");
+
+/** The existing `link` helper — named here for what these assertions are about. */
+const scheduled = (over: Partial<LinkRow> = {}): LinkRow => link(over);
+
+test("a link that has not started is absent, exactly as it will be on the page", () => {
+  const page = toPublicPage(
+    row({
+      links: [scheduled({ starts_at: "2026-09-11T00:00:00Z" })],
+      blocks: [block()],
+    }),
+    AT,
+  );
+
+  assert.deepEqual(page.blocks, []);
+});
+
+test("a link is present from the instant its window opens", () => {
+  const opens = row({
+    links: [scheduled({ starts_at: "2026-09-10T12:00:00Z" })],
+    blocks: [block()],
+  });
+
+  // Inclusive at the bottom.
+  assert.equal(toPublicPage(opens, AT).blocks.length, 1);
+  assert.equal(
+    toPublicPage(opens, new Date("2026-09-10T11:59:59.999Z")).blocks.length,
+    0,
+  );
+});
+
+test("a link is gone at the instant its window closes", () => {
+  const closes = row({
+    links: [scheduled({ ends_at: "2026-09-10T12:00:00Z" })],
+    blocks: [block()],
+  });
+
+  // Exclusive at the top — the convention every window in the product uses.
+  assert.equal(toPublicPage(closes, new Date("2026-09-10T11:59:59.999Z")).blocks.length, 1);
+  assert.equal(toPublicPage(closes, AT).blocks.length, 0);
+});
+
+test("a schedule cannot resurrect a link its owner switched off", () => {
+  const page = toPublicPage(
+    row({
+      links: [scheduled({ is_active: false, starts_at: "2020-01-01T00:00:00Z" })],
+      blocks: [block()],
+    }),
+    AT,
+  );
+
+  assert.deepEqual(page.blocks, []);
+});
+
+test("a featured link is marked, and featuring never affects visibility", () => {
+  const page = toPublicPage(
+    row({
+      links: [
+        scheduled({ id: "l1", is_featured: true }),
+        scheduled({ id: "l2", is_featured: true, starts_at: "2099-01-01T00:00:00Z" }),
+      ],
+      blocks: [block()],
+    }),
+    AT,
+  );
+
+  const links = only(page, "links").links;
+  assert.equal(links.length, 1);
+  assert.equal(links[0]?.id, "l1");
+  assert.equal(links[0]?.featured, true);
+});
+
+test("a platform icon travels, and an uploaded one outside our Storage does not", () => {
+  const page = toPublicPage(
+    row({
+      links: [
+        scheduled({ id: "l1", icon_platform: "instagram" }),
+        scheduled({ id: "l2", icon_url: "https://evil.example/tracker.png" }),
+      ],
+      blocks: [block()],
+    }),
+    AT,
+  );
+
+  const links = only(page, "links").links;
+  assert.deepEqual(links[0]?.icon, { kind: "platform", platform: "instagram" });
+  // Dropped rather than rendered: an icon is a request the page makes.
+  assert.equal(links[1]?.icon, null);
+});
+
+test("a link with no icon says so, rather than leaving the field undefined", () => {
+  const page = toPublicPage(row({ links: [scheduled()], blocks: [block()] }), AT);
+  assert.equal(only(page, "links").links[0]?.icon, null);
+});
+
+test("the new block types shape into the page", () => {
+  const page = toPublicPage(
+    row({
+      blocks: [
+        block({ id: "h", type: "heading", data: { text: "My work" }, position: 0 }),
+        block({ id: "s", type: "spacer", data: { size: "large" }, position: 1 }),
+        block({
+          id: "c",
+          type: "contact",
+          position: 2,
+          data: {
+            title: "Reach me",
+            items: [{ id: "c1", kind: "email", label: "", value: "hi@example.com" }],
+          },
+        }),
+        block({ id: "d", type: "divider", data: { style: "subtle" }, position: 3 }),
+      ],
+    }),
+    AT,
+  );
+
+  assert.deepEqual(
+    page.blocks.map((entry) => entry.kind),
+    ["heading", "spacer", "contact", "divider"],
+  );
+});
+
+test("a contact block with nothing valid in it is dropped, not rendered empty", () => {
+  const page = toPublicPage(
+    row({
+      blocks: [
+        block({
+          id: "c",
+          type: "contact",
+          data: { title: "Reach me", items: [{ id: "c1", kind: "email", value: "nope" }] },
+        }),
+      ],
+    }),
+    AT,
+  );
+
+  // A heading over nothing is worse than no block at all.
+  assert.deepEqual(page.blocks, []);
+});
+
+test("search visibility reaches the renderer, and defaults to indexable", () => {
+  assert.equal(toPublicPage(row({}), AT).profile.searchVisible, true);
+  assert.equal(
+    toPublicPage(row({ search_visible: false }), AT).profile.searchVisible,
+    false,
+  );
+  // An older payload that predates the column describes a page that wanted to
+  // be found, so absent means true.
+  assert.equal(toPublicPage(row({ search_visible: null }), AT).profile.searchVisible, true);
 });

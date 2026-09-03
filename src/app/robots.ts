@@ -13,6 +13,11 @@ import { siteUrl } from "@/lib/env";
  * `dashboard` and the rest are all reserved names, and `go` is two characters
  * where a username needs three — so no rule here can accidentally hide
  * somebody's page.
+ *
+ * One `Sitemap:` line, pointing at the index rather than at the chunks. The
+ * chunks are `/sitemap/0.xml` upward and there can be any number of them; a
+ * line per chunk would mean this file grew with the creator count and that a
+ * cached copy of it silently hid the newest pages.
  */
 export default function robots(): MetadataRoute.Robots {
   return {
@@ -32,6 +37,7 @@ export default function robots(): MetadataRoute.Robots {
         "/signup",
       ],
     },
+    sitemap: `${siteUrl().replace(/\/$/, "")}/sitemap-index.xml`,
     host: siteUrl(),
   };
 }

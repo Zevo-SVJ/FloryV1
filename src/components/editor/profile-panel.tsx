@@ -1,6 +1,6 @@
 "use client";
 
-import { ImagePicker, TextAreaField, TextField } from "@/components/editor/controls";
+import { ImagePicker, TextAreaField, TextField, Toggle } from "@/components/editor/controls";
 import { siteOrigin } from "@/lib/editor/origin";
 import type { DraftProfile } from "@/lib/editor/state";
 
@@ -57,6 +57,33 @@ export function ProfilePanel({
         counter
         rows={3}
       />
+
+      {/*
+        * Search visibility, and the wording matters as much as the switch.
+        *
+        * On by default, because a page that cannot be found is a page whose
+        * whole growth loop is a creator pasting a link by hand. Off is for
+        * somebody whose address is meant only for the people they give it to
+        * — and the note says plainly that this is not privacy, because a
+        * creator who read it as "make my page private" would be badly
+        * misled: the address still works for anybody who has it, as it has
+        * to, since it is in their bio.
+        */}
+      <div className="border-t border-border pt-3">
+        <div className="flex items-center justify-between gap-3">
+          <span className="text-[0.8125rem] font-medium text-ink">Show in search</span>
+          <Toggle
+            checked={profile.searchVisible}
+            onChange={(searchVisible) => onChange({ searchVisible })}
+            label="Let search engines index your page"
+          />
+        </div>
+        <p className="mt-1 text-[0.75rem] leading-relaxed text-ink-subtle">
+          {profile.searchVisible
+            ? "Your page can appear in Google and is listed in our sitemap."
+            : "Your page asks search engines not to index it and is left out of our sitemap. It still opens normally for anyone who has the link — this is not a privacy setting."}
+        </p>
+      </div>
     </section>
   );
 }

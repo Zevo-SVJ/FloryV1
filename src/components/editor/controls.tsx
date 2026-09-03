@@ -299,6 +299,78 @@ export function Toggle({
   );
 }
 
+/* ── Dates and times ──────────────────────────────────────────────────────── */
+
+/**
+ * A moment, entered in the creator's own time zone.
+ *
+ * `<input type="datetime-local">` is the whole control: the platform supplies
+ * a calendar, a keyboard-accessible text form, and the visitor's own locale
+ * for the order of day and month. A hand-built date picker would be a
+ * fortnight of work to arrive somewhere worse, and worse in the specific way
+ * that matters here — a creator scheduling a drop needs to be certain what
+ * time they typed.
+ *
+ * The value on the wire is an absolute instant; the value in the field is
+ * local wall-clock time. `toLocalInput` and `fromLocalInput` are the two ends
+ * of that conversion and they are tested against each other, because a field
+ * labelled with one zone showing a time from another is the classic way this
+ * feature ships broken.
+ *
+ * `step` is a minute. Seconds in a schedule are a false precision, and asking
+ * a browser for them adds a spinner nobody wants.
+ */
+export function DateTimeField({
+  label,
+  value,
+  onChange,
+  hint,
+  error,
+  min,
+}: {
+  label: string;
+  /** Local wall-clock text: `YYYY-MM-DDTHH:mm`, or empty. */
+  value: string;
+  onChange: (value: string) => void;
+  hint?: ReactNode;
+  error?: string | null;
+  min?: string;
+}) {
+  const id = useId();
+
+  return (
+    <div>
+      <div className="mb-1.5 flex items-baseline justify-between gap-3">
+        <label htmlFor={id} className="text-[0.8125rem] font-medium text-ink">
+          {label}
+        </label>
+        {value.length > 0 ? (
+          <button
+            type="button"
+            onClick={() => onChange("")}
+            className="rounded text-[0.75rem] text-ink-subtle transition-colors hover:text-danger"
+          >
+            Clear
+          </button>
+        ) : null}
+      </div>
+
+      <input
+        id={id}
+        type="datetime-local"
+        step={60}
+        min={min}
+        value={value}
+        onChange={(event) => onChange(event.target.value)}
+        aria-invalid={error ? true : undefined}
+        aria-describedby={error || hint ? `${id}-note` : undefined}
+        className={cn(inputClasses(Boolean(error)), "text-[0.875rem]")}
+      />
+      <Note id={`${id}-note`} error={error} hint={hint} />
+    </div>
+  );
+}
+
 /* ── Images ───────────────────────────────────────────────────────────────── */
 
 /**

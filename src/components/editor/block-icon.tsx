@@ -21,6 +21,12 @@ const PATHS: Record<BlockType, string> = {
   video: "M4 6h16v12H4zM10 9.5l5 2.5-5 2.5z",
   embed: "M12 3v11.5M12 14.5a3 3 0 11-3 3M12 3l6 2.5V9l-6-2.5",
   divider: "M4 12h16",
+  // A large glyph over a smaller one: the shape of a heading and the line
+  // under it, which reads at 16px where an "H" does not.
+  heading: "M5 6h9M5 11h14M5 16h6",
+  contact: "M4 5h16v14H4zM4 9.5h16M8 13h8M8 16h5",
+  // Two rules with a measured gap between them, which is what a spacer is.
+  spacer: "M4 7h16M4 17h16M12 10v4M10.5 11.5 12 10l1.5 1.5M10.5 12.5 12 14l1.5-1.5",
 };
 
 export function BlockIcon({ type, className }: { type: BlockType; className?: string }) {

@@ -1,18 +1,24 @@
 import type { z } from "zod";
 import type { BlockType } from "@/types/database";
 import {
+  contactBlockSchema,
   dividerBlockSchema,
   embedBlockSchema,
   galleryBlockSchema,
+  headingBlockSchema,
   imageBlockSchema,
   linksBlockSchema,
   socialsBlockSchema,
+  spacerBlockSchema,
   textBlockSchema,
+  type ContactBlockData,
   type EmbedBlockData,
   type GalleryBlockData,
+  type HeadingBlockData,
   type ImageBlockData,
   type LinksBlockData,
   type SocialsBlockData,
+  type SpacerBlockData,
   type TextBlockData,
   type VideoBlockData,
   type DividerBlockData,
@@ -75,20 +81,23 @@ export interface BlockRegistry {
   links: BlockDefinition<LinksBlockData>;
   socials: BlockDefinition<SocialsBlockData>;
   text: BlockDefinition<TextBlockData>;
+  heading: BlockDefinition<HeadingBlockData>;
   image: BlockDefinition<ImageBlockData>;
   image_gallery: BlockDefinition<GalleryBlockData>;
   video: BlockDefinition<VideoBlockData>;
   embed: BlockDefinition<EmbedBlockData>;
+  contact: BlockDefinition<ContactBlockData>;
   divider: BlockDefinition<DividerBlockData>;
+  spacer: BlockDefinition<SpacerBlockData>;
 }
 
 export const BLOCKS: BlockRegistry = {
   links: {
     type: "links",
     label: "Links",
-    description: "A stack of buttons. The heart of most pages.",
+    description: "A stack of buttons, or a grid. The heart of most pages.",
     schema: linksBlockSchema,
-    defaults: () => ({ title: "" }),
+    defaults: () => ({ title: "", layout: "list" as const }),
     multiple: true,
     backedByRows: true,
     configurable: true,
@@ -106,9 +115,19 @@ export const BLOCKS: BlockRegistry = {
   text: {
     type: "text",
     label: "Text",
-    description: "An announcement, a section heading, or a line of context.",
+    description: "An announcement, a paragraph, or a line of context.",
     schema: textBlockSchema,
     defaults: () => ({ text: "", align: "center" as const, style: "body" as const }),
+    multiple: true,
+    backedByRows: false,
+    configurable: true,
+  },
+  heading: {
+    type: "heading",
+    label: "Heading",
+    description: "A real section heading — “My content”, “Latest videos”.",
+    schema: headingBlockSchema,
+    defaults: () => ({ text: "", level: "section" as const, align: "center" as const }),
     multiple: true,
     backedByRows: false,
     configurable: true,
@@ -128,7 +147,13 @@ export const BLOCKS: BlockRegistry = {
     label: "Gallery",
     description: "Several images side by side, with an optional button.",
     schema: galleryBlockSchema,
-    defaults: () => ({ title: "", items: [], aspect: "portrait" as const, cta: null }),
+    defaults: () => ({
+      title: "",
+      layout: "carousel" as const,
+      items: [],
+      aspect: "portrait" as const,
+      cta: null,
+    }),
     multiple: true,
     backedByRows: false,
     configurable: true,
@@ -145,10 +170,20 @@ export const BLOCKS: BlockRegistry = {
   },
   embed: {
     type: "embed",
-    label: "Spotify",
+    label: "Music",
     description: "A track, album or playlist people can play here.",
     schema: embedBlockSchema,
     defaults: () => ({ url: "", title: "" }),
+    multiple: true,
+    backedByRows: false,
+    configurable: true,
+  },
+  contact: {
+    type: "contact",
+    label: "Contact",
+    description: "Email, call, WhatsApp or an address — as actions, not links.",
+    schema: contactBlockSchema,
+    defaults: () => ({ title: "", items: [] }),
     multiple: true,
     backedByRows: false,
     configurable: true,
@@ -158,10 +193,20 @@ export const BLOCKS: BlockRegistry = {
     label: "Divider",
     description: "A quiet line between two parts of the page.",
     schema: dividerBlockSchema,
-    defaults: () => ({}),
+    defaults: () => ({ style: "line" as const }),
     multiple: true,
     backedByRows: false,
-    configurable: false,
+    configurable: true,
+  },
+  spacer: {
+    type: "spacer",
+    label: "Spacer",
+    description: "A gap. For when two things need to stop touching.",
+    schema: spacerBlockSchema,
+    defaults: () => ({ size: "medium" as const }),
+    multiple: true,
+    backedByRows: false,
+    configurable: true,
   },
 };
 
@@ -170,11 +215,14 @@ export const BLOCK_MENU_ORDER: readonly BlockType[] = [
   "links",
   "image",
   "image_gallery",
+  "heading",
   "text",
   "video",
   "embed",
   "socials",
+  "contact",
   "divider",
+  "spacer",
 ];
 
 const isBlockType = (value: string): value is BlockType => value in BLOCKS;

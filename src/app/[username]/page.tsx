@@ -2,7 +2,10 @@ import type { Metadata } from "next";
 import { notFound, permanentRedirect } from "next/navigation";
 import { PublicPage } from "@/components/public/public-page";
 import { getPublicPage } from "@/lib/public-page/query";
+import { pageDescription, pageTitle } from "@/lib/seo/page-meta";
+import { jsonLd, profilePageData } from "@/lib/seo/structured-data";
 import { usernameFromPath } from "@/lib/validation/username";
+import { siteUrl } from "@/lib/env";
 
 /**
  * The public creator page — showme.at/<username>.
@@ -86,48 +89,58 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   if (!page) return { robots: { index: false, follow: false } };
 
   const { profile } = page;
-  const name = profile.displayName ?? profile.username;
+  const title = pageTitle(profile);
+  const description = pageDescription(profile);
   const url = `/${profile.username}`;
 
-  /*
-   * The bio is the description when there is one. When there is not, the
-   * fallback names the person rather than describing the product — a hundred
-   * creator pages all described as "Create your page on ShowMe" is worse than
-   * a short honest sentence, both for a search result and for a link preview.
-   */
-  const description = profile.bio ?? `${name} on ShowMe.`;
-
   return {
-    // The layout's template appends "· ShowMe", so this is just the creator.
-    title: name,
+    // The layout's template appends "· ShowMe".
+    title,
     description,
+    /*
+     * One address per page, always the lowercase one, always absolute against
+     * `metadataBase`. `/Alex` and `/a.lex` never render — they redirect or
+     * 404 — so there is exactly one URL that can carry this tag, and no
+     * trailing slash anywhere: Next.js is configured without them, so
+     * `/alex/` and `/alex` cannot both exist to be canonicalised apart.
+     */
     alternates: { canonical: url },
+    /*
+     * Indexable unless the creator said otherwise.
+     *
+     * A page exists to be found, so the default is to be found. When a
+     * creator turns search visibility off the page still works for anybody
+     * holding the address — it is a bio link, it has to — and this is the
+     * half of that setting search engines read. The other half is the
+     * sitemap, which stops listing it.
+     */
+    robots: profile.searchVisible
+      ? undefined
+      : { index: false, follow: true, googleBot: { index: false, follow: true } },
     openGraph: {
       type: "profile",
-      title: name,
+      title,
       description,
       url,
       siteName: "ShowMe",
       /*
-       * The avatar, when there is one this deployment will load. It is square
-       * where a preview card wants 1200×630, so platforms crop it — acceptable
-       * against having no image at all, and replaced wholesale when Phase 8
-       * adds a generated `opengraph-image` to this folder. Nothing else needs
-       * to change when it does.
+       * No `images` here on purpose. `opengraph-image.tsx` in this folder
+       * generates a 1200×630 card and Next.js attaches it — including its
+       * type, width and height, which a hand-written entry would have to
+       * repeat and could get wrong. Listing an image here would produce two
+       * `og:image` tags and let platforms choose.
        */
-      ...(profile.avatarUrl ? { images: [{ url: profile.avatarUrl }] } : {}),
     },
     twitter: {
       /*
-       * `summary`, not `summary_large_image`. The only image this phase can
-       * offer is a square avatar, and a page with no avatar has no image at
-       * all — asking for the wide card would promise a banner that does not
-       * exist. Phase 8's generated 1200x630 card is what earns the large one.
+       * `summary_large_image`, now that there is a real wide card to show.
+       * Phase 6 deliberately asked for the small card, because the only image
+       * then was a square avatar and requesting the banner would have promised
+       * something that did not exist.
        */
-      card: "summary",
-      title: name,
+      card: "summary_large_image",
+      title,
       description,
-      ...(profile.avatarUrl ? { images: [profile.avatarUrl] } : {}),
     },
   };
 }
@@ -138,5 +151,27 @@ export default async function ProfilePage({ params }: PageProps) {
 
   if (!page) notFound();
 
-  return <PublicPage page={page} design={page.design} tracked />;
+  const url = `${siteUrl()}/${page.profile.username}`;
+
+  return (
+    <>
+      {/*
+        * Schema.org, as the page's own script rather than through a metadata
+        * field — Next.js has no `Metadata` entry for JSON-LD, and the
+        * documented way is exactly this.
+        *
+        * The serialization escapes `<`, `>` and `&`, which is what keeps a bio
+        * containing `</script>` from ending the element and turning the rest
+        * of the object into markup. That escaping is the one thing in this
+        * file that has to be right; `lib/seo/structured-data.ts` explains it
+        * and the tests attack it.
+        */}
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: jsonLd(profilePageData(page, url)) }}
+      />
+
+      <PublicPage page={page} design={page.design} address={url} tracked />
+    </>
+  );
 }
