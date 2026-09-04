@@ -1,11 +1,16 @@
+import { SECTIONS } from "@/lib/lock/navigation";
+
 /**
- * Which routes need a session, and which need the absence of one.
+ * Which routes need a session, which need the absence of one, and where people
+ * are sent when they do not have what a route asks for.
  *
- * Declared in one place so the proxy and the layouts agree. The proxy uses it
- * for a fast redirect; the layouts use it as the check that actually counts.
+ * Declared in one place so that the proxy, the layouts and the data access
+ * layer agree. The proxy uses these for a fast redirect; the layouts and the
+ * DAL use them as the check that actually counts.
  */
 
-export const PROTECTED_PREFIXES = ["/dashboard", "/editor", "/onboarding"] as const;
+/** Every section lives behind the app shell, and the shell needs a session. */
+export const PROTECTED_PREFIXES: readonly string[] = SECTIONS.map((s) => s.href);
 
 /** Signed-in visitors have no use for these. */
 export const AUTH_ONLY_PREFIXES = ["/login", "/signup"] as const;
@@ -13,18 +18,15 @@ export const AUTH_ONLY_PREFIXES = ["/login", "/signup"] as const;
 /** Where a signed-in visitor lands. */
 export const AFTER_SIGN_IN = "/dashboard";
 
-/** Where an account that has not chosen a username is sent. */
-export const ONBOARDING_PATH = "/onboarding";
-
 /** Where a signed-out visitor is sent, and where they come back from. */
 export const SIGN_IN_PATH = "/login";
 
 /**
- * Where a link in an email comes back to.
+ * Where a link in a confirmation email comes back to.
  *
- * Named here rather than written out at the one call site, because it has to
- * match a value in the Supabase dashboard's redirect allowlist exactly — and a
- * constant is something `SETUP.md` can point at.
+ * Named here rather than written out at the call site because it has to match a
+ * value in the Supabase dashboard's redirect allowlist exactly — and a constant
+ * is something the setup guide can point at.
  */
 export const AUTH_CALLBACK_PATH = "/auth/callback";
 
@@ -34,19 +36,12 @@ const startsWithSegment = (pathname: string, prefix: string): boolean =>
 /**
  * Paths where a session is worth refreshing.
  *
- * Everything else — above all `/[username]`, the page this product exists to
- * serve — is read by strangers, and putting a Supabase round trip in front of
- * it would slow down the request that matters most to make a cookie fresher
- * for a visitor who has no cookie.
- *
- * The list is derived from the route rules above rather than written out
- * again, so adding a protected prefix is enough to keep its session alive. The
- * landing page is included because its header renders a signed-in state.
+ * Derived from the rules above rather than written out again. `/` is included
+ * because the entry page renders a signed-in state; everything else outside
+ * these prefixes is static and would only be slowed down by a round trip to the
+ * auth server.
  */
-const SESSION_PATHS: readonly string[] = [
-  ...PROTECTED_PREFIXES,
-  ...AUTH_ONLY_PREFIXES,
-];
+const SESSION_PATHS: readonly string[] = [...PROTECTED_PREFIXES, ...AUTH_ONLY_PREFIXES];
 
 export const needsSession = (pathname: string): boolean =>
   pathname === "/" || SESSION_PATHS.some((prefix) => startsWithSegment(pathname, prefix));
@@ -60,36 +55,45 @@ export const isAuthOnlyPath = (pathname: string): boolean =>
 /**
  * A path on this site, or nothing.
  *
- * The one function both directions of the return-to flow go through, and it
- * exists because the obvious version of this check is wrong. `startsWith("/")`
- * and `!startsWith("//")` looks like it covers the cases, and it does not:
- * `/\evil.com` passes both and resolves to `https://evil.com/`, because the
- * URL parser treats a backslash after the leading slash exactly like a second
- * slash. That is a phishing link that genuinely begins on showme.at, which is
- * the entire point of an open redirect.
+ * Both directions of the return-to flow go through this one function, and it
+ * exists because the obvious version of the check is wrong. `startsWith("/")`
+ * plus `!startsWith("//")` looks like it covers the cases and does not:
+ * `/\evil.com` passes both and resolves to `https://evil.com/`, because a URL
+ * parser treats a backslash after the leading slash exactly like a second
+ * slash. That is a phishing link which genuinely begins on this origin, which
+ * is the entire point of an open redirect.
  *
  * So the value is not pattern-matched, it is *resolved* against a throwaway
- * origin, and it is accepted only if the result is still on that origin. That
- * closes the backslash forms, protocol-relative forms, absolute URLs, and
- * anything else a parser would read as authority — and it returns the
- * normalized path rather than the caller's string, so what gets redirected to
- * is what was checked.
+ * origin and accepted only if the result is still on that origin. That closes
+ * the backslash forms, the protocol-relative forms, absolute URLs, and anything
+ * else a parser would read as an authority. The normalized path is returned
+ * rather than the caller's string, so what gets redirected to is what was
+ * checked.
  */
-const INTERNAL = "https://showme.invalid";
+const INTERNAL = "https://lock.invalid";
 
 function samePath(value: string | null | undefined): string | null {
   if (!value || value.length > 2048) return null;
 
+  /*
+   * Trimmed first, and not only for tidiness. The URL parser strips surrounding
+   * whitespace before resolving, so `"   "` parses as the base itself and comes
+   * back as the path `/` — a same-origin answer, and the wrong one: a blank
+   * parameter means "no destination", which should land on the dashboard rather
+   * than on the entry page.
+   */
+  const trimmed = value.trim();
+  if (trimmed === "") return null;
+
   try {
-    const url = new URL(value, INTERNAL);
+    const url = new URL(trimmed, INTERNAL);
     if (url.origin !== INTERNAL) return null;
 
     /*
      * And one more, which resolving alone does not catch: `/..//evil.com`
-     * normalizes to the pathname `//evil.com`, still on this origin as far as
-     * the parser is concerned — and protocol-relative the moment it is handed
-     * to `redirect()`. A path returned from here is used as a redirect target,
-     * so it has to be safe as one.
+     * normalizes to the pathname `//evil.com` — still on this origin as far as
+     * the parser is concerned, and protocol-relative the moment it is handed to
+     * `redirect()`.
      */
     if (url.pathname.startsWith("//")) return null;
 
@@ -99,12 +103,7 @@ function samePath(value: string | null | undefined): string | null {
   }
 }
 
-/**
- * Build the sign-in URL that returns someone to where they were headed.
- *
- * Only same-site paths are carried through. Accepting an arbitrary `next`
- * value would turn the login page into an open redirect.
- */
+/** Build the sign-in URL that returns somebody to where they were headed. */
 export function signInUrl(returnTo?: string | null): string {
   const path = samePath(returnTo);
   return path ? `${SIGN_IN_PATH}?next=${encodeURIComponent(path)}` : SIGN_IN_PATH;

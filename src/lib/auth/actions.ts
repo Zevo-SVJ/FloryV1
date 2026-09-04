@@ -10,51 +10,37 @@ import { requireUser } from "@/lib/auth/dal";
 import {
   AFTER_SIGN_IN,
   AUTH_CALLBACK_PATH,
-  ONBOARDING_PATH,
   SIGN_IN_PATH,
   safeReturnTo,
 } from "@/lib/auth/routes";
-import { checkAvailability } from "@/lib/usernames/availability";
-import { revalidatePublicPage } from "@/lib/public-page/revalidate";
-import { siteOrigin } from "@/lib/editor/origin";
 import { allow, requestKey } from "@/lib/security/rate-limit";
-import { credentialsSchema, signInSchema } from "@/lib/validation/schemas";
-import { usernameSchema } from "@/lib/validation/username";
+import { displayNameSchema, signInSchema, signUpSchema } from "@/lib/validation/schemas";
 import type { AuthField, FormState } from "@/lib/auth/form-state";
 
 /**
- * Sign up, sign in, choose a username, sign out.
+ * Sign up, sign in, sign out, rename yourself.
  *
- * These are reachable by direct POST, not only through the forms that call
- * them, so each one validates its own input and never trusts a field it did
- * not derive from the session.
+ * Each of these is reachable by direct POST, not only through the form that
+ * calls it, so each validates its own input and never trusts a field it did not
+ * derive from the session. Nothing here writes a role: the column is not
+ * writable through the API at any privilege level (see the foundation
+ * migration), so an action that tried would simply be refused.
  *
- * The shape is what `useActionState` expects: the previous state first, a
- * `FormState` back. Errors are returned rather than thrown so the form can put
- * a sentence next to the field that caused it. `FormState` itself lives in
- * `form-state.ts`, because a `"use server"` module may only export async
- * functions.
+ * The shape is what `useActionState` expects: previous state first, a
+ * `FormState` back. Expected failures are returned rather than thrown, so the
+ * form can put a sentence next to the field that caused them.
  */
 
-/**
- * A brake in front of the auth actions.
- *
- * Supabase rate-limits authentication itself, and that is the limit that
- * matters. This one sits in front of it for a narrower reason: both signup and
- * the username claim run a database query *before* Supabase ever sees the
- * attempt, so a loop against a Server Action — which is a URL, reachable
- * without the form — costs queries whether or not the credentials are
- * plausible.
- *
- * Generous enough that a person mistyping a password never meets it. Per
- * instance, like every limit here, and honest about that in
- * `lib/security/rate-limit.ts`.
- */
 const ATTEMPT_LIMIT = 12;
 const ATTEMPT_WINDOW_MS = 60_000;
 
 const TOO_MANY: FormState = {
   error: "Too many attempts from this connection. Wait a minute and try again.",
+};
+
+const NOT_CONFIGURED: FormState = {
+  error:
+    "LOCK is not connected to a database yet. Add your Supabase keys to .env.local and restart.",
 };
 
 async function withinAttemptLimit(scope: string): Promise<boolean> {
@@ -67,17 +53,12 @@ async function withinAttemptLimit(scope: string): Promise<boolean> {
   }
 }
 
-const NOT_CONFIGURED: FormState = {
-  error:
-    "ShowMe is not connected to a database yet. Add your Supabase keys to .env.local and restart.",
-};
-
 /** Turn a Zod failure into per-field messages the form can render. */
 function fieldErrorsFrom(issues: { path: PropertyKey[]; message: string }[]): FormState {
   const fieldErrors: FormState["fieldErrors"] = {};
   for (const issue of issues) {
     const field = issue.path[0];
-    if (field === "email" || field === "password" || field === "username") {
+    if (field === "email" || field === "password" || field === "displayName") {
       fieldErrors[field as AuthField] ??= issue.message;
     }
   }
@@ -89,7 +70,7 @@ function fieldErrorsFrom(issues: { path: PropertyKey[]; message: string }[]): Fo
  *
  * Deliberately vague about which half of a credential was wrong: a reply that
  * distinguishes "no such account" from "wrong password" is an account
- * enumeration oracle, and the accounts here are people's public identities.
+ * enumeration oracle.
  */
 function describeAuthError(error: AuthError): FormState {
   const code = (error as AuthApiError).code ?? "";
@@ -98,15 +79,13 @@ function describeAuthError(error: AuthError): FormState {
     case "invalid_credentials":
       return { error: "That email and password do not match an account." };
     case "email_not_confirmed":
-      return {
-        error: "Confirm your email address first — check your inbox for the link.",
-      };
+      return { error: "Confirm your email address first — check your inbox for the link." };
     case "over_request_rate_limit":
     case "over_email_send_rate_limit":
       return { error: "Too many attempts. Wait a minute and try again." };
     case "user_already_exists":
     case "email_exists":
-      // Same wording as a successful signup that needs confirmation, so this
+      // Worded the same as a successful signup awaiting confirmation, so this
       // cannot be used to discover which addresses have accounts.
       return { error: "That email address cannot be used. Try signing in instead." };
     case "weak_password":
@@ -115,7 +94,9 @@ function describeAuthError(error: AuthError): FormState {
         fieldErrors: { password: "That password is too easy to guess." },
       };
     case "signup_disabled":
-      return { error: "New accounts are closed at the moment." };
+      // The expected answer on a live deployment: LOCK is private, and signups
+      // are switched off in the Supabase dashboard once the accounts exist.
+      return { error: "New accounts are closed." };
     default:
       break;
   }
@@ -124,22 +105,7 @@ function describeAuthError(error: AuthError): FormState {
     return { error: "Too many attempts. Wait a minute and try again." };
   }
 
-  /*
-   * A username that was free during the check and taken by the time the row
-   * was inserted surfaces here: the trigger that creates the profile hits the
-   * unique index, the whole signup transaction rolls back, and GoTrue reports
-   * a generic database failure. Rare, but the only honest reading of it.
-   */
-  if (error.status === 500) {
-    return {
-      error: "Check the details below.",
-      fieldErrors: {
-        username: "That username was taken a moment ago. Try another.",
-      },
-    };
-  }
-
-  return { error: "Something went wrong signing you in. Try again." };
+  return { error: "Something went wrong. Try again." };
 }
 
 /* ── Signing up ───────────────────────────────────────────────────────────── */
@@ -148,54 +114,35 @@ export async function signUp(_prev: FormState, formData: FormData): Promise<Form
   if (!isSupabaseConfigured()) return NOT_CONFIGURED;
   if (!(await withinAttemptLimit("signup"))) return TOO_MANY;
 
-  const parsed = credentialsSchema
-    .extend({ username: usernameSchema })
-    .safeParse({
-      email: formData.get("email"),
-      password: formData.get("password"),
-      username: formData.get("username"),
-    });
+  const rawName = formData.get("displayName")?.toString().trim();
+
+  const parsed = signUpSchema.safeParse({
+    email: formData.get("email"),
+    password: formData.get("password"),
+    displayName: rawName ? rawName : undefined,
+  });
 
   if (!parsed.success) return fieldErrorsFrom(parsed.error.issues);
 
-  const { email, password, username } = parsed.data;
-
-  /*
-   * Checked again on the server, because the browser's answer is a courtesy
-   * and this one is not. It is still not the guarantee — see below.
-   */
-  const availability = await checkAvailability(username);
-  if (availability.state === "taken" || availability.state === "reserved") {
-    return {
-      error: "Check the details below.",
-      fieldErrors: { username: availability.message ?? "That username is not available." },
-    };
-  }
-
+  const { email, password, displayName } = parsed.data;
   const supabase = await createClient();
 
-  /*
-   * The username travels with the account. A trigger on `auth.users` reads it
-   * back out of `raw_user_meta_data` and creates the profile inside the same
-   * transaction, so there is no moment where an account exists without a page,
-   * and no second request that could fail on its own.
-   *
-   * If the name was taken in the milliseconds since the check above, the
-   * unique index rejects it, the transaction rolls back, and no orphaned
-   * account is left behind. `describeAuthError` turns that into a message
-   * pointing at the username field.
-   */
   const { data, error } = await supabase.auth.signUp({
     email,
     password,
     options: {
-      data: { username },
       /*
-       * The callback, not the dashboard. `@supabase/ssr` uses the PKCE flow,
-       * so the confirmation link returns a `code` that has to be exchanged
-       * for a session before there is one — see `app/auth/callback/route.ts`.
-       * Pointing this straight at `/dashboard` produced an account nobody
-       * could get into.
+       * This travels to `auth.users.raw_user_meta_data`, where the profile
+       * trigger reads it. Only the name: the trigger deliberately ignores
+       * anything else in there, because everything in there came from a
+       * browser.
+       */
+      data: displayName ? { display_name: displayName } : {},
+      /*
+       * The callback, not the dashboard. `@supabase/ssr` uses the PKCE flow, so
+       * the confirmation link returns a `code` that must be exchanged for a
+       * session before there is one. Pointing this straight at `/dashboard`
+       * produces an account nobody can get into.
        */
       emailRedirectTo: `${siteUrl()}${AUTH_CALLBACK_PATH}?next=${encodeURIComponent(AFTER_SIGN_IN)}`,
     },
@@ -203,22 +150,12 @@ export async function signUp(_prev: FormState, formData: FormData): Promise<Form
 
   if (error) return describeAuthError(error);
 
-  /*
-   * With email confirmation switched on, Supabase returns a user but no
-   * session — the account exists and is waiting on a click in an inbox. The
-   * username is already claimed, so nobody can take it in the meantime.
-   */
-  /*
-   * The page exists from this moment, and `/username` may already be cached as
-   * a 404 from somebody checking the name a minute ago. Dropping it now stops
-   * a brand new creator from finding their own address broken.
-   */
-  revalidatePublicPage(username);
-
+  // With email confirmation on, Supabase returns a user but no session: the
+  // account exists and is waiting on a click in an inbox.
   if (!data.session) {
     return {
       error: null,
-      message: `Check your inbox to confirm your email. ${siteOrigin()}/${username} is being held for you.`,
+      message: "Check your inbox for a confirmation link, then sign in.",
     };
   }
 
@@ -251,80 +188,42 @@ export async function signIn(_prev: FormState, formData: FormData): Promise<Form
   redirect(next);
 }
 
-/* ── Choosing a username after the fact ──────────────────────────────────── */
+/* ── Renaming yourself ────────────────────────────────────────────────────── */
 
 /**
- * Claim a username for the signed-in account.
- *
- * The path for an account that arrived without one — created from the Supabase
- * dashboard, or by a signup that predates this flow. The normal signup never
- * reaches here.
- *
- * Ownership comes from the session, never from the form: the update is keyed
- * on `auth.uid()`, and Row Level Security would refuse it even if it were not.
+ * The one write Foundation ships, and it exists to prove the boundary end to
+ * end: a signed-in account updating a column it is allowed to update, on the
+ * row it owns, with ownership taken from the session and never from the form.
  */
-export async function claimUsername(
+export async function updateDisplayName(
   _prev: FormState,
   formData: FormData,
 ): Promise<FormState> {
   if (!isSupabaseConfigured()) return NOT_CONFIGURED;
 
-  const user = await requireUser(ONBOARDING_PATH);
-  if (!(await withinAttemptLimit("claim"))) return TOO_MANY;
+  const user = await requireUser();
+  if (!(await withinAttemptLimit("rename"))) return TOO_MANY;
 
-  const parsed = usernameSchema.safeParse(formData.get("username"));
+  const raw = formData.get("displayName")?.toString() ?? "";
+  const parsed = raw.trim() === "" ? { success: true as const, data: null } : displayNameSchema.safeParse(raw);
+
   if (!parsed.success) {
     return {
       error: "Check the details below.",
-      fieldErrors: { username: parsed.error.issues[0]?.message ?? "That username cannot be used." },
-    };
-  }
-
-  const username = parsed.data;
-
-  const availability = await checkAvailability(username);
-  if (availability.state === "taken" || availability.state === "reserved") {
-    return {
-      error: "Check the details below.",
-      fieldErrors: { username: availability.message ?? "That username is not available." },
+      fieldErrors: { displayName: parsed.error.issues[0]?.message ?? "That name cannot be used." },
     };
   }
 
   const supabase = await createClient();
-
-  /*
-   * `username_claimed_at is null` in the predicate makes this claim-once at the
-   * statement level: two tabs racing produce one update and one no-op, rather
-   * than two writes where the second silently wins. The trigger stamps
-   * `username_claimed_at` itself — a client that could set it could reset
-   * itself to unclaimed and rename freely.
-   */
-  const { data, error } = await supabase
+  const { error } = await supabase
     .from("profiles")
-    .update({ username })
-    .eq("id", user.id)
-    .is("username_claimed_at", null)
-    .select("username")
-    .maybeSingle();
+    .update({ display_name: parsed.data })
+    .eq("id", user.id);
 
-  if (error) {
-    // 23505: somebody claimed it between the check and this statement. The
-    // index is the authority, and this is the answer it gave.
-    if (error.code === "23505") {
-      return {
-        error: "Check the details below.",
-        fieldErrors: { username: "That username was taken a moment ago. Try another." },
-      };
-    }
-    return { error: "That did not save. Try again." };
-  }
-
-  // No row updated means the account already has a chosen username — another
-  // tab got there first. Nothing is wrong; go to the dashboard.
-  if (data) revalidatePublicPage(data.username);
+  if (error) return { error: "That did not save. Try again." };
 
   revalidatePath("/", "layout");
-  redirect(AFTER_SIGN_IN);
+  return { error: null, message: "Saved." };
 }
 
 /* ── Signing out ──────────────────────────────────────────────────────────── */
@@ -334,8 +233,8 @@ export async function signOut(): Promise<void> {
     const supabase = await createClient();
     await supabase.auth.signOut();
   }
-  // Clears the router cache, so a Back press cannot paint a dashboard rendered
-  // for the session that just ended.
+  // Clears the router cache, so Back cannot paint a shell rendered for the
+  // session that just ended.
   revalidatePath("/", "layout");
   redirect(SIGN_IN_PATH);
 }

@@ -1,19 +1,24 @@
 "use client";
 
+import { useEffect } from "react";
+
 /**
- * The last resort.
+ * The last boundary: an error thrown by the root layout itself.
  *
- * Replaces the root layout when the layout itself fails, so it has to render
- * its own `<html>` and cannot rely on the stylesheet having loaded. Hence the
- * inline styles — this is the one file in the project where they are correct.
+ * It replaces the whole document, so it must render its own `<html>` and
+ * `<body>` — and it cannot rely on the stylesheet, the fonts or any component
+ * of ours, because the layout that loads them is the thing that failed. Hence
+ * inline styles and no imports. This should never be seen.
  */
 export default function GlobalError({
   error,
-  reset,
 }: {
   error: Error & { digest?: string };
-  reset: () => void;
 }) {
+  useEffect(() => {
+    console.error(error);
+  }, [error]);
+
   return (
     <html lang="en">
       <body
@@ -22,39 +27,20 @@ export default function GlobalError({
           minHeight: "100dvh",
           display: "grid",
           placeItems: "center",
-          fontFamily: "ui-sans-serif, system-ui, sans-serif",
-          background: "#ffffff",
-          color: "#0d0f14",
+          padding: "2rem",
+          background: "#0c0c0b",
+          color: "#f4f4f0",
+          fontFamily: "ui-monospace, SFMono-Regular, Menlo, monospace",
           textAlign: "center",
-          padding: "1.5rem",
         }}
       >
         <div>
-          <h1 style={{ fontSize: "1.375rem", fontWeight: 600, margin: 0 }}>
-            ShowMe is having a problem
-          </h1>
-          <p style={{ marginTop: "0.75rem", color: "#4d5461" }}>
-            Reload the page. If this keeps happening, it is on our side.
+          <p style={{ letterSpacing: "0.22em", fontWeight: 600 }}>LOCK</p>
+          <p style={{ color: "#a8a89d" }}>
+            LOCK could not start. Reload the page, or check the server log.
           </p>
-          <button
-            onClick={reset}
-            style={{
-              marginTop: "1.5rem",
-              height: "2.5rem",
-              padding: "0 1.25rem",
-              borderRadius: "10px",
-              border: 0,
-              background: "#1f5eff",
-              color: "#fff",
-              font: "inherit",
-              fontWeight: 500,
-              cursor: "pointer",
-            }}
-          >
-            Try again
-          </button>
           {error.digest ? (
-            <p style={{ marginTop: "1.5rem", fontSize: "0.75rem", color: "#7b8291" }}>
+            <p style={{ color: "#7a7a71", fontSize: "0.75rem" }}>
               Reference {error.digest}
             </p>
           ) : null}

@@ -1,16 +1,19 @@
 "use client";
 
 import { useEffect } from "react";
-import { Button } from "@/components/ui/button";
+import { Button, ButtonLink } from "@/components/ui/button";
+import { StateBlock } from "@/components/states/state-block";
 
 /**
- * The error boundary for the whole app.
+ * The error boundary for everything outside the app shell.
  *
- * Shows a sentence and a retry, never a stack. The `digest` is included
- * because it is the only handle a person has when reporting a production error
- * — it correlates their screenshot with a line in the server log.
+ * It says almost nothing about the error, and that is not evasion: Next.js
+ * strips the message from a production build and hands the boundary a `digest`
+ * instead, so anything printed here beyond that digest would be a message this
+ * component invented. The digest is what matches this render to a line in the
+ * server log, so it is shown.
  */
-export default function AppError({
+export default function Error({
   error,
   reset,
 }: {
@@ -18,29 +21,33 @@ export default function AppError({
   reset: () => void;
 }) {
   useEffect(() => {
-    // Server-side digests are logged by the platform; this catches the rest.
+    // The one place the real error exists in production. Replace with whatever
+    // reporting LOCK ends up using; until then the platform's log is the record.
     console.error(error);
   }, [error]);
 
   return (
-    <main className="container-page flex min-h-dvh flex-col items-center justify-center py-16 text-center">
-      <h1 className="text-title">Something went wrong</h1>
-      <p className="mt-3 max-w-sm text-[0.9375rem] text-ink-muted">
-        That did not load. Trying again usually works — if it does not, it is on
-        our side.
-      </p>
-
-      <div className="mt-8">
-        <Button onClick={reset} size="sm">
-          Try again
-        </Button>
-      </div>
-
-      {error.digest ? (
-        <p className="mt-6 font-mono text-xs text-ink-subtle">
-          Reference {error.digest}
-        </p>
-      ) : null}
+    <main className="mx-auto w-full max-w-measure px-6">
+      <StateBlock
+        eyebrow="Error"
+        tone="danger"
+        title="Something went wrong."
+        description="This is on our side, not yours. Trying again often works."
+        actions={
+          <>
+            <Button onClick={reset} size="sm">
+              Try again
+            </Button>
+            <ButtonLink href="/" variant="secondary" size="sm">
+              Back to the start
+            </ButtonLink>
+          </>
+        }
+      >
+        {error.digest ? (
+          <p className="label text-ink-subtle">Reference {error.digest}</p>
+        ) : null}
+      </StateBlock>
     </main>
   );
 }

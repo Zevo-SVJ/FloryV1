@@ -1,37 +1,29 @@
 import type { Metadata, Viewport } from "next";
 import { GeistSans } from "geist/font/sans";
+import { GeistMono } from "geist/font/mono";
 import { siteUrl } from "@/lib/env";
 import "@/app/globals.css";
 
 /**
  * The root layout.
  *
- * `metadataBase` is set here so that every route — including the public
- * creator pages, which will carry Open Graph images — can declare relative
- * metadata URLs and have them resolved against the right origin in every
- * environment.
+ * Geist is self-hosted through its package, so there is no request to a font
+ * CDN on a cold visit and no layout shift while a face downloads. Both faces
+ * are loaded because the design system uses the monospace as a texture, not as
+ * an occasional code block.
  *
- * Geist is self-hosted through the package, so there is no request to a font
- * CDN on a cold visit. That matters more than usual here: the public page is
- * opened from inside the TikTok and Instagram browsers, on a phone, on mobile
- * data, by someone who will not wait.
+ * LOCK is private, so it tells crawlers to leave it alone at the root rather
+ * than route by route.
  */
 export const metadata: Metadata = {
   metadataBase: new URL(siteUrl()),
   title: {
-    default: "ShowMe",
-    template: "%s · ShowMe",
+    default: "LOCK",
+    template: "%s · LOCK",
   },
-  description: "One page for everything you make.",
-  applicationName: "ShowMe",
-  /*
-   * No `robots` here. An absent directive already means index and follow, so
-   * stating it buys nothing — and it is actively harmful on a 404: Next.js
-   * emits its own `noindex` for a not-found render, and a layout-level
-   * `index, follow` is appended after it, leaving two contradictory tags on
-   * the page a crawler most needs to be told to ignore. Routes that must not
-   * be indexed say so themselves; `robots.txt` covers the rest.
-   */
+  description: "Build real SaaS products with AI.",
+  applicationName: "LOCK",
+  robots: { index: false, follow: false },
 };
 
 export const viewport: Viewport = {
@@ -42,7 +34,7 @@ export const viewport: Viewport = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en" className={GeistSans.variable}>
+    <html lang="en" className={`${GeistSans.variable} ${GeistMono.variable}`}>
       <body className="min-h-dvh">{children}</body>
     </html>
   );

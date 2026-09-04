@@ -30,12 +30,12 @@ export async function createClient() {
           }
         } catch {
           /*
-           * Server Components may not write cookies. That is fine and expected:
-           * `src/proxy.ts` refreshes the session on every request, so a token
-           * that rotated during a render is already persisted by the time this
-           * throws. Swallowing it here is what the Supabase SSR guide
-           * prescribes — the alternative is every read-only page crashing on a
-           * token refresh.
+           * Server Components may not write cookies. That is expected: the
+           * proxy refreshes the session on every request, so a token that
+           * rotated during a render is already persisted by the time this
+           * throws. Swallowing it is what the Supabase SSR guide prescribes —
+           * the alternative is every read-only page crashing on a token
+           * refresh.
            */
         }
       },

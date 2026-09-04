@@ -1,19 +1,19 @@
 #!/usr/bin/env bash
-# Apply the migrations to a throwaway database and run the RLS suite against it.
+# Apply the migrations to a throwaway database and run the security suite
+# against it.
 #
 # Needs a running PostgreSQL 16+ and psql. Point PGHOST/PGPORT/PGUSER at it, or
-# set SHOWME_TEST_PGHOST to a socket directory. The database is dropped and
-# recreated on every run, so the result never depends on what a previous run
-# left behind.
+# set LOCK_TEST_PGHOST / LOCK_TEST_PGUSER. The database is dropped and recreated
+# on every run, so a result never depends on what a previous run left behind.
 #
-#   ./supabase/tests/run.sh
+#   npm run test:db
 set -euo pipefail
 
-DB="${SHOWME_TEST_DB:-showme_test}"
+DB="${LOCK_TEST_DB:-lock_test}"
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 PSQL=(psql -v ON_ERROR_STOP=1 -q)
-[[ -n "${SHOWME_TEST_PGHOST:-}" ]] && PSQL+=(-h "$SHOWME_TEST_PGHOST")
-[[ -n "${SHOWME_TEST_PGUSER:-}" ]] && PSQL+=(-U "$SHOWME_TEST_PGUSER")
+[[ -n "${LOCK_TEST_PGHOST:-}" ]] && PSQL+=(-h "$LOCK_TEST_PGHOST")
+[[ -n "${LOCK_TEST_PGUSER:-}" ]] && PSQL+=(-U "$LOCK_TEST_PGUSER")
 
 "${PSQL[@]}" -d postgres -c "drop database if exists ${DB};"
 "${PSQL[@]}" -d postgres -c "create database ${DB};"
@@ -27,8 +27,8 @@ done
 # Query output to /dev/null: the assertions report through NOTICE on stderr,
 # and a column of empty "ok" rows would bury them.
 #
-# Each suite gets its own database, because they insert overlapping fixtures
-# and a shared one would make the result depend on the order they ran in.
+# Each suite gets its own database from the same template, so the result cannot
+# depend on the order the suites ran in.
 for suite in "$ROOT"/supabase/tests/[0-9][1-9]_*.sql; do
   echo "→ $(basename "$suite")"
   "${PSQL[@]}" -d postgres -c "drop database if exists ${DB}_suite;"
@@ -36,3 +36,5 @@ for suite in "$ROOT"/supabase/tests/[0-9][1-9]_*.sql; do
   "${PSQL[@]}" -d "${DB}_suite" -o /dev/null -f "$suite"
 done
 "${PSQL[@]}" -d postgres -c "drop database if exists ${DB}_suite;"
+
+echo "All database checks passed."

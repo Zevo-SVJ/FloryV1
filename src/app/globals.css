@@ -1,94 +1,126 @@
 @import "tailwindcss";
 
-/* The creator page's own design system. Kept apart from the app's tokens
-   above: those describe ShowMe's interface, these describe a page a creator
-   designed, and the two must never borrow from each other. */
-@import "./page-design.css";
-
 /* ───────────────────────────────────────────────────────────────────────────
-   ShowMe — foundation tokens
+   LOCK — design foundation
 
-   Enough of a system to build on and no more. A neutral scale with a slight
-   cool cast, one accent, four radii, and a type scale. The real design system
-   is a later phase; what matters now is that nothing hard-codes a hex value,
-   so changing the palette later is changing this file.
+   A restrained system, and small enough to hold in your head. Nothing in the
+   application hard-codes a colour, a radius or a type size: components refer to
+   `--color-surface` and `text-title`, never to a grey or a pixel value, which
+   is what makes a change of palette a change to this file rather than a
+   rewrite.
 
-   Light and dark are both defined here as semantic tokens. Components refer to
-   `--color-surface`, never to a grey, which is what makes the dark variant a
-   token swap rather than a rewrite.
+   The three decisions behind it:
+
+   1. NEARLY MONOCHROME. Primary actions are ink on canvas or canvas on ink,
+      inverted rather than coloured. This is what separates a builder's tool
+      from a course platform: the interface recedes and the work does not.
+
+   2. ONE SIGNAL COLOUR, used sparingly. Amber, for focus rings, the active
+      section, and progress. It is warm against the neutral scale, it carries
+      the product's own semantics, and it is not the blue every SaaS reaches
+      for. It is never the background of a primary button.
+
+   3. MONOSPACE AS A TEXTURE, not a gimmick. Phase numbers, labels, statuses and
+      anything countable are set in Geist Mono at small sizes with open
+      tracking. This is the "technical detail" of the brief, and it costs one
+      font variable.
+
+   Light and dark are both defined here as semantic tokens, so the dark variant
+   is a token swap. The visitor's own preference decides, evaluated by CSS
+   before the first paint rather than by a class applied in JavaScript, so there
+   is no flash. A manual toggle can be layered on later by writing these same
+   tokens under a `[data-theme]` selector.
    ─────────────────────────────────────────────────────────────────────────── */
 
 @theme {
-  --color-canvas: #ffffff;
+  /* ── Surfaces ───────────────────────────────────────────────────────────── */
+  --color-canvas: #fbfbfa;
   --color-surface: #ffffff;
-  --color-surface-sunken: #f6f7f9;
-  --color-border: #e6e8ec;
-  --color-border-strong: #d4d8df;
+  --color-surface-sunken: #f2f2f0;
+  --color-border: #e5e4e0;
+  --color-border-strong: #d3d2cd;
 
-  --color-ink: #0d0f14;
-  --color-ink-muted: #4d5461;
-  --color-ink-subtle: #7b8291;
+  /* ── Ink ────────────────────────────────────────────────────────────────── */
+  --color-ink: #14140f;
+  --color-ink-muted: #55554d;
+  --color-ink-subtle: #83837a;
+  /* What sits on top of `--color-ink` when it is used as a fill. */
+  --color-ink-inverse: #fbfbfa;
 
-  --color-accent: #1f5eff;
-  --color-accent-hover: #1a4fd8;
+  /* ── Signal ─────────────────────────────────────────────────────────────── */
+  --color-accent: #a06a08;
+  --color-accent-hover: #7f5406;
   --color-accent-ink: #ffffff;
+  /* A tint for the active section and for progress fills. */
+  --color-accent-quiet: #f6ecd9;
 
-  --color-danger: #c8352b;
-  --color-success: #0f7a52;
-  /* The third state, and the only place it appears is Smart Optimization's
-     score breakdown: a check that is neither passed nor failed. Chosen at a
-     depth that clears 4.5:1 on the surface it is drawn on, because it is used
-     as a dot beside text and never as text on a colour. */
-  --color-warning: #9a6207;
+  --color-danger: #b3261e;
+  --color-success: #1a6b48;
 
+  /* ── Type ───────────────────────────────────────────────────────────────── */
   --font-sans: var(--font-geist-sans), ui-sans-serif, system-ui, -apple-system,
     "Segoe UI", Helvetica, Arial, sans-serif;
+  --font-mono: var(--font-geist-mono), ui-monospace, SFMono-Regular, "SF Mono",
+    Menlo, Consolas, monospace;
 
-  --text-display: clamp(2.25rem, 5vw, 3.5rem);
-  --text-display--line-height: 1.04;
-  --text-display--letter-spacing: -0.033em;
+  --text-display: clamp(2rem, 4.5vw, 3rem);
+  --text-display--line-height: 1.05;
+  --text-display--letter-spacing: -0.032em;
 
-  --text-title: clamp(1.375rem, 2.4vw, 1.75rem);
-  --text-title--line-height: 1.18;
-  --text-title--letter-spacing: -0.022em;
+  --text-title: clamp(1.25rem, 2.2vw, 1.5rem);
+  --text-title--line-height: 1.2;
+  --text-title--letter-spacing: -0.02em;
 
   --text-lede: 1.0625rem;
-  --text-lede--line-height: 1.55;
+  --text-lede--line-height: 1.6;
 
-  --radius-control: 10px;
-  --radius-card: 14px;
+  /* The mono texture. One size, one tracking, used everywhere a label is a
+     label rather than a sentence. */
+  --text-label: 0.6875rem;
+  --text-label--line-height: 1.1;
+  --text-label--letter-spacing: 0.08em;
 
-  --shadow-control: 0 1px 2px rgba(13, 15, 20, 0.05);
-  --shadow-card: 0 1px 2px rgba(13, 15, 20, 0.04),
-    0 12px 28px -18px rgba(13, 15, 20, 0.16);
+  /* ── Shape ──────────────────────────────────────────────────────────────── */
+  /* Two radii. A third is a decision nobody can remember making. */
+  --radius-control: 8px;
+  --radius-card: 12px;
+
+  /* Shadows are for things that genuinely float — a menu, a dialog. Cards use
+     a border. A page of drop shadows reads as a template. */
+  --shadow-control: 0 1px 2px rgba(20, 20, 15, 0.06);
+  --shadow-raised: 0 4px 12px -2px rgba(20, 20, 15, 0.1),
+    0 12px 32px -12px rgba(20, 20, 15, 0.16);
+
+  /* ── Layout ─────────────────────────────────────────────────────────────── */
+  /* The width a column of prose stops growing at, and the shell's sidebar. */
+  --spacing-measure: 44rem;
+  --spacing-sidebar: 15rem;
 }
 
-/* The visitor's own preference decides, with no flash: this is CSS, evaluated
-   before the first paint, rather than a class applied by JavaScript. A manual
-   toggle can be layered on later by writing these same tokens under a
-   `[data-theme]` selector. */
 @media (prefers-color-scheme: dark) {
   @theme {
-    --color-canvas: #0b0d11;
-    --color-surface: #14171d;
-    --color-surface-sunken: #101319;
-    --color-border: #242932;
-    --color-border-strong: #333944;
+    --color-canvas: #0c0c0b;
+    --color-surface: #141413;
+    --color-surface-sunken: #1a1a18;
+    --color-border: #26261f;
+    --color-border-strong: #383830;
 
-    --color-ink: #f4f6f8;
-    --color-ink-muted: #a6adba;
-    --color-ink-subtle: #78808f;
+    --color-ink: #f4f4f0;
+    --color-ink-muted: #a8a89d;
+    --color-ink-subtle: #7a7a71;
+    --color-ink-inverse: #0c0c0b;
 
-    --color-accent: #5b8bff;
-    --color-accent-hover: #7ba1ff;
-    --color-accent-ink: #0b0d11;
+    --color-accent: #d9a441;
+    --color-accent-hover: #e8b962;
+    --color-accent-ink: #0c0c0b;
+    --color-accent-quiet: #2a2113;
 
-    --color-danger: #ff7a70;
-    --color-success: #4cc79a;
-    --color-warning: #e0a648;
+    --color-danger: #ef8078;
+    --color-success: #4fbc8b;
 
-    --shadow-control: 0 1px 2px rgba(0, 0, 0, 0.4);
-    --shadow-card: 0 1px 2px rgba(0, 0, 0, 0.3), 0 12px 28px -18px rgba(0, 0, 0, 0.6);
+    --shadow-control: 0 1px 2px rgba(0, 0, 0, 0.5);
+    --shadow-raised: 0 4px 12px -2px rgba(0, 0, 0, 0.5),
+      0 12px 32px -12px rgba(0, 0, 0, 0.7);
   }
 }
 
@@ -113,45 +145,38 @@
     text-wrap: balance;
   }
 
+  p {
+    text-wrap: pretty;
+  }
+
+  /* The signal colour's most frequent job. Visible on every surface in both
+     themes, and never removed — a keyboard is how half the work here is done. */
   :focus-visible {
     outline: 2px solid var(--color-accent);
     outline-offset: 2px;
     border-radius: 4px;
   }
 
-  ::selection {
-    background-color: var(--color-accent);
-    color: var(--color-accent-ink);
-  }
-}
-
-/* One horizontal rhythm for every page in the product. */
-@utility container-page {
-  margin-inline: auto;
-  width: 100%;
-  max-width: 64rem;
-  padding-inline: 1.25rem;
-
-  @media (min-width: 640px) {
-    padding-inline: 2rem;
-  }
-}
-
-/* The interface's own motion, off when the visitor has asked for that.
-
-   `page-design.css` already does this for a creator's page; this is the app
-   side of the same promise. Transitions are reduced rather than removed —
-   a hover that snaps is still a hover — and the skeleton pulse stops, which is
-   the one animation here that runs on its own. */
-@media (prefers-reduced-motion: reduce) {
-  @layer base {
+  /* Nothing in LOCK animates for effect. What does animate — a pulse on a
+     skeleton, a colour on hover — stops when asked. */
+  @media (prefers-reduced-motion: reduce) {
     *,
     *::before,
     *::after {
       animation-duration: 0.01ms !important;
       animation-iteration-count: 1 !important;
       transition-duration: 0.01ms !important;
-      scroll-behavior: auto !important;
     }
+  }
+}
+
+@layer components {
+  /* The mono label, used often enough to earn a name. */
+  .label {
+    font-family: var(--font-mono);
+    font-size: var(--text-label);
+    line-height: var(--text-label--line-height);
+    letter-spacing: var(--text-label--letter-spacing);
+    text-transform: uppercase;
   }
 }

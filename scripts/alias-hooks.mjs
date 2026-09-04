@@ -47,12 +47,11 @@ export async function resolve(specifier, context, nextResolve) {
   /*
    * A file, and specifically not a directory.
    *
-   * `existsSync` is true for `src/lib/optimize/rules` as well as for
-   * `src/lib/optimize/rules/index.ts`, and the bare directory sorts first in
-   * the candidate list — so an aliased import of a folder with an `index.ts`
-   * resolved to the folder and failed later with `EISDIR: illegal operation on
-   * a directory`, several frames away from the cause. Bundlers do this check;
-   * this loader has to as well.
+   * `existsSync` is true for a directory as well as for the `index.ts`
+   * inside it, and the bare directory sorts first in the candidate list — so an
+   * aliased import of a folder with an `index.ts` resolves to the folder and
+   * fails later with `EISDIR: illegal operation on a directory`, several frames
+   * away from the cause. Bundlers do this check; this loader has to as well.
    */
   const resolved = candidates.find((candidate) => {
     if (!existsSync(candidate)) return false;

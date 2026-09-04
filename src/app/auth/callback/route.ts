@@ -1,72 +1,37 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { createClient } from "@/lib/supabase/server";
-import { isSupabaseConfigured, siteUrl } from "@/lib/env";
-import { AFTER_SIGN_IN, SIGN_IN_PATH, safeReturnTo } from "@/lib/auth/routes";
+import { isSupabaseConfigured } from "@/lib/env";
+import { safeReturnTo, signInUrl } from "@/lib/auth/routes";
 
 /**
- * Where a link in an email lands.
+ * Where a confirmation email comes back to.
  *
- * `@supabase/ssr` pins the PKCE flow — it sets `flowType: "pkce"` itself and
- * offers no way to turn it off — which means every link Supabase mails out
- * comes back as `?code=<uuid>` rather than as a token in a URL fragment. A
- * `code` is not a session. It has to be exchanged for one, on the server,
- * where the resulting cookies can be written.
+ * `@supabase/ssr` uses the PKCE flow, so the link in the email carries a `code`
+ * that is worth nothing until it is exchanged for a session — and the exchange
+ * has to happen on the server, because the verifier lives in an HTTP-only
+ * cookie. Without this route the link lands on a page that reads the session,
+ * finds none, and bounces the person to sign in: an account created and
+ * confirmed that nobody can get into.
  *
- * Without this route the confirmation email is a dead end: the click lands on
- * `/dashboard` with a query parameter nothing reads, the visitor has no
- * session, and the proxy sends them to `/login` — where signing in fails too,
- * because the address is still unconfirmed. The account exists, the username
- * is held, and there is no way in. That is the shape of the bug this file
- * exists to prevent, and it only appears once email confirmation is switched
- * on, which is the configuration a real deployment wants.
- *
- * It is deliberately not a page. There is nothing to render: the exchange
- * happens and the visitor is redirected, so a Route Handler is the whole job
- * and it never flashes a blank screen on the way through.
+ * A failure sends them to sign in rather than showing an error page. By then
+ * the account is confirmed and signing in works; a stack trace would be true
+ * and useless.
  */
-
-export async function GET(request: NextRequest): Promise<Response> {
+export async function GET(request: NextRequest) {
   const { searchParams } = request.nextUrl;
-
-  /*
-   * The destination is put through the same guard the sign-in form uses. It
-   * arrives in a URL that Supabase echoed back from an email, which is exactly
-   * the sort of value that turns into an open redirect when somebody assumes
-   * it came from us.
-   */
-  const destination = safeReturnTo(searchParams.get("next"));
-
-  /*
-   * Redirects are built against the configured origin rather than against the
-   * request's own host. Behind a proxy `request.url` can carry an internal
-   * hostname, and an auth redirect to `http://0.0.0.0:3000/dashboard` is a
-   * confusing way to lose a session.
-   */
-  const to = (path: string) => NextResponse.redirect(new URL(path, siteUrl()));
-
-  if (!isSupabaseConfigured()) return to(SIGN_IN_PATH);
-
-  /*
-   * Supabase reports a refused link — expired, already used, or tampered with
-   * — as `error` and `error_description` on the query string rather than as a
-   * failed exchange. It is handled first so those cases do not fall through
-   * into an exchange that would fail less clearly.
-   */
-  if (searchParams.get("error")) {
-    return to(`${SIGN_IN_PATH}?notice=link-expired`);
-  }
-
   const code = searchParams.get("code");
-  if (!code) return to(SIGN_IN_PATH);
+  const next = safeReturnTo(searchParams.get("next"));
+
+  if (!code || !isSupabaseConfigured()) {
+    return NextResponse.redirect(new URL(signInUrl(), request.url));
+  }
 
   const supabase = await createClient();
   const { error } = await supabase.auth.exchangeCodeForSession(code);
 
-  if (error) return to(`${SIGN_IN_PATH}?notice=link-expired`);
+  if (error) {
+    return NextResponse.redirect(new URL(signInUrl(), request.url));
+  }
 
-  /*
-   * `AFTER_SIGN_IN` rather than the raw destination when the guard rejected
-   * it: a confirmed account should always land somewhere useful.
-   */
-  return to(destination || AFTER_SIGN_IN);
+  return NextResponse.redirect(new URL(next, request.url));
 }

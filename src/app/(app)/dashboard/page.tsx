@@ -1,103 +1,91 @@
 import type { Metadata } from "next";
-import { requireClaimedProfile, getUser } from "@/lib/auth/dal";
-import { ButtonLink } from "@/components/ui/button";
-import { CopyAddress } from "@/components/dashboard/copy-address";
-import { ShareButton } from "@/components/share/share-button";
-import { renderableMediaUrl } from "@/lib/media/url";
-import { siteUrl } from "@/lib/env";
+import { DisplayNameForm } from "@/components/account/display-name-form";
+import { Card, Label } from "@/components/ui/surface";
+import { requireProfile } from "@/lib/auth/dal";
+import { PHASES } from "@/lib/lock/phases";
 
-export const metadata: Metadata = {
-  title: "Dashboard",
-  robots: { index: false, follow: false },
-};
+export const metadata: Metadata = { title: "Dashboard" };
 
 /**
- * The account home.
+ * The dashboard.
  *
- * One job in this phase: make it obvious that the account is now connected to
- * an address, and give the person a way to copy it. Everything a dashboard
- * will eventually hold — the editor, views, plan — belongs to later phases,
- * and inventing a number here would be worse than leaving the space empty.
+ * Two things, and both are true today: the shape of the program, and the
+ * account. There is no progress bar, no streak and no "next lesson", because
+ * there are no lessons — a dashboard of invented numbers would make the
+ * platform look finished and make every later prompt harder, since the next
+ * person would have to work out which parts were real.
+ *
+ * The phase map is not a placeholder. The ten phases are the program, they are
+ * fixed, and seeing the whole route before starting it is the point. What is
+ * missing is the record of where somebody is on it, and the page says so once,
+ * plainly.
  */
 export default async function DashboardPage() {
-  const [profile, user] = await Promise.all([requireClaimedProfile(), getUser()]);
-
-  const origin = siteUrl().replace(/^https?:\/\//, "");
-  const address = `${origin}/${profile.username}`;
+  const profile = await requireProfile();
+  const name = profile.display_name?.trim();
 
   return (
-    <div className="max-w-2xl">
-      <p className="text-sm text-ink-muted">
-        {profile.display_name ? `Hello, ${profile.display_name}` : "Your ShowMe page"}
-      </p>
-
-      <h1 className="mt-2 font-mono text-title break-all">{address}</h1>
-
-      <div className="mt-6 flex flex-wrap items-center gap-3">
-        {/*
-          * Share first, copy second. Sharing is the action this whole phase
-          * exists to make easy, and the sheet behind it contains the copy
-          * button anyway — but a creator who only ever wants the link on
-          * their clipboard should not have to open a dialog for it.
-          */}
-        <ShareButton
-          url={`${siteUrl()}/${profile.username}`}
-          address={address}
-          profile={{
-            displayName: profile.display_name,
-            username: profile.username,
-            avatarUrl: renderableMediaUrl(profile.avatar_url),
-          }}
-        />
-        <CopyAddress url={`${siteUrl()}/${profile.username}`} />
-        <ButtonLink href={`/${profile.username}`} size="sm" variant="secondary">
-          View page
-        </ButtonLink>
-        <ButtonLink href="/editor" size="sm" variant="ghost">
-          Editor
-        </ButtonLink>
-        <ButtonLink href="/dashboard/analytics" size="sm" variant="ghost">
-          Analytics
-        </ButtonLink>
-        <ButtonLink href="/dashboard/optimize" size="sm" variant="ghost">
-          Optimize
-        </ButtonLink>
-      </div>
-
-      <section className="mt-10">
-        <h2 className="text-sm font-medium text-ink">Account</h2>
-        <dl className="mt-3 divide-y divide-border rounded-card border border-border bg-surface text-sm">
-          <Row label="Username">{profile.username}</Row>
-          <Row label="Display name">
-            {profile.display_name ?? <Unset>Not set yet</Unset>}
-          </Row>
-          <Row label="Bio">{profile.bio ?? <Unset>Not set yet</Unset>}</Row>
-          <Row label="Email">{user?.email ?? <Unset>Unknown</Unset>}</Row>
-          <Row label="Joined">
-            {new Date(profile.created_at).toLocaleDateString(undefined, {
-              day: "numeric",
-              month: "long",
-              year: "numeric",
-            })}
-          </Row>
-        </dl>
-        <p className="mt-3 text-sm text-ink-subtle">
-          Your display name, bio and page design are all set in the editor.
+    <div className="space-y-12 pb-16">
+      <section className="space-y-3">
+        <h1 className="text-display">{name ? `Welcome, ${name}.` : "Welcome."}</h1>
+        <p className="text-lede max-w-measure text-ink-muted">
+          You are the founder. The tools are the execution layer. Your job is to think,
+          decide, direct, build, verify, ship and operate.
         </p>
+      </section>
+
+      <section className="space-y-4">
+        <div className="flex flex-wrap items-baseline justify-between gap-2">
+          <Label>The program</Label>
+          <p className="text-sm text-ink-subtle">
+            Progress is not tracked yet — the learning engine arrives in Prompt 3.
+          </p>
+        </div>
+
+        <ol className="grid gap-3 sm:grid-cols-2">
+          {PHASES.map((phase) => (
+            <li key={phase.key}>
+              <Card className="flex h-full gap-4 p-4">
+                <span className="label pt-0.5 text-ink-subtle tabular-nums">
+                  {String(phase.number).padStart(2, "0")}
+                </span>
+                <div className="space-y-1">
+                  <p className="font-medium">{phase.label}</p>
+                  <p className="text-sm text-ink-muted">{phase.summary}</p>
+                </div>
+              </Card>
+            </li>
+          ))}
+        </ol>
+      </section>
+
+      <section className="max-w-measure space-y-4">
+        <Label>Your account</Label>
+        <Card className="space-y-6 p-5">
+          <DisplayNameForm current={profile.display_name} />
+
+          <dl className="grid gap-3 border-t border-border pt-5 text-sm sm:grid-cols-2">
+            <div className="space-y-1">
+              <dt className="label text-ink-subtle">Role</dt>
+              <dd>{profile.role}</dd>
+            </div>
+            <div className="space-y-1">
+              <dt className="label text-ink-subtle">Member since</dt>
+              <dd>
+                {/* A fixed locale and time zone: the server and the browser must
+                    format this identically or React reports a hydration
+                    mismatch, and "today" is different in two places at once. */}
+                {new Date(profile.created_at).toLocaleDateString("en-GB", {
+                  day: "numeric",
+                  month: "long",
+                  year: "numeric",
+                  timeZone: "UTC",
+                })}
+              </dd>
+            </div>
+          </dl>
+        </Card>
       </section>
     </div>
   );
 }
-
-function Row({ label, children }: { label: string; children: React.ReactNode }) {
-  return (
-    <div className="flex items-baseline justify-between gap-6 px-4 py-3.5">
-      <dt className="shrink-0 text-ink-muted">{label}</dt>
-      <dd className="min-w-0 truncate text-right">{children}</dd>
-    </div>
-  );
-}
-
-const Unset = ({ children }: { children: React.ReactNode }) => (
-  <span className="text-ink-subtle">{children}</span>
-);

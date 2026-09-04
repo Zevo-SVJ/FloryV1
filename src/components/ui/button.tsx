@@ -5,8 +5,9 @@ import { cn } from "@/lib/utils/cn";
 /**
  * The button, and the link that looks like one.
  *
- * Two variants and two sizes. Everything decorative — icons, loading spinners,
- * gradients — is left out until something actually needs it.
+ * Three variants, two sizes, nothing decorative. `primary` is inverted ink
+ * rather than a coloured fill — see the note at the top of `globals.css` — and
+ * the signal colour stays reserved for state.
  */
 
 type Variant = "primary" | "secondary" | "ghost";
@@ -17,7 +18,7 @@ const base =
   "transition-colors disabled:pointer-events-none disabled:opacity-50";
 
 const variants: Record<Variant, string> = {
-  primary: "bg-accent text-accent-ink shadow-control hover:bg-accent-hover",
+  primary: "bg-ink text-ink-inverse shadow-control hover:opacity-90",
   secondary:
     "bg-surface text-ink ring-1 ring-border-strong shadow-control hover:bg-surface-sunken",
   ghost: "text-ink-muted hover:bg-surface-sunken hover:text-ink",

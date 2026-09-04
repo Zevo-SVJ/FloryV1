@@ -7,7 +7,8 @@ import { headers } from "next/headers";
 import { createClient } from "@/lib/supabase/server";
 import { PATHNAME_HEADER } from "@/lib/supabase/proxy";
 import { isSupabaseConfigured } from "@/lib/env";
-import { ONBOARDING_PATH, signInUrl } from "@/lib/auth/routes";
+import { signInUrl } from "@/lib/auth/routes";
+import { roleAllows, type SectionAccess } from "@/lib/lock/navigation";
 import type { Profile } from "@/types/database";
 
 /**
@@ -20,8 +21,8 @@ import type { Profile } from "@/types/database";
  * next to the data rather than in front of the page.
  *
  * `cache()` memoizes for the duration of one render pass, so a layout, a page
- * and three components asking "who is signed in?" cost one request to Supabase
- * rather than five.
+ * and three components all asking "who is signed in?" cost one request to
+ * Supabase rather than five.
  */
 
 export interface SessionUser {
@@ -32,22 +33,19 @@ export interface SessionUser {
 /**
  * A session with no profile behind it.
  *
- * The schema says this cannot happen — a trigger creates a profile inside the
- * same transaction as the auth row, and since
- * `20260107000000_hardening.sql` no client may delete one. So reaching here
- * means either the database is unreachable in a way that looks like an empty
- * result, or an administrator removed the row by hand.
+ * The schema says this cannot happen: a trigger creates the profile inside the
+ * same transaction as the auth row, and no client may delete one. Reaching here
+ * means the database is unreachable in a way that looks like an empty result,
+ * or somebody removed the row by hand.
  *
- * It is thrown rather than redirected, and that is the fix for a real bug: the
- * old code sent these accounts to `/login`, which the proxy bounces a
- * signed-in visitor away from, which lands on `/dashboard`, which redirects to
- * `/login` — a loop the browser gives up on with no way out. The `(app)` error
- * boundary catches this and offers the one action that actually helps, which
- * is signing out.
+ * Thrown rather than redirected, and that matters. Sending these accounts to
+ * `/login` would loop — the proxy bounces a signed-in visitor away from
+ * `/login`, onto `/dashboard`, which would land here again. The app shell's
+ * error boundary catches it and offers the one action that helps: signing out.
  */
 export class ProfileUnavailableError extends Error {
   constructor() {
-    super("Your account is signed in but has no page.");
+    super("You are signed in, but this account has no profile.");
     this.name = "ProfileUnavailableError";
   }
 }
@@ -62,11 +60,11 @@ export class ProfileUnavailableError extends Error {
 export const getUser = cache(async (): Promise<SessionUser | null> => {
   /*
    * Nothing that depends on who is asking may be prerendered. Reading cookies
-   * normally makes a route dynamic on its own, but the unconfigured path below
-   * returns before touching them — which would let a protected page be baked
-   * at build time into whatever the build machine saw. `connection()` states
-   * the requirement once, here, rather than relying on every route to remember
-   * it. (Next.js 16 removed `export const dynamic`.)
+   * normally makes a route dynamic on its own, but the unconfigured branch
+   * below returns before touching them — which would let a protected page be
+   * baked at build time into whatever the build machine saw. `connection()`
+   * states the requirement once, here, rather than relying on every route to
+   * remember it. (Next.js 16 removed `export const dynamic`.)
    */
   await connection();
 
@@ -83,7 +81,7 @@ export const getUser = cache(async (): Promise<SessionUser | null> => {
     return { id: user.id, email: user.email ?? null };
   } catch {
     // Supabase unreachable. Treated as signed out rather than as a crash: the
-    // public pages keep working and protected pages send people to sign in.
+    // entry page keeps working and protected pages send people to sign in.
     return null;
   }
 });
@@ -91,9 +89,9 @@ export const getUser = cache(async (): Promise<SessionUser | null> => {
 /**
  * Where the visitor was trying to go.
  *
- * Set by the proxy, because a Server Component cannot read its own URL. Used
- * so that being bounced to sign in returns you to the page you asked for
- * rather than dumping you on the dashboard.
+ * Set by the proxy, because a Server Component cannot read its own URL. Used so
+ * that being bounced to sign in returns you to the page you asked for rather
+ * than dumping you on the dashboard.
  */
 const currentPath = cache(async (): Promise<string | undefined> => {
   try {
@@ -103,7 +101,7 @@ const currentPath = cache(async (): Promise<string | undefined> => {
   }
 });
 
-/** The same, but insisted upon. Redirects rather than returning null. */
+/** The same as `getUser`, but insisted upon. Redirects rather than returning null. */
 export const requireUser = cache(async (returnTo?: string): Promise<SessionUser> => {
   const user = await getUser();
   if (!user) redirect(signInUrl(returnTo ?? (await currentPath())));
@@ -111,13 +109,12 @@ export const requireUser = cache(async (returnTo?: string): Promise<SessionUser>
 });
 
 /**
- * The signed-in user's profile.
+ * The signed-in account's profile.
  *
- * A trigger creates one when the account is created, so an authenticated user
- * always has exactly one. Null here therefore means the session is gone or the
- * database is unreachable — not "this user has not set up a profile yet".
+ * Null means the session is gone or the database is unreachable — not "this
+ * account has not set up a profile yet", which the schema makes impossible.
  */
-export const getCurrentProfile = cache(async (): Promise<Profile | null> => {
+export const getProfile = cache(async (): Promise<Profile | null> => {
   const user = await getUser();
   if (!user) return null;
 
@@ -136,22 +133,37 @@ export const getCurrentProfile = cache(async (): Promise<Profile | null> => {
   }
 });
 
-/**
- * The signed-in user's profile, insisting that onboarding is finished.
- *
- * Anything behind the app shell can assume a chosen username, which is what
- * lets the dashboard print an address without checking whether there is one.
- */
-export const requireClaimedProfile = cache(async (): Promise<Profile> => {
-  const profile = await requireProfile();
-  if (!profile.username_claimed_at) redirect(ONBOARDING_PATH);
-  return profile;
-});
-
+/** The profile, insisted upon. Everything behind the app shell starts here. */
 export const requireProfile = cache(async (returnTo?: string): Promise<Profile> => {
   await requireUser(returnTo);
 
-  const profile = await getCurrentProfile();
+  const profile = await getProfile();
   if (!profile) throw new ProfileUnavailableError();
   return profile;
 });
+
+/**
+ * The profile, and whether it clears a section's bar.
+ *
+ * A role failure is not an error and not a redirect — it is a page that says
+ * "this is not for your account", rendered where the visitor already is. So
+ * this returns the answer rather than throwing it, and the caller renders one
+ * of two things.
+ *
+ * Deliberately not an `error.tsx` boundary catching a typed exception: Next.js
+ * strips error messages in production builds, leaving a boundary with nothing
+ * to distinguish "forbidden" from "the database fell over". A returned value
+ * survives the production build; a thrown type does not.
+ *
+ * `forbidden()` from Next.js would be the idiomatic answer and is still behind
+ * the experimental `authInterrupts` flag. Foundation does not enable
+ * experimental flags. Revisit in Prompt 6, when there is a real mentor area to
+ * gate.
+ */
+export async function checkAccess(
+  access: SectionAccess,
+  returnTo?: string,
+): Promise<{ profile: Profile; allowed: boolean }> {
+  const profile = await requireProfile(returnTo);
+  return { profile, allowed: roleAllows(profile.role, access) };
+}

@@ -1,11 +1,11 @@
 /**
  * Environment, read once and reported honestly.
  *
- * ShowMe needs a Supabase project to do anything real. Rather than throwing at
+ * LOCK needs a Supabase project to do anything real. Rather than throwing at
  * import time — which turns a missing variable into an unreadable stack trace
  * on every route — this module reports whether the app is configured, and the
  * UI says so plainly. `requireSupabaseEnv()` is the throwing variant, used at
- * the point where a Supabase client is actually being constructed.
+ * the point where a client is actually being constructed.
  *
  * `process.env.NEXT_PUBLIC_*` must be referenced literally, never through a
  * computed key: Next.js inlines these at build time by static analysis, and a
@@ -15,9 +15,9 @@
 export class MissingEnvError extends Error {
   /*
    * A plain field rather than a constructor parameter property. Node's
-   * type-stripping runs the real source, and it cannot erase `readonly x` in a
-   * parameter list — anything the test runner imports has to stay inside the
-   * syntax it supports.
+   * type-stripping runs the real source and cannot erase `readonly x` from a
+   * parameter list, so anything the test runner imports stays inside the syntax
+   * it supports.
    */
   readonly variables: string[];
 
@@ -64,27 +64,12 @@ export function requireSupabaseEnv(): SupabaseEnv {
 }
 
 /**
- * The service-role key, or null.
- *
- * Server-only and deliberately not part of `supabaseEnv()`: that function is
- * reached from code which also runs in the browser, and a key that bypasses
- * Row Level Security must never be within reach of a bundle. It is read here
- * with a literal `process.env` name, has no `NEXT_PUBLIC_` prefix, and is used
- * by exactly one module — `src/lib/supabase/admin.ts`.
- *
- * Null is a supported state. A clone without it records no analytics and
- * everything else works, which is better than a deployment that will not start.
- */
-export function serviceRoleKey(): string | null {
-  return clean(process.env.SUPABASE_SERVICE_ROLE_KEY);
-}
-
-/**
  * The canonical origin.
  *
- * Used for absolute metadata URLs and auth redirects. Prefers the explicit
- * variable, falls back to the one Vercel injects, and finally to localhost so
- * that a fresh clone runs without any configuration at all.
+ * Used for absolute metadata URLs and for the email confirmation link's
+ * redirect target. Prefers the explicit variable, falls back to the one Vercel
+ * injects, and finally to localhost so that a fresh clone runs with no
+ * configuration at all.
  */
 export function siteUrl(): string {
   const explicit = clean(process.env.NEXT_PUBLIC_SITE_URL);

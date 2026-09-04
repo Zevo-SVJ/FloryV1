@@ -4,9 +4,9 @@ import { cn } from "@/lib/utils/cn";
 /**
  * A labelled input with room for an error.
  *
- * The error is wired to the input with `aria-describedby` and `aria-invalid`,
+ * The error is wired to the input with `aria-describedby` and `aria-invalid`
  * and announced with `role="alert"`, so a screen reader hears why a submission
- * failed rather than just landing on a red border.
+ * failed rather than only landing on a changed border.
  */
 
 export function Input({

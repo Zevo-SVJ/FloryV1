@@ -6,7 +6,7 @@
  * one, since the type-only exports beside it are perfectly legal.
  */
 
-export type AuthField = "email" | "password" | "username";
+export type AuthField = "email" | "password" | "displayName";
 
 export interface FormState {
   error: string | null;
