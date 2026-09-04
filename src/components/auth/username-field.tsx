@@ -8,6 +8,7 @@ import {
   normalizeUsername,
   usernameProblemMessage,
 } from "@/lib/validation/username";
+import { siteOrigin } from "@/lib/editor/origin";
 import { cn } from "@/lib/utils/cn";
 
 /**
@@ -150,9 +151,14 @@ export function UsernameField({
         />
       </Field>
 
-      {/* The address, not the field, is what they are choosing. */}
+      {/*
+        * The address, not the field, is what they are choosing — and it is
+        * this deployment's address rather than the brand's. Hard-coding
+        * `showme.at` here told somebody testing on a preview URL to share a
+        * link that was not theirs.
+        */}
       <p id={previewId} className="font-mono text-sm text-ink-subtle">
-        showme.at/
+        {`${siteOrigin()}/`}
         <span
           className={cn("transition-colors", askable && !isProblem && "text-ink")}
         >

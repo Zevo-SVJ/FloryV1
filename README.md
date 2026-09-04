@@ -21,6 +21,10 @@ behind the rest.
 
 ## Running it
 
+**Setting this up for the first time?** [`SETUP.md`](SETUP.md) is the ordered
+checklist: which Supabase settings to change, which keys go where, what to
+verify at each step, and what needs no action at all.
+
 ```bash
 npm install
 cp .env.example .env.local     # then fill in your Supabase keys

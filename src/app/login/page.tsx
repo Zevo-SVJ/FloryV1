@@ -12,9 +12,9 @@ export const metadata: Metadata = {
 export default async function LoginPage({
   searchParams,
 }: {
-  searchParams: Promise<{ next?: string }>;
+  searchParams: Promise<{ next?: string; notice?: string }>;
 }) {
-  const { next } = await searchParams;
+  const { next, notice } = await searchParams;
   // Validated here as well as in the action: this value ends up in a hidden
   // field, and an unchecked one would make the form an open redirect.
   const returnTo = safeReturnTo(next);
@@ -33,6 +33,23 @@ export default async function LoginPage({
 
       <h1 className="mt-10 text-title">Sign in</h1>
       <p className="mt-2 text-sm text-ink-muted">Welcome back.</p>
+
+      {/*
+        * The one thing `/auth/callback` can send somebody back here to be
+        * told. A confirmation link that has expired or already been used
+        * otherwise redirects in silence, which reads as the link having done
+        * nothing at all. `notice` is compared against a known value rather
+        * than rendered, so nothing from the query string reaches the page.
+        */}
+      {notice === "link-expired" ? (
+        <p
+          role="status"
+          className="mt-4 rounded-control bg-surface-sunken px-3 py-2.5 text-[0.8125rem] leading-relaxed text-ink-muted"
+        >
+          That link has expired or was already used. Sign in below, or sign up again to get a
+          fresh one.
+        </p>
+      ) : null}
 
       <div className="mt-8">
         <AuthForm mode="sign-in" action={signIn} next={returnTo} />

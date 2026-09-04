@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { SignOutButton } from "@/components/auth/sign-out-button";
+import { siteOrigin } from "@/lib/editor/origin";
 import type { Profile } from "@/types/database";
 
 /**
@@ -69,7 +70,7 @@ export function AppNav({ profile }: { profile: Profile }) {
             href={`/${profile.username}`}
             className="hidden rounded py-0.5 text-sm text-ink-subtle transition-colors hover:text-ink sm:block"
           >
-            showme.at/{profile.username}
+            {`${siteOrigin()}/${profile.username}`}
           </Link>
           <SignOutButton />
         </div>

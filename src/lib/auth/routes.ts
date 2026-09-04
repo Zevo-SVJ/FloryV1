@@ -19,6 +19,15 @@ export const ONBOARDING_PATH = "/onboarding";
 /** Where a signed-out visitor is sent, and where they come back from. */
 export const SIGN_IN_PATH = "/login";
 
+/**
+ * Where a link in an email comes back to.
+ *
+ * Named here rather than written out at the one call site, because it has to
+ * match a value in the Supabase dashboard's redirect allowlist exactly — and a
+ * constant is something `SETUP.md` can point at.
+ */
+export const AUTH_CALLBACK_PATH = "/auth/callback";
+
 const startsWithSegment = (pathname: string, prefix: string): boolean =>
   pathname === prefix || pathname.startsWith(`${prefix}/`);
 

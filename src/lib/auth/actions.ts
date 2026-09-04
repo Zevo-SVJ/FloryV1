@@ -7,9 +7,16 @@ import { AuthError, type AuthApiError } from "@supabase/supabase-js";
 import { createClient } from "@/lib/supabase/server";
 import { isSupabaseConfigured, siteUrl } from "@/lib/env";
 import { requireUser } from "@/lib/auth/dal";
-import { AFTER_SIGN_IN, ONBOARDING_PATH, SIGN_IN_PATH, safeReturnTo } from "@/lib/auth/routes";
+import {
+  AFTER_SIGN_IN,
+  AUTH_CALLBACK_PATH,
+  ONBOARDING_PATH,
+  SIGN_IN_PATH,
+  safeReturnTo,
+} from "@/lib/auth/routes";
 import { checkAvailability } from "@/lib/usernames/availability";
 import { revalidatePublicPage } from "@/lib/public-page/revalidate";
+import { siteOrigin } from "@/lib/editor/origin";
 import { allow, requestKey } from "@/lib/security/rate-limit";
 import { credentialsSchema, signInSchema } from "@/lib/validation/schemas";
 import { usernameSchema } from "@/lib/validation/username";
@@ -183,7 +190,14 @@ export async function signUp(_prev: FormState, formData: FormData): Promise<Form
     password,
     options: {
       data: { username },
-      emailRedirectTo: `${siteUrl()}${AFTER_SIGN_IN}`,
+      /*
+       * The callback, not the dashboard. `@supabase/ssr` uses the PKCE flow,
+       * so the confirmation link returns a `code` that has to be exchanged
+       * for a session before there is one — see `app/auth/callback/route.ts`.
+       * Pointing this straight at `/dashboard` produced an account nobody
+       * could get into.
+       */
+      emailRedirectTo: `${siteUrl()}${AUTH_CALLBACK_PATH}?next=${encodeURIComponent(AFTER_SIGN_IN)}`,
     },
   });
 
@@ -204,7 +218,7 @@ export async function signUp(_prev: FormState, formData: FormData): Promise<Form
   if (!data.session) {
     return {
       error: null,
-      message: `Check your inbox to confirm your email. showme.at/${username} is being held for you.`,
+      message: `Check your inbox to confirm your email. ${siteOrigin()}/${username} is being held for you.`,
     };
   }
 
