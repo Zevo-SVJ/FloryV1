@@ -40,6 +40,17 @@ export interface DraftLink {
   /** One of the platform marks, or an uploaded image. Never both. */
   iconPlatform: SocialPlatform | null;
   iconUrl: string | null;
+  /**
+   * When the row was created, or null for a link that has never been saved.
+   *
+   * Read-only: the editor never sets it and `save_page` never reads it — the
+   * save schema strips it on the way in, like any field it does not know. It
+   * is here because the loader already selects the column and used to throw it
+   * away, and because Smart Optimization needs to know how long a link has
+   * been on the page before it says anything about the link being quiet. A
+   * link added on Tuesday is not underperforming on Wednesday.
+   */
+  createdAt: string | null;
 }
 
 /** A link with nothing decided about it yet. */
@@ -54,6 +65,7 @@ export function newLink(): DraftLink {
     isFeatured: false,
     iconPlatform: null,
     iconUrl: null,
+    createdAt: null,
   };
 }
 

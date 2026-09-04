@@ -245,6 +245,42 @@ anything: a chart of All time should begin at the creator's first view, while
 for a seven-day window the empty leading days are the information. It defaults
 to false, so a caller that says nothing gets the old shape.
 
+### Smart Optimization
+
+`20260108000000_optimization.sql` adds three things, and deliberately no copy of
+any analytics. A recommendation is derived from `page_views` and `link_clicks`
+on every request, so there is no second table drifting out of step with the
+first — and no way for the dashboard to show "move YouTube to #1" after YouTube
+has been moved.
+
+**`analytics_device_performance`** returns views *and* clicks per device. The
+existing `analytics_breakdown` returns views only, and a per-device
+click-through rate needs both halves measured the same way. Device is the one
+dimension where they are: both tables derive it from the user agent of their own
+request. Source is not — a view's source comes from `document.referrer` while a
+click is recorded by `/go/<id>`, whose referrer is the creator's own page and
+normalizes to `direct` — so there is deliberately no source equivalent of this
+function.
+
+**`optimization_events`** holds one row per optimization a creator applied or
+dismissed: the rule that produced it, the stable key of the situation, a line
+for the history, and — for an applied one — the previous state of the rows it
+touched, which is what Undo reads. A partial unique index on
+`(profile_id, recommendation_key) where kind = 'dismissed'` makes dismissing
+twice the same as dismissing once. Four policies, all `profile_id =
+auth.uid()`, and no read policy for anyone else: an optimization score is a
+private number about a private dashboard.
+
+**`optimize_reorder_links`** applies a new position to several of the caller's
+own links in one statement, because reordering four links is one decision and
+four round trips from the application would let a dropped connection leave a
+page in an order nobody chose. It **takes no block id**, so a recommendation can
+reorder a section and can never move a link between sections — which is both a
+product decision and the removal of the one place a crafted payload could name
+another creator's block. `security invoker` plus an explicit `profile_id = me`
+means a payload naming another creator's links matches nothing, and the returned
+count says so.
+
 ### Usernames
 
 `profiles.username` is the whole public address, so the rules are enforced in
@@ -359,6 +395,15 @@ write never answers with a success.
   early, un-feature one, delete one, or remove a page from search.
 - A page kept out of search is still readable by a stranger, which is what makes
   it a search setting rather than a privacy one.
+
+**Smart Optimization** (`08_optimization.sql`) checks the three additions above,
+and the assertion that matters most is what `optimize_reorder_links` does with a
+payload naming another creator's links: it moves nothing, reports zero, and
+leaves their page exactly as it was. A mixed payload moves only the caller's own
+rows. Alongside that: views and clicks are counted per device and scoped by RLS;
+a dismissal cannot be recorded twice; a recommendation type has to look like a
+rule name; a rival reads, writes and deletes none of another creator's history;
+and an anonymous visitor can execute neither new function.
 
 **The Phase 8 audit** (`07_hardening.sql`) asks the questions an auditor asks
 rather than testing a feature, so most of it duplicates nothing above:

@@ -42,6 +42,16 @@ export interface Overview {
   change: { views: number | null; clicks: number | null; ctr: number | null };
   /** False when there is no previous window to compare against. */
   comparable: boolean;
+  /**
+   * The raw totals of the window before this one, or null when there is none.
+   *
+   * The dashboard renders `change` and never looks at these. Smart
+   * Optimization needs the counts themselves, because a percentage is only
+   * publishable once both windows are large enough — and it must decide that
+   * from the same numbers the percentage was computed from rather than
+   * fetching its own and hoping they agree.
+   */
+  previous: { views: number; clicks: number } | null;
 }
 
 export const getOverview = cache(async (range: RangeId): Promise<Overview> => {
@@ -74,6 +84,7 @@ export const getOverview = cache(async (range: RangeId): Promise<Overview> => {
       ctr: ctr !== null && previousCtr !== null ? percentChange(ctr, previousCtr) : null,
     },
     comparable: previous !== null,
+    previous: previous ? { views: previous.views, clicks: previous.clicks } : null,
   };
 });
 

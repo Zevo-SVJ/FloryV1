@@ -35,6 +35,11 @@
 
   --color-danger: #c8352b;
   --color-success: #0f7a52;
+  /* The third state, and the only place it appears is Smart Optimization's
+     score breakdown: a check that is neither passed nor failed. Chosen at a
+     depth that clears 4.5:1 on the surface it is drawn on, because it is used
+     as a dot beside text and never as text on a colour. */
+  --color-warning: #9a6207;
 
   --font-sans: var(--font-geist-sans), ui-sans-serif, system-ui, -apple-system,
     "Segoe UI", Helvetica, Arial, sans-serif;
@@ -80,6 +85,7 @@
 
     --color-danger: #ff7a70;
     --color-success: #4cc79a;
+    --color-warning: #e0a648;
 
     --shadow-control: 0 1px 2px rgba(0, 0, 0, 0.4);
     --shadow-card: 0 1px 2px rgba(0, 0, 0, 0.3), 0 12px 28px -18px rgba(0, 0, 0, 0.6);

@@ -143,6 +143,7 @@ export const getEditorDraft = cache(async (): Promise<Draft> => {
       isFeatured: link.is_featured,
       iconPlatform: link.icon_platform,
       iconUrl: link.icon_url,
+      createdAt: link.created_at,
     };
     const bucket = linksByBlock.get(link.block_id);
     if (bucket) bucket.push(draft);

@@ -1,5 +1,5 @@
 import { pathToFileURL } from "node:url";
-import { existsSync } from "node:fs";
+import { existsSync, statSync } from "node:fs";
 import path from "node:path";
 
 /**
@@ -44,9 +44,24 @@ export async function resolve(specifier, context, nextResolve) {
     ...EXTENSIONS.map((extension) => path.join(base, `index${extension}`)),
   ];
 
-  const resolved = candidates.find(
-    (candidate) => existsSync(candidate) && !candidate.endsWith(path.sep),
-  );
+  /*
+   * A file, and specifically not a directory.
+   *
+   * `existsSync` is true for `src/lib/optimize/rules` as well as for
+   * `src/lib/optimize/rules/index.ts`, and the bare directory sorts first in
+   * the candidate list — so an aliased import of a folder with an `index.ts`
+   * resolved to the folder and failed later with `EISDIR: illegal operation on
+   * a directory`, several frames away from the cause. Bundlers do this check;
+   * this loader has to as well.
+   */
+  const resolved = candidates.find((candidate) => {
+    if (!existsSync(candidate)) return false;
+    try {
+      return statSync(candidate).isFile();
+    } catch {
+      return false;
+    }
+  });
   if (!resolved) return nextResolve(specifier, context);
 
   return { url: pathToFileURL(resolved).href, shortCircuit: true };

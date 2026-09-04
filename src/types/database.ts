@@ -194,6 +194,27 @@ type ReservedUsernameRow = {
   created_at: string;
 };
 
+/**
+ * One optimization a creator applied or dismissed.
+ *
+ * Deliberately holds no analytics. A recommendation is recomputed from the
+ * event tables on every request, so this table is the creator's side of the
+ * exchange and nothing else — which is what makes a stale recommendation
+ * impossible rather than merely unlikely.
+ */
+type OptimizationEventRow = {
+  id: string;
+  profile_id: string;
+  kind: "applied" | "dismissed";
+  recommendation_type: string;
+  recommendation_key: string;
+  summary: string;
+  /** The previous state of the affected rows. Null when not reversible. */
+  undo: Json | null;
+  undone_at: string | null;
+  created_at: string;
+};
+
 /** Columns the database fills in for us are optional on insert. */
 type Insert<Row, Required extends keyof Row> = Pick<Row, Required> &
   Partial<Omit<Row, Required>>;
@@ -241,6 +262,15 @@ export interface Database {
         Row: SubscriptionRow;
         Insert: Insert<SubscriptionRow, "profile_id">;
         Update: Partial<SubscriptionRow>;
+        Relationships: [];
+      };
+      optimization_events: {
+        Row: OptimizationEventRow;
+        Insert: Insert<
+          OptimizationEventRow,
+          "profile_id" | "kind" | "recommendation_type" | "recommendation_key" | "summary"
+        >;
+        Update: Partial<OptimizationEventRow>;
         Relationships: [];
       };
       reserved_usernames: {
@@ -300,6 +330,20 @@ export interface Database {
       analytics_recent: {
         Args: { p_limit?: number };
         Returns: { kind: string; title: string | null; at: string }[];
+      };
+      /**
+       * Views and clicks per device, which is the one dimension both event
+       * tables measure the same way. There is no source equivalent on purpose
+       * — see `src/lib/optimize/rules/audience.ts`.
+       */
+      analytics_device_performance: {
+        Args: { p_from: string; p_to: string };
+        Returns: { device: string; views: number; clicks: number }[];
+      };
+      /** New positions for some of the caller's own links, in one statement. */
+      optimize_reorder_links: {
+        Args: { p_order: Json };
+        Returns: number;
       };
     };
     Enums: {

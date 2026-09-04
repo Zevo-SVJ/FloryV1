@@ -2,18 +2,20 @@
 
 One page for everything you make — `showme.at/<username>`.
 
-**Phase 8: polish and production.** The product is feature-complete — a creator
-builds a page out of blocks, decides how it looks, shares it, and finds out
-whether any of it worked. This phase added almost nothing and audited
-everything: security headers, rate limits on the paths that invite a script, an
-open redirect closed, an anonymous role that can now execute no function at
-all, a keyboard path through every screen, a preview that is a picture rather
-than fifteen invisible tab stops, an All-time analytics tab that took four
-seconds and now takes a tenth of one, and a "Show in search" switch that
-worked everywhere except in the payload the editor actually sent.
+**The build is complete.** A creator makes an account, claims an address,
+builds a page out of blocks, chooses how it looks, publishes it, shares it,
+watches what happens — and then finds out what to change about it.
 
-See **[What Phase 8 changed](#what-phase-8-changed)** for the list, and
-**[Decisions worth knowing](#decisions-worth-knowing)** for the reasoning.
+That last part is **Smart Optimization**, and it is a reading of the analytics
+the product already collects rather than anything new. Nine rules, each a pure
+function from a creator's own numbers to a recommendation or to nothing at
+all, each carrying the figures it was derived from, each refusing to speak
+until there is enough data for its answer to mean something. No model, no
+prediction, and no sentence the numbers do not support.
+
+See **[Smart Optimization](#smart-optimization)** for how it works and
+**[Decisions worth knowing](#decisions-worth-knowing)** for the reasoning
+behind the rest.
 
 ---
 
@@ -57,6 +59,7 @@ src/
     (app)/                the signed-in shell — protection lives in its layout
       dashboard/  editor/
       dashboard/analytics/  what the page did
+      dashboard/optimize/   what to do about it
     [username]/           the public creator page, and its 404
       opengraph-image.tsx the 1200×630 card a shared link previews as
     robots.ts             what a crawler may visit
@@ -69,6 +72,7 @@ src/
       blocks/             one component per block type
     editor/               the editor, its forms and its controls
     analytics/            the dashboard's stats, bars, chart and range picker
+    optimize/             the score panel, a recommendation card, the history
     share/                the share sheet, and the QR panel behind it
   lib/
     design/               themes, tokens, the design schema, contrast
@@ -85,6 +89,8 @@ src/
     public-page/          the query, the shape, the avatar
     analytics/            sources, devices, bots, the visitor hash, recording,
                           the ranges, and the dashboard's queries
+    optimize/             metrics, thresholds, the score, nine rules, the
+                          engine, and the actions that apply and undo them
     links/                when a link is on the page, and when it is not
     contact/              email, phone, WhatsApp and an address, as actions
     share/                where a creator can send their page, and how
@@ -95,7 +101,7 @@ src/
   proxy.ts                runs before every route
 supabase/
   migrations/             the schema and its policies
-  tests/                  a Postgres shim, six RLS suites, a runner
+  tests/                  a Postgres shim, eight RLS suites, a runner
 ```
 
 ---
@@ -627,6 +633,104 @@ matches the serving hostname, which the editor's in-browser preview cannot know,
 and an embed that works in production and silently fails in the preview is worse
 than a link.
 
+## Smart Optimization
+
+Analytics answers *what happened*. This answers *what should I do about it* —
+and the whole design problem is that the second question is much easier to
+answer dishonestly than the first.
+
+```
+page_views + link_clicks          the same aggregates the analytics page reads
+        ↓  lib/optimize/queries   one 30-day window, one round of aggregates
+   PageMetrics                    links with positions, devices, sources, profile
+        ↓  lib/optimize/rules     nine pure functions: metrics → recommendation | nothing
+ Recommendation[]                 title, explanation, evidence, confidence, action
+        ↓  lib/optimize/engine    ranked; dismissed keys removed
+   the dashboard page             three groups, every figure shown
+```
+
+Everything above `queries.ts` is a pure function of its input. That is what
+makes it possible to test the case that matters — a page with nine views and
+two clicks — by handing the engine numbers rather than by seeding a database.
+
+### The rules
+
+| Rule | Fires when | Action |
+| --- | --- | --- |
+| `HIGH_PERFORMING_LOW_POSITION` | The most-clicked link beats whatever is at the top by half again, and can move up | Move it to the top of its section |
+| `TOP_LINK_NOT_FEATURED` | One link leads clearly and is not featured | Feature it |
+| `LINK_ORDER_OPPORTUNITY` | Two or more links would move if ordered by clicks | Apply the order |
+| `UNDERPERFORMING_LINK` | A link in the top three has under a quarter of the best link's clicks, and something below it does several times better | Review it; hiding is offered second |
+| `PROFILE_INCOMPLETE` | A name, photo, bio or social link is missing | Open the editor |
+| `STALE_LINK` | A link has expired, or has had no clicks in a month of real traffic | Review it |
+| `DEVICE_CTR_GAP` | The device most visitors use converts materially worse than another | — |
+| `SOURCE_CONCENTRATION` | One source sends half the visits | — |
+| `TRAFFIC_TREND` | Views moved 20% or more against the previous 30 days | — |
+
+The last three change nothing and say so: they appear under "Also worth
+knowing" rather than as opportunities.
+
+### What it refuses to do
+
+**It does not speak below a threshold.** A hundred views before any claim about
+traffic; forty clicks before links may be compared; ten clicks on a link before
+a claim about that link; three links before there is a comparison at all. Below
+those, the page says which number it is waiting for and how far off it is.
+`lib/optimize/thresholds.ts` states each one and why.
+
+**It does not score what it cannot see.** A check with no data behind it is
+removed from the denominator rather than counted as a failure — a page with
+three hundred views and no clicks has not failed its ordering check, the
+ordering check does not apply to it. Below a hundred views there is no score at
+all.
+
+**There is no per-source click-through rate, and there will not be one from
+this data.** A page view records where the visitor came from; a click is
+recorded by `/go/<id>`, whose referrer is the creator's own page, which
+normalizes to `direct`. Dividing one into the other would produce a table of
+numbers that look like conversion rates and are arithmetic on a mismatch.
+Device is different — both tables read it from their own request — which is why
+device gets the comparison and source gets a count. The reasoning is written
+out at the top of `lib/optimize/rules/audience.ts`.
+
+**It never predicts.** "This link currently receives 80.5% of your clicks" is a
+measurement. "Moving it will increase clicks by 23%" is a claim this product
+has not earned, and no rule makes one.
+
+**It changes nothing on its own.** Every action is behind a confirmation that
+names the change — "Move “Spotify” from #6 to #3?", or the full list of moves
+for a reorder — and everything it changes can be undone from the history for as
+long as the entry is there.
+
+### How an action is applied
+
+The browser sends a recommendation key and which of that card's own two buttons
+was pressed. **Nothing else.** The server recomputes the whole report from the
+creator's own analytics, finds that key among the recommendations it just
+generated, and performs the action *it* derived — so there is no link id on the
+wire, no position, no ordering, and a request naming another creator's link is
+not so much refused as meaningless.
+
+The same mechanism gives two other properties for free. A recommendation that
+no longer applies is not regenerated, so a stale button fails with a sentence
+saying exactly that; and "move YouTube to #1" cannot appear after YouTube has
+been moved to #1, because the situation that generated it is gone.
+
+Reordering goes through `optimize_reorder_links`, a `security invoker` function
+that applies every new position in one statement and **takes no block id** — so
+a recommendation can reorder a section and can never lift a link out of "Shop"
+into "Latest".
+
+### What is stored
+
+One small table, `optimization_events`, holding what a creator applied and what
+they dismissed — never a recommendation, and never a copy of any analytics.
+Recommendations are recomputed on every request. An applied row carries the
+previous state of the rows it touched, which is what Undo reads; a dismissal
+carries nothing and is unique per key, so dismissing twice is dismissing once.
+
+---
+
 ## What Phase 8 changed
 
 Nothing in this phase is a feature. Every item is something that was wrong,
@@ -857,7 +961,17 @@ the data is unavailable.
 
 ## What is not here yet
 
-Monetization, Stripe, commerce, bookings, forms, email marketing, social
-publishing, and anything that would call a model to tell a creator what to do.
-All later phases. The schema and the policies for them are already in place,
-which is the point.
+Monetization, Stripe, commerce, bookings, forms, email marketing and social
+publishing. The `subscriptions` table and its policies exist and grant nobody
+anything, which is the point: the shape is there when a paid plan is.
+
+Nothing here calls a language model, and Smart Optimization does not need one —
+its recommendations are arithmetic on a creator's own analytics, and a model
+would only change the wording. If one is ever added for that, the rule
+underneath it stays exactly as it is: the sentence may be rewritten, the
+finding may not be invented.
+
+There is no A/B testing. The recommendation architecture would take it — a rule
+is a function from metrics to a finding, and an experiment is a second source
+of metrics — but building it was not this phase's job and pretending otherwise
+would have been the way to finish none of it well.

@@ -59,6 +59,9 @@ export default async function DashboardPage() {
         <ButtonLink href="/dashboard/analytics" size="sm" variant="ghost">
           Analytics
         </ButtonLink>
+        <ButtonLink href="/dashboard/optimize" size="sm" variant="ghost">
+          Optimize
+        </ButtonLink>
       </div>
 
       <section className="mt-10">
