@@ -138,6 +138,123 @@ export type Profile = {
   updated_at: string;
 }
 
+/* ── Missions and workspace ───────────────────────────────────────────────── */
+
+export type ProjectStatus =
+  | "idea" | "research" | "validation" | "building" | "live" | "paused" | "archived";
+
+export type MissionType =
+  | "research" | "decision" | "writing" | "analysis" | "design"
+  | "build" | "debug" | "test" | "deploy" | "growth" | "review";
+
+export type MissionStatus =
+  | "not_started" | "in_progress" | "submitted" | "needs_work" | "completed";
+
+export type ArtifactStatus = "draft" | "submitted" | "approved" | "needs_work" | "final";
+
+export type EvidenceKind =
+  | "url" | "repository" | "commit" | "pull_request" | "deployment" | "document" | "note";
+
+export type ProjectRow = {
+  id: string;
+  profile_id: string;
+  name: string;
+  slug: string;
+  description: string;
+  problem_statement: string;
+  target_audience: string;
+  current_phase: string | null;
+  status: ProjectStatus;
+  created_at: string;
+  updated_at: string;
+};
+
+export type MissionRow = {
+  id: string;
+  phase_key: string;
+  module_id: string | null;
+  lesson_id: string | null;
+  requires_lesson_id: string | null;
+  slug: string;
+  title: string;
+  summary: string;
+  type: MissionType;
+  difficulty: LessonDifficulty;
+  estimated_minutes: number;
+  objective: string;
+  why_it_matters: string;
+  objectives: string[];
+  blocks: unknown;
+  deliverable_title: string;
+  deliverable_description: string;
+  required_evidence: EvidenceKind[];
+  requires_reflection: boolean;
+  position: number;
+  published: boolean;
+  is_demo: boolean;
+  created_at: string;
+  updated_at: string;
+};
+
+export type ArtifactRow = {
+  id: string;
+  project_id: string;
+  profile_id: string;
+  mission_id: string | null;
+  title: string;
+  description: string;
+  content: string;
+  url: string | null;
+  status: ArtifactStatus;
+  created_at: string;
+  updated_at: string;
+  submitted_at: string | null;
+};
+
+export type EvidenceRow = {
+  id: string;
+  artifact_id: string;
+  kind: EvidenceKind;
+  url: string | null;
+  label: string;
+  note: string;
+  created_at: string;
+};
+
+export type ArtifactFeedbackRow = {
+  id: string;
+  artifact_id: string;
+  reviewer_id: string;
+  status: ArtifactStatus;
+  comment: string;
+  created_at: string;
+};
+
+export type LearnerMissionProgressRow = {
+  profile_id: string;
+  mission_id: string;
+  project_id: string | null;
+  status: MissionStatus;
+  reflection: string;
+  started_at: string;
+  submitted_at: string | null;
+  completed_at: string | null;
+  updated_at: string;
+};
+
+export type BuildLogEntryRow = {
+  id: string;
+  project_id: string;
+  profile_id: string;
+  mission_id: string | null;
+  artifact_id: string | null;
+  occurred_at: string;
+  title: string;
+  detail: string;
+  is_automatic: boolean;
+  created_at: string;
+};
+
 export type Database = {
   public: {
     Tables: {
@@ -193,6 +310,71 @@ export type Database = {
         Update: { body?: string };
         Relationships: [];
       };
+
+      missions: { Row: MissionRow; Insert: MissionRow; Update: Partial<MissionRow>; Relationships: [] };
+      mission_prerequisites: {
+        Row: { mission_id: string; requires_mission_id: string };
+        Insert: { mission_id: string; requires_mission_id: string };
+        Update: Partial<{ mission_id: string; requires_mission_id: string }>;
+        Relationships: [];
+      };
+
+      projects: {
+        Row: ProjectRow;
+        Insert: { profile_id: string; name: string; slug: string; description?: string };
+        Update: {
+          name?: string; description?: string; problem_statement?: string;
+          target_audience?: string; current_phase?: string | null; status?: ProjectStatus;
+        };
+        Relationships: [];
+      };
+
+      artifacts: {
+        Row: ArtifactRow;
+        Insert: {
+          project_id: string; profile_id: string; mission_id?: string | null;
+          title: string; description?: string; content?: string; url?: string | null;
+        };
+        /* `status` and `submitted_at` are absent: they belong to
+           `submit_artifact()` and, later, to a reviewer. */
+        Update: { title?: string; description?: string; content?: string; url?: string | null };
+        Relationships: [];
+      };
+
+      evidence: {
+        Row: EvidenceRow;
+        Insert: {
+          artifact_id: string; kind: EvidenceKind;
+          url?: string | null; label?: string; note?: string;
+        };
+        Update: Partial<EvidenceRow>;
+        Relationships: [];
+      };
+
+      artifact_feedback: {
+        Row: ArtifactFeedbackRow;
+        Insert: ArtifactFeedbackRow;
+        Update: Partial<ArtifactFeedbackRow>;
+        Relationships: [];
+      };
+
+      learner_mission_progress: {
+        Row: LearnerMissionProgressRow;
+        Insert: { profile_id: string; mission_id: string; project_id?: string | null };
+        Update: { reflection?: string; project_id?: string | null };
+        Relationships: [];
+      };
+
+      build_log_entries: {
+        Row: BuildLogEntryRow;
+        Insert: {
+          project_id: string; profile_id: string; title: string;
+          detail?: string; occurred_at?: string;
+          mission_id?: string | null; artifact_id?: string | null;
+        };
+        Update: { title?: string; detail?: string; occurred_at?: string };
+        Relationships: [];
+      };
     };
     Views: Record<never, never>;
     Functions: {
@@ -207,6 +389,11 @@ export type Database = {
         Args: { p_lesson_id: string };
         Returns: LearnerLessonProgressRow;
       };
+      submit_artifact: { Args: { p_artifact_id: string }; Returns: ArtifactRow };
+      complete_mission: {
+        Args: { p_mission_id: string; p_reflection?: string | null };
+        Returns: LearnerMissionProgressRow;
+      };
     };
     Enums: {
       app_role: AppRole;
@@ -216,6 +403,11 @@ export type Database = {
       lesson_progress_status: LessonProgressStatus;
       confidence_level: ConfidenceLevel;
       resource_kind: ResourceKind;
+      project_status: ProjectStatus;
+      mission_type: MissionType;
+      mission_status: MissionStatus;
+      artifact_status: ArtifactStatus;
+      evidence_kind: EvidenceKind;
     };
     CompositeTypes: Record<never, never>;
   };

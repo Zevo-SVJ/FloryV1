@@ -436,6 +436,98 @@ Two seeded lessons carry `is_demo`. They exist so the renderer, grading,
 prerequisites and completion can be exercised before the curriculum exists, and
 they are removed with `delete from public.lessons where is_demo;`.
 
+## Missions and the workspace
+
+```
+PHASE → MODULE → LESSON → MISSION → ARTIFACT → EVIDENCE → REVIEW
+```
+
+**Deliverable and artifact are different words on purpose.** A deliverable is
+what a mission asks for — content, authored with the mission, in columns on
+`missions`. An artifact is what the learner produced — a row they own. One
+table each would have been two near-identical tables.
+
+### The same three guarantees as the learning system
+
+A learner holds `authenticated`, so a status column they could write is one they
+could forge. `submit_artifact()` and `complete_mission()` own the transitions
+and the tables grant no update on `status` or `submitted_at`.
+
+- **Submission** requires something in the work, and every kind of evidence the
+  mission demands. A SHIP mission asking for a deployment URL cannot be
+  submitted with an empty box and good intentions.
+- **Completion** requires a submitted deliverable, plus a reflection where the
+  mission asks for one.
+- **The build log writes itself** inside the same transaction, so the record
+  cannot drift from what happened.
+
+There are database assertions for each shortcut: submitting nothing, submitting
+with half the required evidence, completing without submitting, completing
+without the reflection.
+
+### Evidence
+
+The point is one sentence: a checkbox saying "done" is not evidence. `evidence`
+is a row per piece, not a column per kind, because a BUILD mission wants a
+repository *and* a pull request. Everything except `note` is refused without a
+URL, and a `note` under ten characters is refused too.
+
+`missions.required_evidence` is a `evidence_kind[]`. Setting it to
+`'{repository,deployment}'` makes `submit_artifact()` start enforcing it with no
+code change — which is how BUILD and SHIP missions will differ from THINK ones.
+
+GitHub is represented as evidence kinds (`repository`, `commit`,
+`pull_request`), not an OAuth integration. GitHub stays the source of truth for
+the code; LOCK records the link.
+
+### Locking, and how little of it there is
+
+A mission is locked only by an unfinished prerequisite mission or an unfinished
+`requires_lesson_id`. Deliberately not "everything before it in order": the
+program is a sequence, but a learner reading ahead is not cheating, and a wall
+in front of every mission would make LOCK a school rather than a workspace. A
+locked mission still shows its objective and names exactly what to finish.
+
+### Missions reuse the lesson renderer
+
+`missions.blocks` is the same JSONB vocabulary as `lessons.blocks`, rendered by
+the same `ContentRenderer`. Only presentational blocks belong there — a
+mission's interactivity is the workspace beneath it, not a quiz inside it. This
+is what building the renderer as a registry bought.
+
+### One project, in the singular
+
+The schema allows several projects per learner; the workspace is written around
+one, because that is what the program is. The most recently touched wins if
+there are ever two.
+
+### What Prompt 6 plugs into
+
+`artifact_feedback` exists with its table, its constraint that a verdict must be
+a verdict, and a read policy — and **no insert policy**. The mentor experience
+adds that policy along with the interface, rather than needing a migration and a
+backfill. There is a test asserting a mentor cannot yet write feedback, and
+another asserting a mentor cannot edit a learner's artifact: reviewing is
+reading plus commenting, and a mentor who could edit would be doing the mission.
+
+### Writing a mission
+
+```sql
+insert into public.missions (
+  phase_key, lesson_id, requires_lesson_id, slug, title, type, objective,
+  why_it_matters, deliverable_title, deliverable_description,
+  required_evidence, requires_reflection, position, published, blocks
+) values (
+  'ship', '<lesson uuid>', '<lesson uuid>', 'ship-your-first-version',
+  'Ship your first version', 'deploy',
+  'Get it in front of somebody who is not you.',
+  'A product nobody can open is a document.',
+  'Ship Report', 'What you shipped, where it lives, and what broke.',
+  '{deployment,repository}', true, 1, true,
+  '[{"kind":"heading","id":"task","level":2,"text":"Your task"}]'::jsonb
+);
+```
+
 ## Design
 
 The tokens are the design system, and they are all in `src/app/globals.css`.

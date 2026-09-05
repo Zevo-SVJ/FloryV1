@@ -118,6 +118,25 @@ Block shapes are defined in `src/lib/learning/blocks.ts`. Anything the schema
 there rejects is dropped at render time and counted on the page, so validate
 new content by opening the lesson.
 
+## Missions and the workspace
+
+Added by `20260907000000_missions_workspace.sql`, seeded by `…000001_missions_seed.sql`.
+
+| Table | Notes |
+|---|---|
+| `projects` | The learner's product. One per learner in practice |
+| `missions` | Content, like lessons. `blocks` reuses the lesson vocabulary |
+| `mission_prerequisites` | Mission B requires Mission A |
+| `artifacts` | What the learner produced. `status` is not client-writable |
+| `evidence` | Proof, one row per piece. Link kinds refused without a URL |
+| `artifact_feedback` | Read policy only — Prompt 6 adds the insert |
+| `learner_mission_progress` | Status and reflection, one row per learner per mission |
+| `build_log_entries` | Written automatically on submit and complete, plus the learner's own |
+
+`submit_artifact()` and `complete_mission()` own every transition a learner must
+not make for themselves, and write the build log in the same transaction.
+`supabase/tests/04_missions.sql` tries each shortcut and asserts it fails.
+
 ## The tables that do not exist yet
 
 Not built, because their shape depends on content nobody has written. These are

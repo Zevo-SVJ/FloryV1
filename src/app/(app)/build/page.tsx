@@ -1,84 +1,167 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import { PageHeader, HeaderMeta } from "@/components/ui/page-header";
-import { EmptyState } from "@/components/states/empty-state";
+import { Card, Label, Badge } from "@/components/ui/surface";
 import { ButtonLink } from "@/components/ui/button";
-import { Card, Label } from "@/components/ui/surface";
+import { EmptyState } from "@/components/states/empty-state";
+import { ProjectSnapshot } from "@/components/workspace/project-snapshot";
+import { StartProjectForm } from "@/components/workspace/start-project-form";
+import { getWorkspaceSnapshot, getBuildLog } from "@/lib/workspace/queries";
+import { getCurriculum } from "@/lib/learning/queries";
+import { MISSION_TYPE_LABEL } from "@/lib/workspace/labels";
 
 export const metadata: Metadata = { title: "My SaaS" };
 
 /**
- * The product workspace.
+ * The workspace.
  *
- * Deliberately written in the second person and about *the product*, not about
- * the course. "Your SaaS has no name yet" is a different sentence from "no
- * records found", and the difference is the whole positioning of LOCK: this is
- * where somebody's company starts, not a module they are working through.
+ * Written in the second person and about the product, not the programme. "Your
+ * SaaS has no name yet" is a different sentence from "no records found", and
+ * the difference is the whole positioning: this is where somebody's company
+ * starts, not a module they are working through.
  *
- * The identity block is the part that will hold a name, a one-liner and a
- * status once Prompt 4 gives it somewhere to store them. It is drawn now, empty
- * and honest, so the layout that carries it exists before the data does.
+ * Before a project exists there is exactly one thing on the page — the form
+ * that starts it. No dashboard of empty cards, because a dashboard of empty
+ * cards is a list of things you have failed to do.
  */
-export default function BuildOverviewPage() {
+export default async function WorkspacePage() {
+  const snapshot = await getWorkspaceSnapshot();
+
+  if (!snapshot.project) {
+    return (
+      <div className="space-y-8">
+        <PageHeader
+          eyebrow="My SaaS"
+          title="Your SaaS journey"
+          description="Everything you build in LOCK belongs to one product. Name it, and the missions start applying to something real."
+        />
+        <StartProjectForm />
+      </div>
+    );
+  }
+
+  const [curriculum, log] = await Promise.all([getCurriculum(), getBuildLog()]);
+  const phaseLabel =
+    curriculum.find((entry) => entry.phase.key === snapshot.project?.current_phase)?.phase.label ??
+    null;
+
   return (
     <div className="space-y-8">
       <PageHeader
         eyebrow="My SaaS"
-        title="Your SaaS journey"
-        description="Build your product from an idea to something in production that people pay for. Everything you produce along the way lands here."
+        title={snapshot.project.name}
+        description={snapshot.project.description || "Give it a line once you know what it is."}
         meta={
           <>
-            <HeaderMeta label="Product">Not named yet</HeaderMeta>
-            <HeaderMeta label="Phase">Not started</HeaderMeta>
-            <HeaderMeta label="Artifacts">0</HeaderMeta>
+            <HeaderMeta label="Missions done">
+              {snapshot.completedCount} / {snapshot.totalCount}
+            </HeaderMeta>
+            <HeaderMeta label="Artifacts">
+              {snapshot.latestArtifact ? snapshot.latestArtifact.title : "None yet"}
+            </HeaderMeta>
           </>
+        }
+        action={
+          <ButtonLink href="/build/artifacts" variant="secondary" size="sm">
+            Artifacts
+          </ButtonLink>
         }
       />
 
-      <section className="space-y-3">
-        <Label>Identity</Label>
-        <Card className="p-5">
-          <EmptyState title="Your product has no name yet" className="border-0 p-0">
-            <p>
-              The first phases decide what you are building and for whom. When
-              they do, the name, the one-line description and the problem it
-              solves live here — and every artifact after that hangs off it.
-            </p>
-          </EmptyState>
-        </Card>
-      </section>
+      <ProjectSnapshot project={snapshot.project} phaseLabel={phaseLabel} />
 
-      <div className="grid gap-4 md:grid-cols-2">
+      <div className="grid gap-4 lg:grid-cols-2">
         <section className="space-y-3">
-          <Label>Artifacts</Label>
-          <EmptyState title="Nothing produced yet">
-            <p>
-              Missions produce real things — a positioning statement, a schema, a
-              deployed build. They collect here as evidence the product exists.
-            </p>
-            <p className="pt-3">
-              <ButtonLink href="/build/artifacts" variant="secondary" size="sm">
-                Open artifacts
-              </ButtonLink>
-            </p>
-          </EmptyState>
+          <Label>Current mission</Label>
+          {snapshot.current ? (
+            <Card className="flex h-full flex-col justify-between gap-4 p-5">
+              <div className="space-y-2">
+                <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
+                  <span className="label text-ink-subtle">
+                    {MISSION_TYPE_LABEL[snapshot.current.mission.type]}
+                  </span>
+                  <span className="label text-ink-subtle tabular-nums">
+                    {snapshot.current.mission.estimated_minutes} min
+                  </span>
+                  {snapshot.current.artifact ? <Badge>Work started</Badge> : null}
+                </div>
+                <p className="text-[1.0625rem] font-medium text-ink">
+                  {snapshot.current.mission.title}
+                </p>
+                <p className="text-sm text-ink-muted">{snapshot.current.mission.objective}</p>
+              </div>
+              <div>
+                <ButtonLink href={`/learn/missions/${snapshot.current.mission.slug}`} size="sm">
+                  Open mission
+                </ButtonLink>
+              </div>
+            </Card>
+          ) : (
+            <EmptyState title="No mission open" className="h-full">
+              <p>
+                Missions appear here as the curriculum is published. Each one
+                applies a lesson to this product and leaves an artifact behind.
+              </p>
+            </EmptyState>
+          )}
         </section>
 
         <section className="space-y-3">
-          <Label>Build log</Label>
-          <EmptyState title="No entries yet">
-            <p>
-              What you decided, when, and why. You will not remember your own
-              reasoning in a month, and the log is how a later decision stays
-              consistent with an earlier one.
-            </p>
-            <p className="pt-3">
-              <ButtonLink href="/build/log" variant="secondary" size="sm">
-                Open build log
-              </ButtonLink>
-            </p>
-          </EmptyState>
+          <Label>Next</Label>
+          {snapshot.next ? (
+            <Card className="h-full space-y-2 p-5">
+              <span className="label text-ink-subtle">
+                {MISSION_TYPE_LABEL[snapshot.next.mission.type]}
+              </span>
+              <p className="text-[1.0625rem] font-medium text-ink">{snapshot.next.mission.title}</p>
+              <p className="text-sm text-ink-muted">{snapshot.next.mission.objective}</p>
+            </Card>
+          ) : (
+            <EmptyState title="Nothing queued" className="h-full">
+              <p>What comes after the current mission shows here.</p>
+            </EmptyState>
+          )}
         </section>
       </div>
+
+      <section className="space-y-3">
+        <div className="flex flex-wrap items-baseline justify-between gap-3">
+          <Label>Recent activity</Label>
+          <Link
+            href="/build/log"
+            className="text-sm text-ink-muted underline decoration-border-strong underline-offset-4 hover:text-ink hover:decoration-ink"
+          >
+            Full build log
+          </Link>
+        </div>
+
+        {log.length === 0 ? (
+          <EmptyState title="Nothing has happened yet">
+            <p>
+              Submitting a deliverable and completing a mission both write here
+              by themselves. You can add your own entries too.
+            </p>
+          </EmptyState>
+        ) : (
+          <ul className="space-y-2">
+            {log.slice(0, 4).map((entry) => (
+              <li
+                key={entry.id}
+                className="flex flex-wrap items-baseline gap-x-4 gap-y-1 rounded-card border border-border p-4"
+              >
+                <span className="label text-ink-subtle tabular-nums">
+                  {new Date(entry.occurred_at).toLocaleDateString("en-GB", {
+                    day: "numeric",
+                    month: "short",
+                    timeZone: "UTC",
+                  })}
+                </span>
+                <span className="text-sm text-ink">{entry.title}</span>
+              </li>
+            ))}
+          </ul>
+        )}
+      </section>
     </div>
   );
 }
