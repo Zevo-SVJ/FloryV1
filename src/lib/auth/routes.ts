@@ -1,4 +1,4 @@
-import { SECTIONS } from "@/lib/lock/navigation";
+import { PROTECTED_ROOTS } from "@/lib/lock/navigation";
 
 /**
  * Which routes need a session, which need the absence of one, and where people
@@ -9,8 +9,14 @@ import { SECTIONS } from "@/lib/lock/navigation";
  * DAL use them as the check that actually counts.
  */
 
-/** Every section lives behind the app shell, and the shell needs a session. */
-export const PROTECTED_PREFIXES: readonly string[] = SECTIONS.map((s) => s.href);
+/**
+ * Every section lives behind the app shell, and the shell needs a session.
+ *
+ * Roots rather than every leaf: `/learn` covers `/learn/lessons` and anything
+ * added under it later, so a new child page cannot fall outside the session
+ * boundary because somebody forgot to list it here.
+ */
+export const PROTECTED_PREFIXES: readonly string[] = PROTECTED_ROOTS;
 
 /** Signed-in visitors have no use for these. */
 export const AUTH_ONLY_PREFIXES = ["/login", "/signup"] as const;

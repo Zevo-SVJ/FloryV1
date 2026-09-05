@@ -1,14 +1,13 @@
-import type { Metadata } from "next";
-import { SectionPlaceholder } from "@/components/states/section-placeholder";
-import { requireSection } from "@/lib/lock/navigation";
-
-export const metadata: Metadata = { title: "Progress" };
+import { redirect } from "next/navigation";
 
 /**
- * The route exists so the section has a home, a URL and a place in the
- * navigation. What it renders is the truth: this is not built yet. See
- * `lib/lock/navigation.ts` for which prompt fills it in.
+ * This prefix groups pages; it is not one itself.
+ *
+ * The sidebar links to the children, so nobody arrives here by clicking. People
+ * do arrive by typing, by editing a URL, and from a stale bookmark — and a 404
+ * on a path the product plainly owns reads as a broken application. Sending
+ * them to the first child costs one file and removes a dead end.
  */
-export default function ProgressPage() {
-  return <SectionPlaceholder section={requireSection("/progress")} />;
+export default function Page() {
+  redirect("/progress/skills");
 }

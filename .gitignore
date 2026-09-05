@@ -1,7 +1,13 @@
 node_modules/
 .next/
-out/
-build/
+# Anchored to the repository root with a leading slash, and that matters more
+# than it looks: an unanchored `build/` matches a directory of that name at ANY
+# depth, and it silently swallowed `src/app/(app)/build/` — the My SaaS route —
+# so the section existed on disk, built fine, and was never in a single commit.
+# A clone got a navigation link to a 404. Anchor anything named after a build
+# artifact if the product might also use the word.
+/out/
+/build/
 next-env.d.ts
 *.tsbuildinfo
 

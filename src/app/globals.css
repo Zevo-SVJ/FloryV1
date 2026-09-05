@@ -97,8 +97,22 @@
   --spacing-sidebar: 15rem;
 }
 
+/* The dark palette.
+ *
+ * Plain custom properties on `:root`, not a second `@theme` block — and that is
+ * a correctness fix, not a style preference. Tailwind v4 hoists every `@theme`
+ * to `:root` regardless of the at-rule wrapping it, so a `@theme` inside this
+ * media query was emitted unconditionally and, being second, won everywhere.
+ * The result was a product that was dark in both modes and a light palette that
+ * had never once rendered.
+ *
+ * Utilities reference `var(--color-*)`, so redefining the variables here is all
+ * that is needed. A manual toggle can be layered on later by repeating these
+ * same declarations under `:root[data-theme="dark"]`, without touching a
+ * component.
+ */
 @media (prefers-color-scheme: dark) {
-  @theme {
+  :root {
     --color-canvas: #0c0c0b;
     --color-surface: #141413;
     --color-surface-sunken: #1a1a18;
@@ -119,8 +133,8 @@
     --color-success: #4fbc8b;
 
     --shadow-control: 0 1px 2px rgba(0, 0, 0, 0.5);
-    --shadow-raised: 0 4px 12px -2px rgba(0, 0, 0, 0.5),
-      0 12px 32px -12px rgba(0, 0, 0, 0.7);
+    --shadow-raised:
+      0 4px 12px -2px rgba(0, 0, 0, 0.5), 0 12px 32px -12px rgba(0, 0, 0, 0.7);
   }
 }
 

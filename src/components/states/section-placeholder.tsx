@@ -1,23 +1,53 @@
-import { StateBlock } from "@/components/states/state-block";
+import { PageHeader } from "@/components/ui/page-header";
+import { EmptyState } from "@/components/states/empty-state";
 import { Badge } from "@/components/ui/surface";
-import type { Section } from "@/lib/lock/navigation";
+import { groupOf, requireSection } from "@/lib/lock/navigation";
 
 /**
- * What a section renders before it is built.
+ * A whole page for a section that is routed but not built.
  *
- * The alternative — a page of invented statistics and greyed-out cards — makes
- * the product look finished and makes every later prompt harder, because the
- * next person has to work out which parts were real. This states what the
- * section is for, and when it arrives. That is the whole content, and it is
- * honest.
+ * Most of LOCK is in this state today, and how it handles that is a product
+ * decision rather than a placeholder detail. The alternative — invented
+ * statistics, greyed-out cards, a chart of nothing — makes the product look
+ * finished, and makes every later prompt harder because the next person has to
+ * work out which parts were real.
  *
- * Each of these disappears as its prompt lands. A section still rendering this
- * in production is a to-do list item that cannot be missed.
+ * So the page is a real page: the same header every other page has, in the same
+ * position, with the section's own words. What is missing is stated once,
+ * calmly, along with which prompt supplies it. A section still rendering this
+ * in production is a to-do item that cannot be overlooked.
+ *
+ * Everything comes from the navigation registry, so a section's description
+ * exists in exactly one place — the sidebar tooltip and this page cannot drift.
  */
-export function SectionPlaceholder({ section }: { section: Section }) {
+export function SectionPlaceholder({
+  href,
+  /** What will eventually live here. One sentence, in the section's language. */
+  children,
+}: {
+  href: string;
+  children?: React.ReactNode;
+}) {
+  const section = requireSection(href);
+  const group = groupOf(href);
+
   return (
-    <StateBlock eyebrow="Not built yet" title={section.label} description={section.summary}>
-      {section.arrivesIn ? <Badge>{section.arrivesIn}</Badge> : null}
-    </StateBlock>
+    <div className="space-y-8">
+      <PageHeader
+        eyebrow={group?.label}
+        title={section.label}
+        description={section.summary}
+        meta={section.arrivesIn ? <Badge>{section.arrivesIn}</Badge> : null}
+      />
+
+      <EmptyState title="Nothing here yet">
+        {children ?? (
+          <p>
+            This section is routed and reachable, and deliberately empty. It is
+            filled in by {section.arrivesIn ?? "a later prompt"}.
+          </p>
+        )}
+      </EmptyState>
+    </div>
   );
 }

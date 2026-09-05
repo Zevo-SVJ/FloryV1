@@ -246,6 +246,105 @@ anything written against them keeps working.
 
 ---
 
+## The application shell
+
+One layout, `app/(app)/layout.tsx`, wraps every authenticated route. It does two
+things and nothing else: insists on a session and a profile, then draws the
+frame. Pages inside it render content and never their own chrome or their own
+page padding — that is what keeps twenty-four routes from looking like
+twenty-four templates.
+
+Above `lg` the sidebar is `sticky` with its own `h-dvh`, beside a normally
+scrolling document. The first attempt made the *grid* `h-dvh` with
+`overflow-hidden`, which clipped: a single implicit grid row is sized `auto`, so
+it grew past the container and cut the last navigation group off the bottom of
+the screen with no way to scroll to it. Putting the height on the element that
+needs it leaves the page's own scrollbar to the content and cannot clip.
+
+`min-w-0` on `main` is load-bearing. A grid item's default minimum width is its
+content, so without it one wide table in one child page pushes the whole
+document sideways.
+
+## Navigation
+
+`lib/lock/navigation.ts` is the single source of truth for the sidebar, the
+mobile drawer, the session boundary and the role gates. Foundation held a flat
+list; the product has groups, so the list is now nested and the flat `SECTIONS`
+view is **derived** from it rather than maintained beside it.
+
+`PROTECTED_ROOTS` is derived too — the first path segment of every item — so
+`/learn` covers `/learn/lessons` and anything added under it later. A new child
+page cannot end up outside the session boundary because somebody forgot to list
+it. There is a test asserting exactly that.
+
+`sectionAt` matches longest-first, which is what makes `/learn/lessons`
+highlight Lessons rather than the Roadmap at `/learn`.
+
+**One change to Foundation's routes.** `/mentor` was the staff review queue; the
+product needs that path for the learner's own mentor page ("Your Mentor, Zevo").
+The queue moved to `/review` rather than losing its gate — a mentor still has
+somewhere only a mentor can go, and `/admin` is still admin-only.
+
+Grouping prefixes that are not pages (`/toolbox`, `/progress`, `/resources`)
+redirect to their first child. Nobody arrives there by clicking, but people
+type URLs and keep stale bookmarks, and a 404 on a path the product plainly owns
+reads as a broken application.
+
+## Mobile navigation
+
+Not a compressed sidebar. A 15rem column on a 375px screen leaves nothing for
+the content, and a horizontally scrolling strip of twenty-one links across seven
+groups loses the grouping that makes the product legible. The same `NavList` —
+same configuration, same component — moves into a drawer.
+
+Written by hand rather than pulled from a library, and each thing a library
+would have supplied is there deliberately: Escape closes it, focus moves into
+the panel on open and back to the trigger on close, the page behind does not
+scroll, following a link closes it, and the closed panel is `inert` so it is out
+of the tab order. There is no focus *trap*: that needs a full tab-cycle
+implementation, and the honest trade is to say so rather than ship a broken one.
+
+The drawer closes on a route change by adjusting state during render against the
+previous pathname, not in an effect. An effect would paint the drawer over the
+new page for one frame before closing it.
+
+## Theme
+
+**Both modes work. Before this prompt, neither did — only dark.**
+
+`globals.css` defined the dark palette in a second `@theme` block inside
+`@media (prefers-color-scheme: dark)`. Tailwind v4 hoists every `@theme` to
+`:root` regardless of the at-rule wrapping it, so those variables were emitted
+unconditionally and, being second, won everywhere. The light palette had never
+once rendered. Found by asserting the computed value of `--color-canvas` in a
+real browser under an emulated light preference, which is the only way this kind
+of fault shows up — it looks intentional.
+
+The fix: `@theme` defines the light palette, and the dark values are plain
+custom properties on `:root` inside the media query. Utilities reference
+`var(--color-*)`, so redefining the variables is all that is needed. A manual
+toggle can be layered on later by repeating those declarations under
+`:root[data-theme="dark"]`, without touching a component.
+
+## Honest empty states
+
+Most of LOCK is routed and empty, and how it says so is a product decision. Every
+`planned` page renders a real page header in the same position as every other
+page, the section's own words, and one calm sentence about what will appear and
+which prompt supplies it. `EmptyState` uses a dashed border: a space reserved
+for something, not a thing that is finished.
+
+The dashboard draws all seven blocks it will eventually carry — current phase,
+next action, progress, roadmap, my SaaS, recent activity, milestones — and every
+one reports that it has no data. `ProgressBar` accepts `value={null}` and renders
+an empty track with `aria-valuetext="Not tracked yet"` rather than a zero that
+looks like a measurement.
+
+`buildRoadmap(null)` marks every phase `upcoming`. It does **not** mark phase one
+as current: nobody has started anything, and a product that decides on your
+behalf that you are mid-way through Think is a product that lies in its first
+sentence. Prompt 3 passes real progress and nothing else changes.
+
 ## Design
 
 The tokens are the design system, and they are all in `src/app/globals.css`.

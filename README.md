@@ -87,8 +87,10 @@ src/
     auth/callback/         PKCE code exchange for email confirmation links
     globals.css            the design tokens. The whole design system is here
   components/
-    ui/                    primitives: button, field, surface, skeleton
-    layout/                the shell's parts: wordmark, nav, sign-out
+    ui/                    primitives: button, field, surface, skeleton,
+                           spinner, avatar, page-header, progress-bar
+    layout/                the shell: wordmark, nav-list, mobile-nav, account
+    lock/                  product components: the roadmap
     states/                loading, error, empty, forbidden, not-built-yet
     auth/  account/        feature components, named for their feature
   lib/
@@ -111,9 +113,13 @@ Two conventions worth knowing before adding to it:
 - **Business logic lives in `lib/`, not in `app/`.** A route file reads a
   session, calls into `lib/`, and renders. That is what makes any of it
   testable — `app/` is the one place the Node test runner cannot reach.
-- **A section is declared once**, in `src/lib/lock/navigation.ts`. That list
-  drives the sidebar, the route protection and the role gating. Adding a
-  section is an entry there plus a `page.tsx`.
+- **A section is declared once**, in `src/lib/lock/navigation.ts`. That nested
+  list drives the sidebar, the mobile drawer, the route protection and the role
+  gating; the flat `SECTIONS` view and `PROTECTED_ROOTS` are derived from it.
+  Adding a page is an entry there plus a `page.tsx`.
+- **Pages render content, never chrome.** The shell owns the padding, the
+  content measure and the navigation. A page starts with `<PageHeader>` and a
+  `space-y-*` stack — it never sets its own page margins.
 
 ## Architecture and decisions
 
