@@ -1,12 +1,23 @@
 import type { Metadata } from "next";
-import { SectionPlaceholder } from "@/components/states/section-placeholder";
+import { ToolboxCategory } from "@/components/toolbox/category";
 
 export const metadata: Metadata = { title: "Videos" };
 
-export default function VideosPage() {
+/**
+ * A view onto the one Toolbox library, narrowed to one sort of resource.
+ *
+ * Not a second table and not a second navigation config: resources live in
+ * `toolbox_items` with everything else, which is what lets one search cover
+ * them and one save button work everywhere.
+ */
+export default function Page() {
   return (
-    <SectionPlaceholder href="/resources/videos">
-      <p>Walkthroughs worth watching once, attached to the phase they belong to.</p>
-    </SectionPlaceholder>
+    <ToolboxCategory
+      kind="resource"
+      resourceKind="video"
+      eyebrow="Resources"
+      title="Videos"
+      description="Walkthroughs worth watching once, with the reason they are here and the part to watch."
+    />
   );
 }

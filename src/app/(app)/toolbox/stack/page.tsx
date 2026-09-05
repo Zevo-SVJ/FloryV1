@@ -1,12 +1,15 @@
 import type { Metadata } from "next";
-import { SectionPlaceholder } from "@/components/states/section-placeholder";
+import { ToolboxCategory } from "@/components/toolbox/category";
 
 export const metadata: Metadata = { title: "Stack" };
 
-export default function StackPage() {
+export default function Page() {
   return (
-    <SectionPlaceholder href="/toolbox/stack">
-      <p>The tools you build with, and — more useful — when each one earns its place and when it does not.</p>
-    </SectionPlaceholder>
+    <ToolboxCategory
+      kind="stack_tool"
+      eyebrow="Toolbox"
+      title="Stack"
+      description="The tools LOCK builds with, and when each one earns its place. Knowing one tool is not choosing it."
+    />
   );
 }

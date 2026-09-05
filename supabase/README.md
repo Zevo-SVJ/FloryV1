@@ -137,6 +137,38 @@ Added by `20260907000000_missions_workspace.sql`, seeded by `…000001_missions_
 not make for themselves, and write the build log in the same transaction.
 `supabase/tests/04_missions.sql` tries each shortcut and asserts it fails.
 
+## The Toolbox
+
+Added by `20260908000000_toolbox.sql`, seeded by `…000001_toolbox_seed.sql`.
+
+| Table | Notes |
+|---|---|
+| `toolbox_items` | All six kinds. `body` JSONB, `search` a generated tsvector |
+| `lesson_toolbox_items` / `mission_toolbox_items` | "Tools for this step" |
+| `toolbox_item_links` | Curated "use it with" relationships |
+| `learner_saved_items` | Private, including from staff |
+| `learner_recent_items` | One row per item, time replaced on each view |
+| `learner_checklist_progress` | An array of ticked ids, keyed on the body's item ids |
+
+No client holds a write on `toolbox_items` at any role. Content is authored with
+SQL:
+
+```sql
+insert into public.toolbox_items (kind, slug, title, summary, phase_key, tags, published, body)
+values ('prompt', 'name-it', 'Name it', 'One line that stands alone in a search result.',
+        'think', '{tag}', true,
+        '{"whatItDoes":"…","whenToUse":"…","prompt":"…","howToUse":"…",
+          "expectedOutput":"…","commonMistake":"…"}'::jsonb);
+
+-- Surface it where it is needed:
+insert into public.mission_toolbox_items (mission_id, item_id, position)
+values ('<mission uuid>', (select id from public.toolbox_items where slug = 'name-it'), 0);
+```
+
+Body shapes are in `src/lib/toolbox/schemas.ts`. Anything the schema rejects
+renders as unreadable rather than half-rendering, so validate new content by
+opening the item.
+
 ## The tables that do not exist yet
 
 Not built, because their shape depends on content nobody has written. These are

@@ -255,6 +255,47 @@ export type BuildLogEntryRow = {
   created_at: string;
 };
 
+/* ── Toolbox ──────────────────────────────────────────────────────────────── */
+
+export type ToolboxKindRow =
+  | "prompt" | "framework" | "template" | "checklist" | "resource" | "stack_tool";
+
+export type ToolboxItemRow = {
+  id: string;
+  kind: ToolboxKindRow;
+  slug: string;
+  title: string;
+  summary: string;
+  phase_key: string | null;
+  tags: string[];
+  /* JSONB. Parsed by `lib/toolbox/schemas.ts`, never trusted raw. */
+  body: unknown;
+  position: number;
+  published: boolean;
+  is_demo: boolean;
+  created_at: string;
+  updated_at: string;
+};
+
+export type LearnerSavedItemRow = {
+  profile_id: string;
+  item_id: string;
+  created_at: string;
+};
+
+export type LearnerRecentItemRow = {
+  profile_id: string;
+  item_id: string;
+  viewed_at: string;
+};
+
+export type LearnerChecklistProgressRow = {
+  profile_id: string;
+  item_id: string;
+  checked_ids: string[];
+  updated_at: string;
+};
+
 export type Database = {
   public: {
     Tables: {
@@ -365,6 +406,51 @@ export type Database = {
         Relationships: [];
       };
 
+      toolbox_items: {
+        Row: ToolboxItemRow;
+        /* Platform content: no client write at any privilege level. Typed
+           because postgrest-js collapses an unusable relation to `never`. */
+        Insert: ToolboxItemRow;
+        Update: Partial<ToolboxItemRow>;
+        Relationships: [];
+      };
+      lesson_toolbox_items: {
+        Row: { lesson_id: string; item_id: string; position: number };
+        Insert: { lesson_id: string; item_id: string; position?: number };
+        Update: Partial<{ lesson_id: string; item_id: string; position: number }>;
+        Relationships: [];
+      };
+      mission_toolbox_items: {
+        Row: { mission_id: string; item_id: string; position: number };
+        Insert: { mission_id: string; item_id: string; position?: number };
+        Update: Partial<{ mission_id: string; item_id: string; position: number }>;
+        Relationships: [];
+      };
+      toolbox_item_links: {
+        Row: { item_id: string; related_item_id: string };
+        Insert: { item_id: string; related_item_id: string };
+        Update: Partial<{ item_id: string; related_item_id: string }>;
+        Relationships: [];
+      };
+      learner_saved_items: {
+        Row: LearnerSavedItemRow;
+        Insert: { profile_id: string; item_id: string };
+        Update: Partial<LearnerSavedItemRow>;
+        Relationships: [];
+      };
+      learner_recent_items: {
+        Row: LearnerRecentItemRow;
+        Insert: { profile_id: string; item_id: string; viewed_at?: string };
+        Update: { viewed_at?: string };
+        Relationships: [];
+      };
+      learner_checklist_progress: {
+        Row: LearnerChecklistProgressRow;
+        Insert: { profile_id: string; item_id: string; checked_ids?: string[] };
+        Update: { checked_ids?: string[] };
+        Relationships: [];
+      };
+
       build_log_entries: {
         Row: BuildLogEntryRow;
         Insert: {
@@ -408,6 +494,7 @@ export type Database = {
       mission_status: MissionStatus;
       artifact_status: ArtifactStatus;
       evidence_kind: EvidenceKind;
+      toolbox_kind: ToolboxKindRow;
     };
     CompositeTypes: Record<never, never>;
   };

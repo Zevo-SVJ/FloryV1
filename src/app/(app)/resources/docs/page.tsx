@@ -1,12 +1,23 @@
 import type { Metadata } from "next";
-import { SectionPlaceholder } from "@/components/states/section-placeholder";
+import { ToolboxCategory } from "@/components/toolbox/category";
 
 export const metadata: Metadata = { title: "Docs" };
 
-export default function DocsPage() {
+/**
+ * A view onto the one Toolbox library, narrowed to one sort of resource.
+ *
+ * Not a second table and not a second navigation config: resources live in
+ * `toolbox_items` with everything else, which is what lets one search cover
+ * them and one save button work everywhere.
+ */
+export default function Page() {
   return (
-    <SectionPlaceholder href="/resources/docs">
-      <p>Documentation for the tools you actually use, so you are not searching for it mid-build.</p>
-    </SectionPlaceholder>
+    <ToolboxCategory
+      kind="resource"
+      resourceKind="doc"
+      eyebrow="Resources"
+      title="Docs"
+      description="Documentation for the tools you actually use, so you are not searching for it mid-build."
+    />
   );
 }

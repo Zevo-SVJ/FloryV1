@@ -528,6 +528,82 @@ insert into public.missions (
 );
 ```
 
+## The Toolbox
+
+Six kinds — prompt, framework, template, checklist, resource, stack note — in
+**one table** with a `kind` and a JSONB body.
+
+Six tables was the obvious alternative and is the wrong shape here. The six
+share almost every column and differ only in a body that is prose either way.
+Worse, three features cut across all of them: a unified search, saved items, and
+links from lessons and missions. With six tables each becomes six joins or a
+union; with one table each is a single index, a single foreign key, a single
+join table. A seventh kind later is an enum value.
+
+The cost is validation, paid the way Prompt 3 paid it for lesson blocks:
+`lib/toolbox/schemas.ts` parses every body through Zod on the way out. A body
+that fails renders "this item could not be read" rather than half an item — a
+Toolbox entry that silently drops its *common mistake* section is worse than one
+that admits it is broken.
+
+### Every item has to answer the questions
+
+The schemas make the answers required fields rather than conventions. A prompt
+without `whenToUse` cannot be authored; a resource whose `why` is under twenty
+characters is refused. "Watch this video" is filler; "watch 04:20–11:10 after
+the research lesson, because it shows the technique used badly and then well" is
+teaching. There are tests for both refusals.
+
+### Search
+
+A generated `tsvector` column, weighted title > summary > body, with a GIN
+index. Generated rather than trigger-maintained so it cannot fall out of step
+with the row.
+
+Two things that cost an hour and are worth writing down. `to_tsvector('english',
+…)` with a bare literal resolves to the overload that reads
+`default_text_search_config` — a session setting, so it is only *stable* and
+Postgres refuses it in a generated column; the fix is `'english'::regconfig`.
+And `array_to_string` is `stable` too, so tags cannot be in the vector at all —
+the honest options were a wrapper function declared immutable, which is a lie
+the planner would believe, or leaving tags out. They are out, and filter through
+their own GIN index instead, which is a better job for them than diluting a
+ranking.
+
+The search page is a **GET form**: the query lives in the URL, so a result set
+is a link, the back button works, and it functions before JavaScript loads.
+
+### Resources are a view, not a section
+
+`/resources/videos`, `/docs` and `/references` read the same `toolbox_items`
+table, narrowed by the body's own `resourceKind`. Not a second table and not a
+second navigation config — which is what lets one search cover them and one save
+button work everywhere.
+
+### Contextual tools
+
+`lesson_toolbox_items` and `mission_toolbox_items` exist so a learner never has
+to work out which item from a growing library applies to the thing in front of
+them. The curriculum states it; the lesson and mission pages render it.
+Curated order is preserved in the query rather than left to the database.
+
+### Platform content versus learner work
+
+Stated in the migration and enforced by the grants: **no client holds a write on
+`toolbox_items` at any role, including staff.** Authoring is SQL until Prompt 6
+decides otherwise, and there is deliberately no action that pretends otherwise.
+
+What the learner adds — saved items, recents, checklist ticks — is private *even
+from staff*, unlike progress and artifacts which staff do read. Which boxes
+somebody ticked is working behaviour, not submitted work, and a mentor reading
+it would change it. Same argument as lesson notes.
+
+### A checklist is not evidence
+
+Said in the migration, in the action, and on the page. Ticking every box means
+you stopped guessing about the cheap things; evidence is the artifact and its
+links, and that lives in the workspace.
+
 ## Design
 
 The tokens are the design system, and they are all in `src/app/globals.css`.

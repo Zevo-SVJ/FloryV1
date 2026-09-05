@@ -1,12 +1,15 @@
 import type { Metadata } from "next";
-import { SectionPlaceholder } from "@/components/states/section-placeholder";
+import { ToolboxCategory } from "@/components/toolbox/category";
 
 export const metadata: Metadata = { title: "Prompts" };
 
-export default function PromptsPage() {
+export default function Page() {
   return (
-    <SectionPlaceholder href="/toolbox/prompts">
-      <p>The prompts worth keeping — the ones that reliably get good work out of an execution layer, for the jobs that come round again.</p>
-    </SectionPlaceholder>
+    <ToolboxCategory
+      kind="prompt"
+      eyebrow="Toolbox"
+      title="Prompts"
+      description="Reusable instructions for working with an execution layer. Each one defines its context, its constraints and what it should produce."
+    />
   );
 }

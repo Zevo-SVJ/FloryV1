@@ -8,6 +8,8 @@ import { StateBlock } from "@/components/states/state-block";
 import { ContentRenderer } from "@/components/learning/content-renderer";
 import { MissionWorkspace } from "@/components/workspace/mission-workspace";
 import { getMission } from "@/lib/workspace/queries";
+import { getToolsForMission } from "@/lib/toolbox/queries";
+import { ContextualTools } from "@/components/toolbox/item-card";
 import { MISSION_STATUS_LABEL, MISSION_TYPE_LABEL, EVIDENCE_KIND_LABEL } from "@/lib/workspace/labels";
 
 export async function generateMetadata({
@@ -43,6 +45,9 @@ export default async function MissionPage({
   const detail = await getMission(slug);
 
   if (!detail) notFound();
+
+  // What to reach for while doing this mission. See the lesson page for why.
+  const tools = await getToolsForMission(detail.mission.id);
 
   const { mission, progress, artifact, blocks, evidence, prerequisites, requiredLesson, unlocked, project } =
     detail;
@@ -158,6 +163,8 @@ export default async function MissionPage({
             lessonSlug={mission.slug}
             responses={new Map()}
           />
+
+          <ContextualTools items={tools} heading="Tools for this mission" />
 
           <section className="max-w-measure space-y-3">
             <Label>Deliverable</Label>

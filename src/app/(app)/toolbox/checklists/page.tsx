@@ -1,12 +1,15 @@
 import type { Metadata } from "next";
-import { SectionPlaceholder } from "@/components/states/section-placeholder";
+import { ToolboxCategory } from "@/components/toolbox/category";
 
 export const metadata: Metadata = { title: "Checklists" };
 
-export default function ChecklistsPage() {
+export default function Page() {
   return (
-    <SectionPlaceholder href="/toolbox/checklists">
-      <p>What to verify before you call something done. Shipping is a checklist; so is a schema and so is a pricing page.</p>
-    </SectionPlaceholder>
+    <ToolboxCategory
+      kind="checklist"
+      eyebrow="Toolbox"
+      title="Checklists"
+      description="What to verify before you call something done. A safety tool, never evidence."
+    />
   );
 }

@@ -1,12 +1,15 @@
 import type { Metadata } from "next";
-import { SectionPlaceholder } from "@/components/states/section-placeholder";
+import { ToolboxCategory } from "@/components/toolbox/category";
 
 export const metadata: Metadata = { title: "Frameworks" };
 
-export default function FrameworksPage() {
+export default function Page() {
   return (
-    <SectionPlaceholder href="/toolbox/frameworks">
-      <p>Ways of thinking that hold up under pressure — how to size a market, cut a scope, price a plan.</p>
-    </SectionPlaceholder>
+    <ToolboxCategory
+      kind="framework"
+      eyebrow="Toolbox"
+      title="Frameworks"
+      description="Repeatable ways of thinking. Not proprietary terminology — just the orders of operation that hold up under pressure."
+    />
   );
 }

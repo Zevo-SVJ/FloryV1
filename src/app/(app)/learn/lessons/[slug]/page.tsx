@@ -12,6 +12,8 @@ import {
   NotePanel,
 } from "@/components/learning/lesson-controls";
 import { getLesson } from "@/lib/learning/queries";
+import { getToolsForLesson } from "@/lib/toolbox/queries";
+import { ContextualTools } from "@/components/toolbox/item-card";
 
 export async function generateMetadata({
   params,
@@ -45,6 +47,13 @@ export default async function LessonPage({
   const detail = await getLesson(slug);
 
   if (!detail) notFound();
+
+  /*
+   * The tools this lesson says apply to it. Surfaced here rather than left for
+   * the learner to find, which is the whole argument for the join table: nobody
+   * should have to guess which item from a growing library is the relevant one.
+   */
+  const tools = await getToolsForLesson(detail.lesson.id);
 
   const { lesson, blocks, module, phase, resources, prerequisites, unlocked, progress } = detail;
   const completed = progress?.status === "completed";
@@ -128,6 +137,8 @@ export default async function LessonPage({
               rest of the lesson is intact.
             </p>
           ) : null}
+
+          <ContextualTools items={tools} heading="Tools for this lesson" />
 
           {resources.length > 0 ? (
             <section className="max-w-measure space-y-3">
