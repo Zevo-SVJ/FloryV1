@@ -80,6 +80,7 @@ export default async function ToolboxItemPage({
          * worse than one that admits it is broken.
          */
         <StateBlock
+          as="h2"
           eyebrow="Unreadable"
           tone="danger"
           title="This item could not be read"

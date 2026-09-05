@@ -59,17 +59,58 @@ export async function createProject(
   const supabase = await createClient();
   const { data, error } = await supabase
     .from("projects")
+    /*
+     * Exactly the four columns the learner holds an insert grant on. `id`,
+     * `status` and `current_phase` are set by the database and by living with
+     * the product; naming any of them here would be refused, correctly.
+     */
     .insert({ profile_id: user.id, name, slug: slugify(name), description })
     .select("slug")
     .maybeSingle();
 
-  if (error) {
-    if (error.code === "23505") return { error: "You already have a project with that name." };
-    return { error: "That did not save. Try again." };
-  }
+  if (error) return { error: reportWriteFailure("createProject", error) };
 
   revalidatePath("/build");
+  revalidatePath("/dashboard");
   return { error: null, message: "Project created.", projectSlug: data?.slug };
+}
+
+/**
+ * What to tell the learner, and what to tell the server log.
+ *
+ * This function exists because of a bug that took a database to find. Project
+ * creation failed for every input, and the only thing anybody could see was
+ * "That did not save. Try again." — the real error, an enum violation raised by
+ * a trigger three functions deep, was mapped to that string and dropped. The
+ * message was accurate and useless.
+ *
+ * So: the learner gets a sentence they can act on and never a database error,
+ * and the actual fault is written to the server log in every environment. In
+ * development the detail is also returned to the screen, because the person
+ * reading it there is the person who can fix it.
+ *
+ * `console.error` is the deliberate choice over swallowing: on Vercel it lands
+ * in the function log, and locally it lands in the terminal already open next
+ * to the browser.
+ */
+function reportWriteFailure(
+  operation: string,
+  error: { code?: string; message?: string; details?: string | null; hint?: string | null },
+): string {
+  console.error(`[lock] ${operation} failed`, {
+    code: error.code,
+    message: error.message,
+    details: error.details,
+    hint: error.hint,
+  });
+
+  // The one case worth naming, because the learner can act on it.
+  if (error.code === "23505") return "You already have a project with that name.";
+
+  const friendly = "That did not save. Try again — and if it keeps failing, tell your mentor.";
+
+  if (process.env.NODE_ENV === "production") return friendly;
+  return `${friendly}\n\nDevelopment detail — ${error.code ?? "no code"}: ${error.message ?? "no message"}`;
 }
 
 export async function updateProject(

@@ -24,8 +24,14 @@ const variants: Record<Variant, string> = {
   ghost: "text-ink-muted hover:bg-surface-sunken hover:text-ink",
 };
 
+/*
+ * `sm` is 36px tall, which is right next to a mouse and too small under a
+ * thumb. It gets a 44px floor below `md`, exactly as the navigation items do —
+ * the same pattern, applied to the other thing people tap. Desktop is
+ * unchanged: from `md` up the height is the 36px it always was.
+ */
 const sizes: Record<Size, string> = {
-  sm: "h-9 px-3.5 text-sm",
+  sm: "min-h-11 px-3.5 text-sm md:h-9 md:min-h-0",
   md: "h-11 px-5 text-[0.9375rem]",
 };
 

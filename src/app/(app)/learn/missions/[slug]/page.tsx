@@ -99,6 +99,7 @@ export default async function MissionPage({
 
       {!unlocked ? (
         <StateBlock
+          as="h2"
           eyebrow="Locked"
           title="Finish the groundwork first"
           description="This mission applies something you have not covered yet. The lock is not there to slow you down — doing the work without the ground under it produces an artifact you cannot defend."
@@ -222,6 +223,7 @@ export default async function MissionPage({
             />
           ) : (
             <StateBlock
+              as="h2"
               eyebrow="No project yet"
               title="Name your SaaS first"
               description="A mission produces something, and that something belongs to a product. Start yours and come back — this page will be waiting."

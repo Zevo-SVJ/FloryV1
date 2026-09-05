@@ -16,6 +16,7 @@ import { cn } from "@/lib/utils/cn";
 export type StateTone = "neutral" | "danger";
 
 export function StateBlock({
+  as: Heading = "h1",
   eyebrow,
   title,
   description,
@@ -24,6 +25,12 @@ export function StateBlock({
   children,
   className,
 }: {
+  /*
+   * `h1` when this *is* the page — the error and not-found screens. `h2`
+   * when it sits under a `PageHeader`, which already rendered the h1; two
+   * h1 elements on one page is what this prop exists to stop.
+   */
+  as?: "h1" | "h2";
   /** The small monospace line above the title: "Not found", "Error", "Planned". */
   eyebrow?: string;
   title: string;
@@ -49,7 +56,7 @@ export function StateBlock({
       ) : null}
 
       <div className="space-y-3">
-        <h1 className="text-title">{title}</h1>
+        <Heading className="text-title">{title}</Heading>
         {description ? <div className="text-lede text-ink-muted">{description}</div> : null}
       </div>
 

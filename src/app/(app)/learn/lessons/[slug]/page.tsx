@@ -94,6 +94,7 @@ export default async function LessonPage({
 
       {!unlocked ? (
         <StateBlock
+          as="h2"
           eyebrow="Locked"
           title="Finish the earlier lesson first"
           description="This one builds on material you have not covered yet. The point is not to slow you down — it is that the ideas below only make sense with the ground under them."
