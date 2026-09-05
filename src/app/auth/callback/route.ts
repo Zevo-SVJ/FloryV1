@@ -8,11 +8,20 @@ import { classifyProviderError } from "@/lib/auth/auth-errors";
  * Where an identity provider — and a link in an email — comes back to.
  *
  * `@supabase/ssr` uses PKCE, so what arrives is a `code` that is worth nothing
- * until it is exchanged for a session, and the exchange has to happen on the
- * server because the verifier lives in an HTTP-only cookie. Without this route
- * a Google sign-in lands on a page that reads the session, finds none, and
- * bounces to the sign-in form: a completed round trip that appears to have done
- * nothing.
+ * on its own: it has to be exchanged for a session together with the verifier
+ * cookie that `signInWithGoogle` wrote when it built the authorization URL.
+ * That exchange belongs on the server because this is where the session cookies
+ * are written — a Server Component cannot set them, and the browser has no
+ * business holding the result. Without this route a Google sign-in lands on a
+ * page that reads the session, finds none, and bounces to the sign-in form: a
+ * completed round trip that appears to have done nothing.
+ *
+ * (The verifier cookie is *not* HttpOnly — `@supabase/ssr` writes it readable,
+ * because its browser client has to reach it in the flows that run there. It is
+ * single-use and bound to one attempt, so the exposure is small, but it is not
+ * the guarantee an earlier version of this comment claimed. Verified in a real
+ * browser: the cookie is `sb-<ref>-auth-token-flow-<id>-code-verifier`, and it
+ * is readable from script.)
  *
  * One route serves both flows. That is not a shortcut — the two are the same
  * exchange, and a second route would be a second place for the redirect
