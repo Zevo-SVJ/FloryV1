@@ -30,7 +30,7 @@ describe("parseToolboxBody", () => {
   });
 
   it("defaults variables rather than demanding them", () => {
-    const { variables: _omitted, ...withoutVariables } = validPrompt;
+    const withoutVariables = { ...validPrompt, variables: undefined };
     const parsed = parseToolboxBody("prompt", withoutVariables);
     assert.ok(parsed);
     if (parsed.kind === "prompt") assert.deepEqual(parsed.body.variables, []);
@@ -38,7 +38,7 @@ describe("parseToolboxBody", () => {
 
   it("refuses a prompt missing the fields that make it useful", () => {
     // A prompt with no "when to use" is a prompt somebody will use wrongly.
-    const { whenToUse: _omitted, ...incomplete } = validPrompt;
+    const incomplete = { ...validPrompt, whenToUse: undefined };
     assert.equal(parseToolboxBody("prompt", incomplete), null);
   });
 

@@ -604,6 +604,90 @@ Said in the migration, in the action, and on the page. Ticking every box means
 you stopped guessing about the cheap things; evidence is the artifact and its
 links, and that lives in the workspace.
 
+## The mentor layer
+
+`LEARN → DO → SUBMIT → PROVE → REVIEW → IMPROVE → ADVANCE`.
+
+### Why approval is separated from completion
+
+A learner completing a mission does not mean they did it well. Those are two
+different facts and only one of them is the learner's to assert. So completion
+stays with the learner — the deliverable is submitted, the evidence is attached,
+the reflection is written — and the verdict on quality belongs to a person who
+did not do the work.
+
+`missions.requires_review` decides which missions need that verdict.
+`complete_mission()` refuses those until the artifact is `approved` or `final`.
+Most missions leave it false: requiring a human on every one makes the mentor a
+bottleneck and the learner passive, which is the opposite of the point.
+
+### Nobody reviews their own work
+
+`review_artifact()` is the only path that writes `approved` or `final` to an
+artifact, and it checks four things: the caller is authenticated, the caller is
+staff, the caller may review *that learner*, and the caller is not the learner.
+The last is not redundant — an admin who is also building something would
+otherwise pass the first three. There is a test that tries exactly that.
+
+The learner's grant on `artifacts` still excludes `status` and `submitted_at`,
+and `artifact_feedback` grants no insert to anybody. The database is the
+guarantee; the interface is a convenience over it.
+
+### Staff access was narrowed
+
+Until this prompt `is_staff()` meant "may read every learner's work". With one
+learner that was invisible; as a rule it is wrong. `can_review(learner_id)` now
+gates every learner-owned table: your own rows, plus learners paired with you in
+`learner_mentor_relationships`, plus everything for an admin. The Prompt 3 and 4
+suites were updated to create a pairing, and each gained an assertion that an
+*unassigned* mentor reads nothing.
+
+### Reviews are append-only
+
+A returned artifact that is later approved has two feedback rows, not one edited
+row. "You submitted this twice before it was approved" is information about
+somebody getting better, and a product that showed only the latest verdict would
+delete it. No client holds update or delete on `artifact_feedback`.
+
+### Feedback has a shape
+
+Four fields — what works, what needs work, why it matters, next step — rather
+than a comment box, because "looks good" teaches nothing and is what a comment
+box invites. A `needs_work` verdict is refused by a check constraint unless the
+last two say something. The action checks the same thing first, to produce a
+sentence a mentor can act on rather than a constraint name.
+
+### Mentor notes are private, and that is the point
+
+No policy anywhere lets a learner select `mentor_notes`. A note somebody knows
+is read is a note that stops being honest, and the honesty is its whole value.
+There is a test asserting a learner sees zero notes *after* one exists about
+them.
+
+### Questions are not chat
+
+`mentor_questions` attaches a question to the mission, artifact or project it is
+about, and it is answered once. No presence, no threads, no typing indicators —
+an interface that rewards fast back-and-forth produces a mentor who writes the
+answer instead of the question that leads to it. `answer_question()` writes the
+response, because there is no client grant on that column: a learner must not be
+able to put words in their mentor's mouth.
+
+### Notifications
+
+Four kinds, each corresponding to something a person did. Written inside the
+same transaction as the thing they describe, so a notification cannot exist for
+an event that rolled back. `href` is constrained to start with `/` — a
+notification is not a place to send somebody off the platform.
+
+### Admin is a foundation, not a console
+
+`/admin` shows who holds which role, who is paired with whom, and what is
+published. It deliberately cannot edit content: a half-built CMS is worse than
+none, because it invites people to use it for the things it cannot do. The SQL
+for the two operations that matter is on the page rather than in a document
+nobody opens.
+
 ## Design
 
 The tokens are the design system, and they are all in `src/app/globals.css`.

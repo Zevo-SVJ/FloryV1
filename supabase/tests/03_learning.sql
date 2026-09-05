@@ -54,6 +54,11 @@ insert into auth.users (id, email, raw_user_meta_data) values
   (:'mentor', 'mentor@example.com', '{}'::jsonb);
 update public.profiles set role = 'mentor' where id = :'mentor';
 
+-- Staff access runs through an explicit assignment since the mentor layer
+-- landed: `is_staff()` no longer means "may read every learner".
+insert into public.learner_mentor_relationships (learner_id, mentor_id)
+values (:'david', :'mentor');
+
 -- A draft nobody has published, to check the published gate.
 insert into public.lessons (module_id, slug, title, position, published, is_demo, blocks)
 values ('00000000-0000-4000-8000-000000000001', 'unpublished-draft', 'Draft', 9, false, true, '[]'::jsonb);
@@ -263,6 +268,24 @@ select pg_temp.ok(
 select pg_temp.ok(
   (select count(*) from public.lessons) = 3,
   'staff see unpublished drafts'
+);
+
+reset role;
+
+-- And an unassigned mentor reaches none of it. `other` is promoted here, as
+-- the owner, because a learner cannot promote anybody — including themselves.
+update public.profiles set role = 'mentor' where id = :'other';
+
+set role authenticated;
+select pg_temp.claims(:'other');
+
+select pg_temp.ok(
+  (select count(*) from public.learner_lesson_progress) = 0,
+  'a mentor with no assignment reads no progress'
+);
+select pg_temp.ok(
+  (select count(*) from public.learner_block_responses) = 0,
+  'nor any answers'
 );
 
 reset role;

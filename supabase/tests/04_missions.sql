@@ -50,6 +50,10 @@ insert into auth.users (id, email, raw_user_meta_data) values
   (:'mentor', 'mentor@example.com', '{}'::jsonb);
 update public.profiles set role = 'mentor' where id = :'mentor';
 
+-- Reviewing requires an assignment, not merely the mentor role.
+insert into public.learner_mentor_relationships (learner_id, mentor_id)
+values (:'david', :'mentor');
+
 -- A mission that demands proof, to exercise the evidence gate.
 insert into public.missions (
   id, phase_key, slug, title, type, objective, deliverable_title,
@@ -228,7 +232,7 @@ select pg_temp.denied(
 select pg_temp.denied(
   'insert into public.artifact_feedback (artifact_id, reviewer_id, status) values ' ||
   format('((select id from public.artifacts limit 1), %L, ''approved'')', :'mentor'),
-  'feedback has no insert policy yet — that arrives with the mentor experience'
+  'and cannot write feedback directly — review_artifact() is the only path'
 );
 
 reset role;

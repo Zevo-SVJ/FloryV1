@@ -169,6 +169,35 @@ Body shapes are in `src/lib/toolbox/schemas.ts`. Anything the schema rejects
 renders as unreadable rather than half-rendering, so validate new content by
 opening the item.
 
+## The mentor layer
+
+Added by `20260909000000_mentor_admin.sql`.
+
+| Table | Notes |
+|---|---|
+| `learner_mentor_relationships` | Who may review whom. `can_review()` reads it |
+| `mentor_notes` | Private. No learner-facing policy exists |
+| `mentor_questions` | Attached to a mission/artifact/project. `answer_question()` writes the response |
+| `notifications` | Four kinds, written in the same transaction as the event |
+| `artifact_feedback` | Extended with the four structured fields and a category |
+
+`review_artifact()` is the only path that approves work, and it refuses a caller
+who is not staff, not assigned to that learner, or reviewing their own artifact.
+`missions.requires_review` makes `complete_mission()` wait for that verdict.
+
+**`can_review()` replaced `is_staff()` in every learner-data policy.** A mentor
+now reads only the learners paired with them; an admin reads everything. Pair
+them with:
+
+```sql
+insert into public.learner_mentor_relationships (learner_id, mentor_id)
+values ('<learner uuid>', '<mentor uuid>');
+```
+
+`supabase/tests/06_mentor.sql` attempts every shortcut the brief names: a
+learner approving their own work, marking it final, forging feedback, altering a
+review, answering their own question, and reading mentor notes.
+
 ## The tables that do not exist yet
 
 Not built, because their shape depends on content nobody has written. These are

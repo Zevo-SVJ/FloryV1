@@ -31,6 +31,9 @@ export const MISSION_STATUS_LABEL: Record<MissionStatus, string> = {
 export const ARTIFACT_STATUS_LABEL: Record<ArtifactStatus, string> = {
   draft: "Draft",
   submitted: "Submitted",
+  /* "Nobody has looked at this" and "somebody is reading it now" are different
+     facts, and the second one is worth a lot to somebody waiting. */
+  in_review: "In review",
   approved: "Approved",
   needs_work: "Needs work",
   final: "Final",

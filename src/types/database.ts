@@ -150,7 +150,8 @@ export type MissionType =
 export type MissionStatus =
   | "not_started" | "in_progress" | "submitted" | "needs_work" | "completed";
 
-export type ArtifactStatus = "draft" | "submitted" | "approved" | "needs_work" | "final";
+export type ArtifactStatus =
+  | "draft" | "submitted" | "in_review" | "approved" | "needs_work" | "final";
 
 export type EvidenceKind =
   | "url" | "repository" | "commit" | "pull_request" | "deployment" | "document" | "note";
@@ -189,6 +190,8 @@ export type MissionRow = {
   deliverable_description: string;
   required_evidence: EvidenceKind[];
   requires_reflection: boolean;
+  /* When true, `complete_mission()` refuses until a mentor has approved. */
+  requires_review: boolean;
   position: number;
   published: boolean;
   is_demo: boolean;
@@ -227,7 +230,15 @@ export type ArtifactFeedbackRow = {
   reviewer_id: string;
   status: ArtifactStatus;
   comment: string;
+  /* The four fields that make feedback actionable. A `needs_work` verdict is
+     refused by the database unless the last two say something. */
+  what_works: string;
+  what_needs_work: string;
+  why: string;
+  next_step: string;
+  category: FeedbackCategory;
   created_at: string;
+  updated_at: string;
 };
 
 export type LearnerMissionProgressRow = {
@@ -294,6 +305,57 @@ export type LearnerChecklistProgressRow = {
   item_id: string;
   checked_ids: string[];
   updated_at: string;
+};
+
+/* ── Mentor and admin ─────────────────────────────────────────────────────── */
+
+export type FeedbackCategory =
+  | "product" | "research" | "ux" | "technical" | "business" | "quality" | "other";
+
+export type QuestionStatus = "open" | "answered" | "closed";
+
+export type NotificationKind =
+  | "artifact_submitted" | "artifact_reviewed" | "question_asked" | "question_answered";
+
+export type MentorRelationshipRow = {
+  learner_id: string;
+  mentor_id: string;
+  created_at: string;
+};
+
+export type MentorNoteRow = {
+  id: string;
+  learner_id: string;
+  author_id: string;
+  body: string;
+  created_at: string;
+  updated_at: string;
+};
+
+export type MentorQuestionRow = {
+  id: string;
+  learner_id: string;
+  mentor_id: string | null;
+  project_id: string | null;
+  mission_id: string | null;
+  artifact_id: string | null;
+  question: string;
+  response: string;
+  status: QuestionStatus;
+  created_at: string;
+  answered_at: string | null;
+  updated_at: string;
+};
+
+export type NotificationRow = {
+  id: string;
+  profile_id: string;
+  kind: NotificationKind;
+  title: string;
+  body: string;
+  href: string | null;
+  read_at: string | null;
+  created_at: string;
 };
 
 export type Database = {
@@ -451,6 +513,36 @@ export type Database = {
         Relationships: [];
       };
 
+      learner_mentor_relationships: {
+        Row: MentorRelationshipRow;
+        Insert: MentorRelationshipRow;
+        Update: Partial<MentorRelationshipRow>;
+        Relationships: [];
+      };
+      mentor_notes: {
+        Row: MentorNoteRow;
+        Insert: { learner_id: string; author_id: string; body: string };
+        Update: { body?: string };
+        Relationships: [];
+      };
+      mentor_questions: {
+        Row: MentorQuestionRow;
+        /* The learner writes the question. Only `answer_question()` writes a
+           response — there is no client grant for it. */
+        Insert: {
+          learner_id: string; question: string;
+          project_id?: string | null; mission_id?: string | null; artifact_id?: string | null;
+        };
+        Update: { question?: string };
+        Relationships: [];
+      };
+      notifications: {
+        Row: NotificationRow;
+        Insert: NotificationRow;
+        Update: { read_at?: string | null };
+        Relationships: [];
+      };
+
       build_log_entries: {
         Row: BuildLogEntryRow;
         Insert: {
@@ -476,6 +568,23 @@ export type Database = {
         Returns: LearnerLessonProgressRow;
       };
       submit_artifact: { Args: { p_artifact_id: string }; Returns: ArtifactRow };
+      can_review: { Args: { p_learner_id: string }; Returns: boolean };
+      review_artifact: {
+        Args: {
+          p_artifact_id: string;
+          p_status: ArtifactStatus;
+          p_what_works?: string;
+          p_what_needs_work?: string;
+          p_why?: string;
+          p_next_step?: string;
+          p_category?: FeedbackCategory;
+        };
+        Returns: ArtifactFeedbackRow;
+      };
+      answer_question: {
+        Args: { p_question_id: string; p_response: string };
+        Returns: MentorQuestionRow;
+      };
       complete_mission: {
         Args: { p_mission_id: string; p_reflection?: string | null };
         Returns: LearnerMissionProgressRow;
@@ -495,6 +604,9 @@ export type Database = {
       artifact_status: ArtifactStatus;
       evidence_kind: EvidenceKind;
       toolbox_kind: ToolboxKindRow;
+      feedback_category: FeedbackCategory;
+      question_status: QuestionStatus;
+      notification_kind: NotificationKind;
     };
     CompositeTypes: Record<never, never>;
   };

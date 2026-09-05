@@ -9,6 +9,9 @@ import { ContentRenderer } from "@/components/learning/content-renderer";
 import { MissionWorkspace } from "@/components/workspace/mission-workspace";
 import { getMission } from "@/lib/workspace/queries";
 import { getToolsForMission } from "@/lib/toolbox/queries";
+import { getArtifactFeedback } from "@/lib/mentor/queries";
+import { FeedbackHistory } from "@/components/mentor/feedback";
+import { AskMentorForm } from "@/components/mentor/ask-form";
 import { ContextualTools } from "@/components/toolbox/item-card";
 import { MISSION_STATUS_LABEL, MISSION_TYPE_LABEL, EVIDENCE_KIND_LABEL } from "@/lib/workspace/labels";
 
@@ -48,6 +51,14 @@ export default async function MissionPage({
 
   // What to reach for while doing this mission. See the lesson page for why.
   const tools = await getToolsForMission(detail.mission.id);
+
+  /*
+   * Every review this deliverable has had, oldest kept. Shown on the mission
+   * rather than only in the mentor area, because the feedback is about the work
+   * and the work is here — a learner acting on "needs work" should not have to
+   * navigate away from the thing they are fixing.
+   */
+  const feedback = detail.artifact ? await getArtifactFeedback(detail.artifact.id) : [];
 
   const { mission, progress, artifact, blocks, evidence, prerequisites, requiredLesson, unlocked, project } =
     detail;
@@ -184,6 +195,8 @@ export default async function MissionPage({
             </Card>
           </section>
 
+          <FeedbackHistory history={feedback} />
+
           {project ? (
             <MissionWorkspace
               mission={mission}
@@ -201,6 +214,19 @@ export default async function MissionPage({
               actions={<ButtonLink href="/build" size="sm">Start my SaaS</ButtonLink>}
             />
           )}
+
+          {/* Stuck? Ask, with the mission and the deliverable attached — a
+              question with its context behind it can be answered by somebody
+              looking at the same thing. */}
+          {project ? (
+            <section className="max-w-measure">
+              <AskMentorForm
+                projectId={project.id}
+                missionId={mission.id}
+                artifactId={artifact?.id ?? null}
+              />
+            </section>
+          ) : null}
         </>
       )}
     </div>
