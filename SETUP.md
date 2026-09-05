@@ -7,14 +7,20 @@ most of it waiting for Supabase to provision.
 
 ## 1. Local
 
+**Node 20.9 or newer.** Check with `node --version`. Next.js 16 will not run on
+anything older, and `npm install` now refuses rather than letting you find out
+from a stack trace later.
+
 ```bash
 npm install
 cp .env.example .env.local
 npm run dev
 ```
 
-It starts without Supabase. The entry page will say it has no database — that is
-the app telling you the truth, not an error.
+It starts without Supabase. The entry page will say **"Not configured"** — that
+is the app telling you the truth, not an error. `.env.local` is git-ignored and
+is never in a clone, so this is what a fresh checkout always shows until you do
+step 2.
 
 ---
 

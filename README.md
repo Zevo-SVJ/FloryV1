@@ -30,6 +30,8 @@ each one says which prompt fills it in. Nothing here pretends to work.
 | Tests | Node's own test runner; `psql` for the database suite |
 | Hosting | Vercel-compatible; nothing depends on Vercel |
 
+Requires **Node 20.9+** (`npm install` refuses anything older).
+
 ## Commands
 
 ```bash
