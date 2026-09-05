@@ -7,12 +7,10 @@ import type { NextConfig } from "next";
  * on static assets, and because Next.js overwrites some headers a proxy writes
  * during rendering. These four cost nothing and close the cheapest attacks.
  *
- * A Content-Security-Policy is deliberately absent for now. A real one needs a
- * per-request nonce threaded through the proxy for Next's own inline bootstrap
- * scripts, and a policy that looks right but ships `unsafe-inline` is worse
- * than none — it reads as protection while providing none. LOCK renders no
- * user-supplied HTML and embeds nothing third-party yet, so the protection a
- * CSP would add is currently structural. It is on the list for Prompt 9.
+ * The Content-Security-Policy is *not* here. It carries a per-request nonce, so
+ * it has to be built per request, and it lives in `src/lib/security/csp.ts` and
+ * is applied by the proxy. The rest are static and belong in config, because
+ * the proxy does not run on static assets.
  */
 const securityHeaders = [
   { key: "X-Content-Type-Options", value: "nosniff" },

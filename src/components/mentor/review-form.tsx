@@ -4,7 +4,7 @@ import { useActionState, useState } from "react";
 import { useFormStatus } from "react-dom";
 import { Button } from "@/components/ui/button";
 import { Spinner } from "@/components/ui/spinner";
-import { Card, Label } from "@/components/ui/surface";
+import { Card } from "@/components/ui/surface";
 import { cn } from "@/lib/utils/cn";
 import { answerQuestion, reviewArtifact, saveMentorNote } from "@/lib/mentor/actions";
 import { emptyWorkspaceState } from "@/lib/workspace/action-state";
@@ -179,11 +179,17 @@ export function NoteForm({ learnerId }: { learnerId: string }) {
   return (
     <form action={formAction} className="space-y-3">
       <input type="hidden" name="learnerId" value={learnerId} />
-      <Label>Private note</Label>
-      <p className="text-sm text-ink-subtle">
+      {/* A real `label`, as in `AnswerForm` below. The styled paragraph looked
+          like one and named nothing. */}
+      <label htmlFor="mentor-note" className="label block text-ink-subtle">
+        Private note
+      </label>
+      <p id="mentor-note-hint" className="text-sm text-ink-subtle">
         Only you see this. Context you will want in three missions&rsquo; time.
       </p>
       <textarea
+        id="mentor-note"
+        aria-describedby="mentor-note-hint"
         name="body"
         rows={3}
         maxLength={5000}

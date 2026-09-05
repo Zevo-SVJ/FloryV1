@@ -11,7 +11,7 @@ import type { WorkspaceState } from "@/lib/workspace/action-state";
  *
  * There is deliberately no action here that creates or edits a Toolbox item.
  * The Toolbox is platform content, no client holds a write grant on it at any
- * role, and authoring is SQL until Prompt 6 decides otherwise. An action that
+ * role, and authoring stays in SQL — see the admin page for why. An action that
  * looked like it could edit content would be a lie the database would refuse.
  */
 

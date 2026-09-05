@@ -88,9 +88,15 @@ export function QuoteBlock({ block }: { block: Of<"quote"> }) {
  * A screenshot gets a frame and a diagram does not — a screenshot is a picture
  * of another interface and needs an edge to stop it reading as part of ours.
  *
- * `unoptimized` because the source is arbitrary and `next/image` needs a host
- * allowlist it cannot have until the content system decides where images live.
- * Prompt 7 sets `images.remotePatterns` and this flag comes off.
+ * `unoptimized`, and it stays that way on purpose rather than pending a
+ * decision. Turning it off routes every image through Next's optimizer, which
+ * fetches the URL *server-side* — an open optimizer on arbitrary content URLs
+ * is a request-forgery vector and a bandwidth bill. Rendering the URL directly
+ * in the browser has neither problem. The schema requires https, and the CSP
+ * bounds `img-src` to https.
+ *
+ * Once the curriculum settles on a handful of image hosts, adding those to
+ * `images.remotePatterns` and dropping this flag is a safe, local change.
  */
 export function ImageBlock({ block }: { block: Of<"image"> }) {
   return (

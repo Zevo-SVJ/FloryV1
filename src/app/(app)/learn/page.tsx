@@ -83,7 +83,7 @@ export default async function RoadmapPage() {
 
       <div className="grid gap-4 lg:grid-cols-[1.4fr_1fr]">
         <section className="space-y-3">
-          <Label>Continue learning</Label>
+          <Label as="h2">Continue learning</Label>
           {continueLesson ? (
             <Card className="flex h-full flex-col justify-between gap-4 p-5">
               <div className="space-y-2">
@@ -118,7 +118,7 @@ export default async function RoadmapPage() {
         </section>
 
         <section className="space-y-3">
-          <Label>Where you are</Label>
+          <Label as="h2">Where you are</Label>
           <Card className="flex h-full flex-col justify-between gap-6 p-5">
             <div className="space-y-3">
               <div className="flex items-baseline justify-between gap-3">
@@ -152,7 +152,7 @@ export default async function RoadmapPage() {
           than lessons, because a mission is the unit of work. */}
       {workspace.current || workspace.next ? (
         <section className="space-y-3">
-          <Label>The work in front of you</Label>
+          <Label as="h2">The work in front of you</Label>
           <div className="grid gap-4 md:grid-cols-2">
             {workspace.current ? (
               <Card className="space-y-2 p-5">
@@ -187,7 +187,7 @@ export default async function RoadmapPage() {
 
       {revisit.length > 0 ? (
         <section className="space-y-3">
-          <Label>Revisit</Label>
+          <Label as="h2">Revisit</Label>
           <ul className="space-y-2">
             {revisit.map((lesson) => (
               <li key={lesson.id}>
@@ -206,7 +206,7 @@ export default async function RoadmapPage() {
 
       {recentlyCompleted.length > 0 ? (
         <section className="space-y-3">
-          <Label>Recently completed</Label>
+          <Label as="h2">Recently completed</Label>
           <ul className="space-y-2">
             {recentlyCompleted.map((lesson) => (
               <li key={lesson.id}>

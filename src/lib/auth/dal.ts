@@ -156,9 +156,10 @@ export const requireProfile = cache(async (returnTo?: string): Promise<Profile> 
  * survives the production build; a thrown type does not.
  *
  * `forbidden()` from Next.js would be the idiomatic answer and is still behind
- * the experimental `authInterrupts` flag. Foundation does not enable
- * experimental flags. Revisit in Prompt 6, when there is a real mentor area to
- * gate.
+ * the experimental `authInterrupts` flag. LOCK does not enable experimental
+ * flags. The mentor and admin areas were built against this returned value and
+ * behave correctly in production, so it stays: an experimental flag is a poor
+ * trade for a pattern that already works.
  */
 export async function checkAccess(
   access: SectionAccess,

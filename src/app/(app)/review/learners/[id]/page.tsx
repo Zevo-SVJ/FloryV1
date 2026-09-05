@@ -112,7 +112,7 @@ export default async function LearnerDetailPage({
 
       <div className="grid gap-4 lg:grid-cols-[1.4fr_1fr]">
         <section className="space-y-3">
-          <Label>Where they are</Label>
+          <Label as="h2">Where they are</Label>
           {focus ? (
             <CurrentPhase phase={focus} />
           ) : (
@@ -126,7 +126,7 @@ export default async function LearnerDetailPage({
         </section>
 
         <section className="space-y-3">
-          <Label>Overall</Label>
+          <Label as="h2">Overall</Label>
           <Card className="flex h-full flex-col justify-between gap-6 p-5">
             <div className="space-y-3">
               <div className="flex items-baseline justify-between gap-3">
@@ -154,7 +154,7 @@ export default async function LearnerDetailPage({
 
       <div className="grid gap-4 md:grid-cols-2">
         <section className="space-y-3">
-          <Label>Skills</Label>
+          <Label as="h2">Skills</Label>
           {moving.length === 0 ? (
             <EmptyState title="No skills in motion yet" className="h-full">
               <p>
@@ -174,7 +174,7 @@ export default async function LearnerDetailPage({
         </section>
 
         <section className="space-y-3">
-          <Label>Milestones</Label>
+          <Label as="h2">Milestones</Label>
           {earned.length === 0 ? (
             <EmptyState title="No milestones yet" className="h-full">
               <p>
@@ -214,7 +214,7 @@ export default async function LearnerDetailPage({
       />
 
       <section className="space-y-3">
-        <Label>Artifacts</Label>
+        <Label as="h2">Artifacts</Label>
         {detail.artifacts.length === 0 ? (
           <EmptyState title="Nothing produced yet">
             <p>Their missions have not produced anything for you to read.</p>
@@ -239,7 +239,7 @@ export default async function LearnerDetailPage({
       </section>
 
       <section className="space-y-3">
-        <Label>Questions</Label>
+        <Label as="h2">Questions</Label>
         {detail.questions.length === 0 ? (
           <p className="border-l-2 border-border py-1 pl-4 text-sm text-ink-subtle">
             They have not asked anything.
@@ -304,7 +304,7 @@ export default async function LearnerDetailPage({
 
       {detail.buildLog.length > 0 ? (
         <section className="space-y-3">
-          <Label>Recent activity</Label>
+          <Label as="h2">Recent activity</Label>
           <ul className="space-y-2">
             {detail.buildLog.map((entry) => (
               <li key={entry.id} className="flex flex-wrap items-baseline gap-x-4 gap-y-1">

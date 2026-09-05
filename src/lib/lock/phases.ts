@@ -2,20 +2,18 @@
  * The ten phases of the LOCK program.
  *
  * The journey the platform exists to take somebody through, from an idea to a
- * SaaS product that has customers. It is stated here as a typed constant rather
- * than as database rows, deliberately: the sequence is fixed and known, the
- * navigation and dashboard need to name it today, and turning it into content —
- * modules, lessons, missions, deliverables — is Prompt 3's job and Prompt 8's
- * job. Choosing the table shape now, before the content it has to hold exists,
- * would be choosing it blind.
+ * SaaS product that has customers.
  *
- * When the learning engine arrives, `phases` becomes a table seeded from this
- * list, keyed on `key` so that anything already written against these
- * identifiers keeps working. That migration is a seed script, not a rewrite.
+ * `public.phases` is the source of truth for phase *content* — a learner's
+ * progress, the modules and missions inside each one — and is seeded from this
+ * list, keyed on the same strings. This constant survives it because the
+ * sequence is a fact about the program rather than data: the navigation, the
+ * roadmap's state machine and the type `PhaseKey` all need it at compile time,
+ * and none of them should need a database round trip to know that there are ten
+ * phases and that Think is the first.
  *
- * These are phases, not curriculum. No lesson, module or mission is invented
- * here — the curriculum is designed before the content prompts, as it should
- * be.
+ * Adding a phase means a row and an entry here. Nothing else in the platform
+ * hard-codes the list.
  */
 
 export type PhaseKey =

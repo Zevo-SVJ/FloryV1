@@ -253,7 +253,7 @@ export function ToolboxItemBody({
 function Section({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <section className="space-y-2">
-      <Label>{label}</Label>
+      <Label as="h2">{label}</Label>
       <p className="text-[0.9375rem] leading-relaxed text-ink-muted">{children}</p>
     </section>
   );

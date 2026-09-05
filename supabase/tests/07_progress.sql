@@ -179,8 +179,16 @@ reset role;
 set role authenticated;
 select pg_temp.claims(:'david');
 
-insert into public.projects (id, profile_id, name, slug)
-values ('00000000-0000-4000-8000-000000000700', :'david', 'Ledgerly', 'ledgerly');
+/*
+ * No explicit `id`. Since Prompt 8 a learner's insert grant does not include
+ * the primary key — letting a client choose one turns a duplicate-key error
+ * into a way of asking whether somebody else's row exists — so this seeds the
+ * way the application does and looks the row up by slug afterwards.
+ */
+insert into public.projects (profile_id, name, slug)
+values (:'david', 'Ledgerly', 'ledgerly');
+
+select id as project_id from public.projects where slug = 'ledgerly' \gset
 
 select pg_temp.ok(
   (select count(*) from public.xp_events where kind = 'project_started') = 1,
@@ -242,16 +250,17 @@ reset role;
 set role authenticated;
 select pg_temp.claims(:'david');
 
-insert into public.artifacts (id, project_id, profile_id, mission_id, title, content)
+insert into public.artifacts (project_id, profile_id, mission_id, title, content)
 values (
-  '00000000-0000-4000-8000-000000000701',
-  '00000000-0000-4000-8000-000000000700', :'david',
+  :'project_id', :'david',
   '00000000-0000-4000-8000-000000000100',
   'Problem Statement', 'Six freelancers, four already keeping a spreadsheet.'
 );
 
+select id as artifact_id from public.artifacts where title = 'Problem Statement' \gset
+
 select pg_temp.ok(
-  (public.submit_artifact('00000000-0000-4000-8000-000000000701')).status = 'submitted',
+  (public.submit_artifact(:'artifact_id')).status = 'submitted',
   'the learner submits the deliverable'
 );
 select pg_temp.ok(
@@ -273,7 +282,7 @@ reset role;
 set role authenticated;
 select pg_temp.claims(:'zevo');
 select pg_temp.ok(
-  (public.review_artifact('00000000-0000-4000-8000-000000000701', 'approved',
+  (public.review_artifact(:'artifact_id', 'approved',
     'The person is named and the pain is quantified.', '', '', '', 'research')).status = 'approved',
   'the mentor approves it'
 );

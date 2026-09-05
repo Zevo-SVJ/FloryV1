@@ -75,7 +75,7 @@ export default async function YourMentorPage() {
 
       {unread.length > 0 ? (
         <section className="space-y-3">
-          <Label>New since you were last here</Label>
+          <Label as="h2">New since you were last here</Label>
           <ul className="space-y-2">
             {unread.map((row) => (
               <li
@@ -92,7 +92,7 @@ export default async function YourMentorPage() {
 
       {view.needsWork.length > 0 ? (
         <section className="space-y-3">
-          <Label>Waiting on you</Label>
+          <Label as="h2">Waiting on you</Label>
           <ul className="space-y-2">
             {view.needsWork.map((artifact) => (
               <li key={artifact.id}>
@@ -111,7 +111,7 @@ export default async function YourMentorPage() {
 
       {view.awaitingReview.length > 0 ? (
         <section className="space-y-3">
-          <Label>With your mentor</Label>
+          <Label as="h2">With your mentor</Label>
           <ul className="space-y-2">
             {view.awaitingReview.map((artifact) => (
               <li
@@ -127,7 +127,7 @@ export default async function YourMentorPage() {
       ) : null}
 
       <section className="max-w-measure space-y-3">
-        <Label>Latest feedback</Label>
+        <Label as="h2">Latest feedback</Label>
         {latest ? (
           <div className="space-y-3">
             <p className="text-sm text-ink-subtle">On {latest.artifactTitle}</p>

@@ -1,6 +1,7 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 import { supabaseEnv } from "@/lib/env";
+import { CSP_HEADER, contentSecurityPolicy, makeNonce } from "@/lib/security/csp";
 import {
   AFTER_SIGN_IN,
   isAuthOnlyPath,
@@ -46,12 +47,26 @@ export async function updateSession(request: NextRequest): Promise<NextResponse>
   const requestHeaders = new Headers(request.headers);
   requestHeaders.set(PATHNAME_HEADER, `${request.nextUrl.pathname}${request.nextUrl.search}`);
 
+  /*
+   * A fresh nonce per request, on the way in and on the way out.
+   *
+   * Next.js reads the policy off the *request* headers while rendering and
+   * stamps the nonce onto the scripts it emits; the browser is told the policy
+   * by the response header. Both have to carry the same value, which is why it
+   * is minted here rather than in either place separately.
+   */
+  const nonce = makeNonce();
+  const csp = contentSecurityPolicy(nonce);
+  requestHeaders.set(CSP_HEADER, csp);
+
   const forward = { request: { headers: requestHeaders } };
   let response = NextResponse.next(forward);
+  response.headers.set(CSP_HEADER, csp);
 
   const env = supabaseEnv();
   // An unconfigured deployment still serves the entry page, which explains
-  // what is missing. There is simply no session to refresh.
+  // what is missing. There is simply no session to refresh — but it is still a
+  // rendered document and still gets the policy.
   if (!env) return response;
 
   // Paths outside the shell have no session to keep alive, and verifying one
@@ -68,6 +83,9 @@ export async function updateSession(request: NextRequest): Promise<NextResponse>
           request.cookies.set(name, value);
         }
         response = NextResponse.next(forward);
+        // Recreating the response discards the header set above, and a render
+        // whose policy went missing would run with no CSP at all.
+        response.headers.set(CSP_HEADER, csp);
         for (const { name, value, options } of cookiesToSet) {
           response.cookies.set(name, value, options);
         }

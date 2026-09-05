@@ -95,7 +95,7 @@ export default async function SkillsPage() {
 
         return (
           <section key={area} className="space-y-3">
-            <Label>{SKILL_AREA_LABEL[area]}</Label>
+            <Label as="h2">{SKILL_AREA_LABEL[area]}</Label>
             <div className="grid gap-4 md:grid-cols-2">
               {inArea.map((skill) => (
                 <SkillCard

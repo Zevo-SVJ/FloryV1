@@ -122,7 +122,7 @@ export default async function LessonPage({
 
           {lesson.objectives.length > 0 ? (
             <section className="max-w-measure space-y-3">
-              <Label>What you will be able to do</Label>
+              <Label as="h2">What you will be able to do</Label>
               <ul className="space-y-1.5">
                 {lesson.objectives.map((objective) => (
                   <li key={objective} className="flex gap-3 text-[0.9375rem] text-ink-muted">
@@ -154,7 +154,7 @@ export default async function LessonPage({
 
           {resources.length > 0 ? (
             <section className="max-w-measure space-y-3">
-              <Label>Going further</Label>
+              <Label as="h2">Going further</Label>
               <ul className="space-y-3">
                 {resources.map((resource) => (
                   <li key={resource.id}>

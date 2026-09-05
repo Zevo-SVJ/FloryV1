@@ -130,7 +130,7 @@ export function SectionHeading({
 }) {
   return (
     <div className="flex flex-wrap items-baseline justify-between gap-3">
-      <Label>{label}</Label>
+      <Label as="h2">{label}</Label>
       <Link
         href={href}
         className="text-sm text-ink-muted underline decoration-border-strong underline-offset-4 transition-colors hover:text-ink hover:decoration-ink"

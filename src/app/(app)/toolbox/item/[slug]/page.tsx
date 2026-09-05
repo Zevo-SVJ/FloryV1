@@ -89,7 +89,7 @@ export default async function ToolboxItemPage({
 
       {item.related.length > 0 ? (
         <section className="max-w-measure space-y-3">
-          <Label>Use it with</Label>
+          <Label as="h2">Use it with</Label>
           <ul className="space-y-2">
             {item.related.map((related) => (
               <li key={related.id}>

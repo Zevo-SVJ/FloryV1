@@ -122,11 +122,16 @@ describe("the registry itself", () => {
     }
   });
 
-  it("says which prompt builds each section that is not built", () => {
+  it("gives every destination a summary somebody could act on", () => {
+    /*
+     * This replaced an assertion about a `status` field that marked unfinished
+     * pages. Nothing is unfinished, so the field is gone; what is still worth
+     * enforcing is that no link ships without saying where it goes, since the
+     * summary is the page's description as well as the link's title.
+     */
     for (const section of SECTIONS) {
-      if (section.status === "planned") {
-        assert.ok(section.arrivesIn, `${section.href} is planned but says nothing about when`);
-      }
+      assert.ok(section.summary.length > 10, `${section.href} has no useful summary`);
+      assert.ok(section.label.length > 0, `${section.href} has no label`);
     }
   });
 

@@ -13,7 +13,7 @@ import { emptyFormState } from "@/lib/auth/form-state";
  * The only write Foundation ships, and it is here to prove the whole path works
  * end to end: a form, a Server Action, a session-derived owner, a column the
  * caller is allowed to write, and a row Row Level Security agrees is theirs.
- * Everything Prompt 3 onwards writes will take this same route.
+ * Every write in LOCK takes this same route.
  *
  * The field is not `required`: clearing it is a legitimate edit, and the action
  * stores null rather than an empty string.

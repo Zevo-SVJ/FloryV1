@@ -19,16 +19,14 @@ import type { AppRole } from "@/types/database";
  * the data. This decides whether a link is drawn and whether the proxy
  * redirects early.
  *
- * `status` is honesty in the interface. A `planned` page renders what it is for
- * and which prompt builds it. That is deliberate: a page of invented statistics
- * makes the product look finished and makes every later prompt harder, because
- * the next person has to work out which parts were real.
+ * Every destination here is built and does what its summary says. The registry
+ * once carried a `status` field so a half-built page could admit it; nothing is
+ * half-built now, so the field is gone rather than left always reading the same
+ * value. A dot that can never appear is worse than no dot: it implies a state
+ * the product does not have.
  */
 
 export type SectionAccess = "learner" | "staff" | "admin";
-
-/** `built` means the page does what it says. `planned` means it does not yet. */
-export type SectionStatus = "built" | "planned";
 
 export interface Section {
   href: string;
@@ -36,9 +34,6 @@ export interface Section {
   /** One line. Shown as the page's description and as the link's title. */
   summary: string;
   access: SectionAccess;
-  status: SectionStatus;
-  /** Which prompt fills this in. Deleted as each one lands. */
-  arrivesIn?: string;
 }
 
 export interface NavGroup {
@@ -61,7 +56,6 @@ export const NAV_GROUPS: readonly NavGroup[] = [
         label: "Home",
         summary: "Where you are, and what to do next.",
         access: "learner",
-        status: "built",
       },
     ],
   },
@@ -75,21 +69,18 @@ export const NAV_GROUPS: readonly NavGroup[] = [
         label: "Roadmap",
         summary: "The ten phases, from an idea to a product people pay for.",
         access: "learner",
-        status: "built",
       },
       {
         href: "/learn/lessons",
         label: "Lessons",
         summary: "The teaching inside each phase.",
         access: "learner",
-        status: "built",
       },
       {
         href: "/learn/missions",
         label: "Missions",
         summary: "The work that turns a lesson into something you have built.",
         access: "learner",
-        status: "built",
       },
     ],
   },
@@ -103,21 +94,18 @@ export const NAV_GROUPS: readonly NavGroup[] = [
         label: "Overview",
         summary: "The product you are building, in one place.",
         access: "learner",
-        status: "built",
       },
       {
         href: "/build/artifacts",
         label: "Artifacts",
         summary: "What each mission produced — the evidence your product exists.",
         access: "learner",
-        status: "built",
       },
       {
         href: "/build/log",
         label: "Build Log",
         summary: "What you decided, when, and why.",
         access: "learner",
-        status: "built",
       },
     ],
   },
@@ -131,35 +119,30 @@ export const NAV_GROUPS: readonly NavGroup[] = [
         label: "Prompts",
         summary: "Prompts worth reusing, for the jobs that recur.",
         access: "learner",
-        status: "built",
       },
       {
         href: "/toolbox/templates",
         label: "Templates",
         summary: "Documents you fill in rather than invent.",
         access: "learner",
-        status: "built",
       },
       {
         href: "/toolbox/frameworks",
         label: "Frameworks",
         summary: "Ways of thinking that hold up under pressure.",
         access: "learner",
-        status: "built",
       },
       {
         href: "/toolbox/checklists",
         label: "Checklists",
         summary: "What to verify before you call something done.",
         access: "learner",
-        status: "built",
       },
       {
         href: "/toolbox/stack",
         label: "Stack",
         summary: "The tools you build with, and when each one earns its place.",
         access: "learner",
-        status: "built",
       },
     ],
   },
@@ -173,21 +156,18 @@ export const NAV_GROUPS: readonly NavGroup[] = [
         label: "Overview",
         summary: "Where you are, at every level that means something.",
         access: "learner",
-        status: "built",
       },
       {
         href: "/progress/skills",
         label: "Skills",
         summary: "What you can do now that you could not do before.",
         access: "learner",
-        status: "built",
       },
       {
         href: "/progress/achievements",
         label: "Achievements",
         summary: "Milestones that mark real ground covered.",
         access: "learner",
-        status: "built",
       },
     ],
   },
@@ -201,21 +181,18 @@ export const NAV_GROUPS: readonly NavGroup[] = [
         label: "Videos",
         summary: "Walkthroughs worth watching once.",
         access: "learner",
-        status: "built",
       },
       {
         href: "/resources/docs",
         label: "Docs",
         summary: "Documentation for the tools you actually use.",
         access: "learner",
-        status: "built",
       },
       {
         href: "/resources/references",
         label: "References",
         summary: "Material worth coming back to.",
         access: "learner",
-        status: "built",
       },
     ],
   },
@@ -229,7 +206,6 @@ export const NAV_GROUPS: readonly NavGroup[] = [
         label: "Zevo",
         summary: "Send work for review, and read what came back.",
         access: "learner",
-        status: "built",
       },
     ],
   },
@@ -250,14 +226,12 @@ export const NAV_GROUPS: readonly NavGroup[] = [
         label: "Review",
         summary: "Submissions waiting on review, and the feedback you have given.",
         access: "staff",
-        status: "built",
       },
       {
         href: "/admin",
         label: "Admin",
         summary: "Accounts, roles and the content behind the program.",
         access: "admin",
-        status: "built",
       },
     ],
   },

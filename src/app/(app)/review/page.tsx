@@ -52,7 +52,7 @@ export default async function ReviewPage() {
       />
 
       <section className="space-y-3">
-        <Label>Pending reviews</Label>
+        <Label as="h2">Pending reviews</Label>
         {queue.length === 0 ? (
           <EmptyState title="Nothing waiting">
             <p>
@@ -108,7 +108,7 @@ export default async function ReviewPage() {
       </section>
 
       <section className="space-y-3">
-        <Label>Learners</Label>
+        <Label as="h2">Learners</Label>
         {learners.length === 0 ? (
           <EmptyState title="No learners assigned">
             <p>
@@ -153,7 +153,7 @@ export default async function ReviewPage() {
 
       {notifications.length > 0 ? (
         <section className="space-y-3">
-          <Label>Recent activity</Label>
+          <Label as="h2">Recent activity</Label>
           <ul className="space-y-2">
             {notifications.map((row) => (
               <li key={row.id}>

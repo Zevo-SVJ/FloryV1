@@ -32,7 +32,7 @@ export function ActivityFeed({
 }) {
   return (
     <section className="space-y-3">
-      <Label>{heading}</Label>
+      <Label as="h2">{heading}</Label>
 
       {entries.length === 0 ? (
         <EmptyState title={emptyTitle}>

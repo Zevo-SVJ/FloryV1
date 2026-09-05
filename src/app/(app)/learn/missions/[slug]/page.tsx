@@ -192,7 +192,7 @@ export default async function MissionPage({
           <ContextualTools items={tools} heading="Tools for this mission" />
 
           <section className="max-w-measure space-y-3">
-            <Label>Deliverable</Label>
+            <Label as="h2">Deliverable</Label>
             <Card className="space-y-2 p-5">
               <p className="text-[0.9375rem] font-medium text-ink">{mission.deliverable_title}</p>
               <p className="text-sm text-ink-muted">{mission.deliverable_description}</p>

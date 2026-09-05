@@ -35,7 +35,7 @@ export function AwardMilestoneForm({
 
   return (
     <section className="max-w-measure space-y-3">
-      <Label>Confirm a milestone</Label>
+      <Label as="h2">Confirm a milestone</Label>
       <Card className="p-5">
         <form action={action} className="space-y-4">
           <input type="hidden" name="learnerId" value={learnerId} />

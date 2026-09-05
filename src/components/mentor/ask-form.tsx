@@ -3,7 +3,7 @@
 import { useActionState } from "react";
 import { useFormStatus } from "react-dom";
 import { Button } from "@/components/ui/button";
-import { Card, Label } from "@/components/ui/surface";
+import { Card } from "@/components/ui/surface";
 import { askMentor } from "@/lib/mentor/actions";
 import { emptyWorkspaceState } from "@/lib/workspace/action-state";
 
@@ -33,13 +33,20 @@ export function AskMentorForm({
         {missionId ? <input type="hidden" name="missionId" value={missionId} /> : null}
         {artifactId ? <input type="hidden" name="artifactId" value={artifactId} /> : null}
 
-        <Label>Ask your mentor</Label>
-        <p className="text-sm text-ink-subtle">
+        {/* A real `label`, not the styled paragraph. The paragraph looked like
+            a label and named nothing: a screen reader reached this textarea
+            with no accessible name at all. */}
+        <label htmlFor="mentor-question" className="label block text-ink-subtle">
+          Ask your mentor
+        </label>
+        <p id="mentor-question-hint" className="text-sm text-ink-subtle">
           Say what you tried and where you got stuck. A question with your
           reasoning in it gets an answer that improves the reasoning.
         </p>
 
         <textarea
+          id="mentor-question"
+          aria-describedby="mentor-question-hint"
           name="question"
           rows={4}
           maxLength={4000}

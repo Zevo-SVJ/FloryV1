@@ -207,21 +207,61 @@ Revisit at Prompt 6.
   parser reads as `https://evil.example/`. There is a test for each form.
 - **Security headers in `next.config.ts`**, not the proxy: the proxy does not run
   on static assets, and Next.js replaces some headers a proxy writes.
-- **No Content-Security-Policy yet, on purpose.** A real one needs a per-request
-  nonce threaded through the proxy; a policy that ships `unsafe-inline` reads as
-  protection while providing none. LOCK renders no user HTML and embeds nothing
-  third-party. Scheduled for Prompt 9.
+- **A nonce-based Content-Security-Policy**, built per request in
+  `lib/security/csp.ts` and applied by the proxy. It is not in `next.config.ts`
+  because it carries a value that changes every request. `script-src` never
+  ships `unsafe-inline` — a nonce plus `strict-dynamic` covers Next's own
+  bootstrap and the chunks it loads. `unsafe-eval` appears in development only,
+  where Turbopack's hot reload needs it. `style-src` does allow `unsafe-inline`,
+  deliberately: React writes `style` attributes that a nonce cannot cover, and
+  the risk a style injection carries is far below script execution.
 - **Rate limiting is honest about being a `Map` in one process.** It resets on
   deploy and does not coordinate across instances. It stops a loop against a
   Server Action, which is what it is for; Supabase rate-limits auth itself, and
   that is the limit that matters.
 
+### The insert-grant defect, and what it taught
+
+The Prompt 8 audit found three exploitable holes, all from one mistake repeated
+across three migrations: `grant insert on <table>` where `grant insert (columns)`
+was meant. A table-wide grant hands over every column, including the ones those
+prompts spent their design keeping out of reach.
+
+Each was demonstrated against a running instance before being closed:
+
+| Forgery | Consequence |
+|---|---|
+| `insert into artifacts (…, status) values (…, 'approved')` | Self-approval. `review_artifact()` was never called, so its four refusals never ran — and the forged row satisfied `requires_review`, paid XP and awarded a milestone. |
+| `insert into learner_mission_progress (…, status) values (…, 'completed')` | A mission finished with no artifact, evidence or reflection. |
+| `insert into mentor_questions (…, response, status)` | A learner writing their mentor's answer and reading it back as the mentor's. |
+
+**Row Level Security was never the missing piece and a new policy would not have
+helped.** The insert policies correctly check `auth.uid() = profile_id`, and
+every forgery above is a row the learner legitimately owns. RLS decides *which
+rows*; only column privileges decide *which columns*. That is the same sentence
+the foundation migration used to justify revoking `role`, and it applies
+verbatim — it was simply not applied consistently.
+
+`20260911000000_grant_hardening.sql` revokes and re-grants every insert one
+column at a time, matching what `src/types/database.ts` already declared. The
+application changed in no way; the database now refuses everything else.
+
+`supabase/tests/08_grants.sql` keeps each attack as a regression test, and adds
+the generalisation: a list of columns that carry authority — `artifacts.status`,
+`build_log_entries.is_automatic`, `mentor_questions.response`, `profiles.role`
+and the rest — asserted to be writable by no client at any role, through insert
+or update. That assertion was verified to fail when the original grant is
+restored, so it is proven rather than vacuous.
+
+The update grants were audited at the same time and were already correct. Only
+insert had been written table-wide.
+
 ### No service-role key
 
 `SUPABASE_SERVICE_ROLE_KEY` is read nowhere. The key bypasses RLS entirely, so
 it is worth introducing only for a job that cannot be done any other way —
-writing rows no user may write, for instance. Foundation has no such job: every
-read and write happens as the signed-in user, through RLS.
+writing rows no user may write, for instance. LOCK has no such job: every read
+and write happens as the signed-in user, through RLS.
 
 When a later phase needs it, it belongs in exactly one `server-only` module,
 never with a `NEXT_PUBLIC_` prefix, and the reason belongs in this file.
@@ -966,17 +1006,21 @@ ways — a privilege violation raises, a filtered `UPDATE` quietly matches no ro
 
 ---
 
-## What Foundation deliberately does not include
+## What LOCK deliberately does not include
 
-Each of these was considered and left out:
+Each of these was considered and left out. The list is current as of the final
+build — the rows that said "belongs in a later prompt" have been built and are
+gone.
 
 | Not built | Why |
 |---|---|
-| An invite system | Supabase already has a signup switch, and the real version — an admin who invites people — belongs in Prompt 6. |
-| A generated `database.types.ts` | `supabase gen types` needs the CLI or a running project, in front of every clone, for one table. Switch when the schema outgrows a screen. |
+| An invite system | Supabase has a signup switch, and LOCK has two accounts. An admin who invites people is a feature for a third. |
+| A generated `database.types.ts` | `supabase gen types` needs the CLI or a running project in front of every clone. The hand-written file is the shape the generator emits, so switching is a file replacement rather than a refactor. |
 | A service-role client | Nothing needs to bypass RLS. See above. |
-| A CSP | A policy that looks right and ships `unsafe-inline` is worse than none. Prompt 9. |
-| A `phases` table | The content that decides its shape does not exist yet. |
-| Dashboard statistics | There is nothing to count. Invented numbers make the product look finished and make every later prompt harder. |
-| A theme toggle | The tokens support it; nobody has asked, and `prefers-color-scheme` is already right for most people. |
+| A content CMS | Content is authored in migrations: version-controlled, reviewable in a diff, deployed like the schema. A half-built CMS invites people to use it for what it cannot do. The admin page reads the definitions and edits nothing. |
+| Email notifications | The in-app foundation exists and is written inside the transaction that causes it. Sending mail needs a provider, a template system and a deliverability story — none of which makes the product better for two people in one timezone. |
+| Realtime | A mentor loop measured in hours does not need a websocket. Questions are asked once and answered once, deliberately. |
+| A leaderboard | One learner. The ranking would be against themselves. |
+| Optimized remote images | `next/image`'s optimizer fetches URLs server-side, which on arbitrary content URLs is a request-forgery vector. Rendering them directly is safer until the curriculum settles on a few hosts. |
+| A theme toggle | The tokens support it; `prefers-color-scheme` is already right for most people, and both themes are verified at six widths. |
 | `clsx` + `tailwind-merge` | Four lines do it at this size. |

@@ -91,7 +91,7 @@ export default async function HomePage() {
           conditionally, because a returned artifact is genuinely urgent. */}
       {mentorView.needsWork.length > 0 ? (
         <section className="space-y-3">
-          <Label>Act on this</Label>
+          <Label as="h2">Act on this</Label>
           <Card className="space-y-3 border-accent/40 p-5">
             <p className="text-[0.9375rem] font-medium text-ink">
               {mentorView.needsWork.length === 1
@@ -116,7 +116,7 @@ export default async function HomePage() {
 
       <div className="grid gap-4 lg:grid-cols-[1.4fr_1fr]">
         <section className="space-y-3">
-          <Label>Next action</Label>
+          <Label as="h2">Next action</Label>
           <Card className="flex h-full flex-col justify-between gap-4 p-5">
             <div className="space-y-2">
               <p className="label text-ink-subtle">{next.eyebrow}</p>
@@ -249,7 +249,7 @@ export default async function HomePage() {
       </div>
 
       <section className="max-w-measure space-y-3">
-        <Label>Your account</Label>
+        <Label as="h2">Your account</Label>
         <Card className="space-y-6 p-5">
           <DisplayNameForm current={profile.display_name} />
 

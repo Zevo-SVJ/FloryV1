@@ -69,7 +69,7 @@ export default async function ReviewArtifactPage({
         {/* The work. */}
         <div className="min-w-0 space-y-6">
           <section className="space-y-3">
-            <Label>The deliverable</Label>
+            <Label as="h2">The deliverable</Label>
             <Card className="p-5">
               {subject.artifact.content ? (
                 <pre className="overflow-x-auto font-mono text-[0.8125rem] leading-relaxed whitespace-pre-wrap text-ink">
@@ -97,7 +97,7 @@ export default async function ReviewArtifactPage({
           </section>
 
           <section className="space-y-3">
-            <Label>Evidence</Label>
+            <Label as="h2">Evidence</Label>
             {subject.evidence.length === 0 ? (
               <p className="border-l-2 border-border py-1 pl-4 text-sm text-ink-subtle">
                 None attached. If the mission required proof, submission would
@@ -133,7 +133,7 @@ export default async function ReviewArtifactPage({
 
           {subject.mission ? (
             <section className="space-y-3">
-              <Label>What was asked for</Label>
+              <Label as="h2">What was asked for</Label>
               <Card className="space-y-2 p-5">
                 <p className="text-[0.9375rem] font-medium text-ink">
                   {subject.mission.deliverable_title}

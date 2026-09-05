@@ -64,14 +64,6 @@ export function NavList({
                     )}
                   >
                     <span className="truncate">{item.label}</span>
-                    {item.status === "planned" ? (
-                      <span
-                        title="Not built yet"
-                        aria-label="not built yet"
-                        role="img"
-                        className="size-1.5 shrink-0 rounded-full bg-border-strong"
-                      />
-                    ) : null}
                   </Link>
                 </li>
               );

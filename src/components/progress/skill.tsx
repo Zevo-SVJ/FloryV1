@@ -124,7 +124,7 @@ export function SkillLine({ skill }: { skill: LearnerSkillStateRow }) {
 export function SkillsHeading({ href = "/progress/skills" }: { href?: string }) {
   return (
     <div className="flex flex-wrap items-baseline justify-between gap-3">
-      <Label>Skills</Label>
+      <Label as="h2">Skills</Label>
       <Link
         href={href}
         className="text-sm text-ink-muted underline decoration-border-strong underline-offset-4 transition-colors hover:text-ink hover:decoration-ink"

@@ -95,7 +95,7 @@ export default async function AdminPage() {
       />
 
       <section className="space-y-3">
-        <Label>Accounts</Label>
+        <Label as="h2">Accounts</Label>
         <ul className="space-y-2">
           {accounts.map((account) => (
             <li
@@ -129,7 +129,7 @@ export default async function AdminPage() {
       </section>
 
       <section className="space-y-3">
-        <Label>Content lifecycle</Label>
+        <Label as="h2">Content lifecycle</Label>
         <div className="grid gap-3 sm:grid-cols-3">
           {[
             { label: "Lessons", rows: lessons.data },
@@ -166,7 +166,7 @@ export default async function AdminPage() {
       {/* The definitions the progress system scores against. Read-only, and
           that is the decision rather than an omission. */}
       <section className="space-y-3">
-        <Label>Progress definitions</Label>
+        <Label as="h2">Progress definitions</Label>
         <div className="grid gap-4 lg:grid-cols-2">
           <Card className="space-y-3 p-5">
             <p className="text-sm font-medium text-ink">
@@ -231,7 +231,7 @@ export default async function AdminPage() {
       </section>
 
       <section className="max-w-measure space-y-3">
-        <Label>Operations</Label>
+        <Label as="h2">Operations</Label>
         <Card className="space-y-4 p-5">
           <div className="space-y-2">
             <p className="text-sm font-medium text-ink">Pair a learner with a mentor</p>

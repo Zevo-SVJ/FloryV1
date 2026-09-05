@@ -121,7 +121,7 @@ export default async function ToolboxPage({
         </EmptyState>
       ) : (
         <section className="space-y-3">
-          <Label>{searching ? "Results" : "Everything"}</Label>
+          <Label as="h2">{searching ? "Results" : "Everything"}</Label>
           <ul className="space-y-2">
             {results.map((item) => (
               <li key={item.row.id}>
@@ -134,7 +134,7 @@ export default async function ToolboxPage({
 
       {!searching && saved.length > 0 ? (
         <section className="space-y-3">
-          <Label>Saved</Label>
+          <Label as="h2">Saved</Label>
           <ul className="space-y-2">
             {saved.map((item) => (
               <li key={item.row.id}>
@@ -147,7 +147,7 @@ export default async function ToolboxPage({
 
       {!searching && recent.length > 0 ? (
         <section className="space-y-3">
-          <Label>Recently used</Label>
+          <Label as="h2">Recently used</Label>
           <ul className="space-y-2">
             {recent.map((item) => (
               <li key={item.id}>

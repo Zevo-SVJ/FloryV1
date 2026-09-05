@@ -64,7 +64,7 @@ export default async function AchievementsPage() {
       ) : null}
 
       <section className="space-y-3">
-        <Label>The journey</Label>
+        <Label as="h2">The journey</Label>
         <div className="grid gap-4 md:grid-cols-2">
           {milestones.map((award) => (
             <AwardCard key={award.key} award={award} earned={awards.earned.get(award.key)} />
@@ -73,7 +73,7 @@ export default async function AchievementsPage() {
       </section>
 
       <section className="space-y-3">
-        <Label>Firsts</Label>
+        <Label as="h2">Firsts</Label>
         <div className="grid gap-4 md:grid-cols-2">
           {achievements.map((award) => (
             <AwardCard key={award.key} award={award} earned={awards.earned.get(award.key)} />

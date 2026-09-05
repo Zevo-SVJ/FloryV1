@@ -268,6 +268,46 @@ update public.lessons set status = 'published' where slug = 'my-lesson';
 Neither forks content: progress keys on the stable `id`, so editing or archiving
 a lesson never erases somebody's completion.
 
+## Column privileges
+
+Added by `20260911000000_grant_hardening.sql`, after an audit found three
+exploitable holes.
+
+**The rule: an insert grant names its columns.** `grant insert on <table>` hands
+over every column; `grant insert (a, b, c) on <table>` is what was meant
+everywhere it appeared. Three tables were exploitable through the difference —
+a learner could insert an artifact that was already `approved`, a mission
+already `completed`, and a question with their mentor's answer already in it.
+
+RLS was correct throughout and did not help: each forgery is a row the learner
+legitimately owns. **RLS decides which rows; column privileges decide which
+columns.** Both are needed.
+
+The columns that carry authority, and must never be client-writable:
+
+| Table | Columns |
+|---|---|
+| `profiles` | `role` |
+| `artifacts` | `status`, `submitted_at` |
+| `learner_mission_progress` | `status`, `completed_at`, `submitted_at` |
+| `learner_lesson_progress` | `status`, `completed_at` |
+| `learner_block_responses` | `is_correct`, `attempts` |
+| `mentor_questions` | `response`, `answered_at`, `status`, `mentor_id` |
+| `build_log_entries` | `is_automatic` |
+| `artifact_feedback` | `status`, `reviewer_id` |
+| `xp_events` | `amount`, `kind` |
+| `learner_milestones` | `earned_at`, `awarded_by` |
+| `skill_evidence` | `kind` |
+
+`supabase/tests/08_grants.sql` attempts each forgery, asserts the honest paths
+still work, and asserts the table above as a rule. Restoring the original grant
+makes it fail, so the test is proven rather than vacuous.
+
+The same migration adds five indexes — the ones where a query in `src/lib`
+filters on a column no existing index leads with. Twenty-nine foreign keys lack
+a leading index; the other twenty-four are covered by composite primary keys or
+are not filtered on alone, and indexing them would be cost without a reader.
+
 ## The tables that do not exist yet
 
 Not built, because their shape depends on content nobody has written. These are

@@ -63,7 +63,15 @@ const quote = z.object({
 const image = z.object({
   ...base,
   kind: z.literal("image"),
-  src: z.string().url(),
+  /*
+   * `.url()` alone accepts any scheme `new URL()` parses — `http:`, and
+   * `javascript:` with it. These render directly in the learner's browser
+   * rather than being proxied, so the scheme is checked here at the parse
+   * boundary, where every other block is validated.
+   */
+  src: z.string().url().refine((value) => value.startsWith("https://"), {
+    message: "an image must be served over https",
+  }),
   alt: z.string().min(1),
   caption: z.string().optional(),
   /** Screenshot, diagram, comparison — changes the frame, not the component. */

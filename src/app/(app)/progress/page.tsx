@@ -82,7 +82,7 @@ export default async function ProgressPage() {
       {/* Overall, and the rule behind it. */}
       <div className="grid gap-4 lg:grid-cols-[1.4fr_1fr]">
         <section className="space-y-3">
-          <Label>Overall</Label>
+          <Label as="h2">Overall</Label>
           <Card className="flex h-full flex-col justify-between gap-6 p-5">
             <div className="space-y-3">
               <div className="flex items-baseline justify-between gap-3">
@@ -105,7 +105,7 @@ export default async function ProgressPage() {
         </section>
 
         <section className="space-y-3">
-          <Label>Current phase</Label>
+          <Label as="h2">Current phase</Label>
           {focus ? (
             <CurrentPhase phase={focus} />
           ) : (
@@ -186,7 +186,7 @@ export default async function ProgressPage() {
 
       {/* XP, last and small. It is a signal, not the point. */}
       <section className="max-w-measure space-y-3">
-        <Label>XP</Label>
+        <Label as="h2">XP</Label>
         <Card className="space-y-4 p-5">
           <div className="flex flex-wrap items-baseline justify-between gap-3">
             <span className="text-sm text-ink-muted">

@@ -72,7 +72,7 @@ export default async function WorkspacePage() {
 
       <div className="grid gap-4 lg:grid-cols-2">
         <section className="space-y-3">
-          <Label>Current mission</Label>
+          <Label as="h2">Current mission</Label>
           {snapshot.current ? (
             <Card className="flex h-full flex-col justify-between gap-4 p-5">
               <div className="space-y-2">
@@ -107,7 +107,7 @@ export default async function WorkspacePage() {
         </section>
 
         <section className="space-y-3">
-          <Label>Next</Label>
+          <Label as="h2">Next</Label>
           {snapshot.next ? (
             <Card className="h-full space-y-2 p-5">
               <span className="label text-ink-subtle">
