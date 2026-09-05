@@ -345,6 +345,97 @@ as current: nobody has started anything, and a product that decides on your
 behalf that you are mid-way through Think is a product that lies in its first
 sentence. Prompt 3 passes real progress and nothing else changes.
 
+## The learning system
+
+`Phase → Module → Lesson → blocks`. Content and learner state are separate
+trees: phases, modules and lessons have no owner and one copy; what a learner
+did hangs off `profiles`. Mixing them — a lesson row per learner — is the
+mistake that makes editing content rewrite history.
+
+### Blocks are JSONB, deliberately
+
+A `lesson_content_blocks` table was the obvious alternative and buys nothing
+here. Blocks are always read together and written together, their order is the
+array's order rather than a column that can disagree with itself, and each type
+has a different shape — so the table would carry a JSONB payload column anyway,
+plus a position column to keep in step. Adding a block type would become a
+migration instead of a TypeScript change.
+
+What JSONB costs is validation, paid once: `lib/learning/blocks.ts` is a Zod
+discriminated union that produces the TypeScript type, and every lesson is
+parsed through `parseBlocks` on the way out of the database. A malformed block
+is dropped and counted rather than thrown — one bad callout should cost that
+callout, not the whole lesson — and the count is shown on the page.
+
+The database enforces one thing about the JSON: every block has a stable `id`
+and a `kind`. Responses are keyed on the id, so a block that lost one would
+orphan somebody's answer.
+
+**Adding a block type**: a schema in `lib/learning/blocks.ts`, a case in
+`components/learning/content-renderer.tsx`, a component. No migration. The
+renderer's `default` branch assigns to `never`, so a forgotten case is a compile
+error rather than a blank space.
+
+### Two things a learner must not write for themselves
+
+A learner holds the `authenticated` role, so anything they may INSERT they may
+also forge. If "this answer was correct" and "this lesson is complete" were
+ordinary columns with an update grant, completion would be a POST request.
+
+Both live in `security definer` functions and the tables grant no direct write:
+
+- `record_block_response()` reads the block out of the lesson, grades it, and
+  writes the row. `is_correct` is computed, never accepted.
+- `complete_lesson()` reads the lesson's `completion_rule` and refuses unless it
+  is satisfied — every graded block correct, or a decision recorded, or a
+  reflection with something in it. `practical` raises rather than passing
+  quietly, because missions do not exist yet and nothing can honestly verify it.
+
+There are database assertions for both forgery attempts.
+
+### Commit before reveal
+
+Explanations, recommended options and analyses are not in the document until a
+response exists. This is enforced in `content-renderer.tsx`, on the server: the
+reveal is built there and passed to the Client Component as an already rendered
+node, null until the learner has answered.
+
+That shape is a fix, not a preference. The first version passed the whole block
+object to the client, and a Client Component's props are serialized into the
+page — so every explanation and every `correct` array sat in the HTML of a
+lesson nobody had answered. It was found by asserting the absence of four reveal
+strings in the page source in a real browser.
+
+What this does **not** guarantee: `lessons.blocks` is still readable through the
+API by any signed-in account. Closing that needs the graded fields split out of
+the row, and it is a deliberate deferral — casual leakage was what was worth
+fixing for a private tool whose learner is the person it is for.
+
+### Progress, and what it refuses to claim
+
+`deriveRoadmapProgress` has one rule worth knowing: **a phase with no published
+lessons is never complete**. Without it, every phase of an unwritten curriculum
+would render as finished on day one. A phase becomes "current" only once
+something in it is done — an untouched phase is ahead of you, not under your
+feet.
+
+`remainingMinutes` returns null rather than a confident zero when nothing is
+published.
+
+### Shared constants and the server boundary
+
+`lib/learning/labels.ts` exists because a client control importing one label
+from `queries.ts` dragged the whole `server-only` data access layer into the
+browser bundle. TypeScript cannot see that; the production build can, and did.
+A constant shared across the boundary belongs in a module that imports from
+neither side.
+
+### Demo content
+
+Two seeded lessons carry `is_demo`. They exist so the renderer, grading,
+prerequisites and completion can be exercised before the curriculum exists, and
+they are removed with `delete from public.lessons where is_demo;`.
+
 ## Design
 
 The tokens are the design system, and they are all in `src/app/globals.css`.

@@ -74,6 +74,50 @@ than against `role in ('mentor','admin')`.
 
 Changing a role is SQL run by the project owner. See `SETUP.md`.
 
+## The learning system
+
+Added by `20260906000000_learning_system.sql`, seeded by `…000001_learning_seed.sql`.
+
+| Table | Notes |
+|---|---|
+| `phases` | Keyed on the same strings as `src/lib/lock/phases.ts`. Seeded, permanent |
+| `modules` | Belong to a phase, ordered within it |
+| `lessons` | `blocks` is JSONB; `completion_rule` decides what finishing means |
+| `lesson_prerequisites` | Lesson B requires Lesson A. Cannot require itself |
+| `lesson_resources` | External material. `why` is required — "watch this" is not teaching |
+| `learner_lesson_progress` | Status, reading position, confidence. One row per learner per lesson |
+| `learner_block_responses` | One per interactive block. `is_correct` is computed, never written by a client |
+| `learner_lesson_notes` | Private, including from staff |
+
+Two functions own what a learner must not write: `record_block_response()`
+grades an answer from the lesson's own content, and `complete_lesson()` refuses
+a completion the lesson's rule has not earned. Neither table grants a client the
+write that would bypass them. `supabase/tests/03_learning.sql` tries both
+forgeries and asserts they fail.
+
+Notes are private from staff by policy. A note is thinking out loud, and a
+learner who knows a mentor reads it writes a different note; submitted work is a
+separate thing and belongs to Prompt 4.
+
+### Adding a lesson
+
+```sql
+insert into public.modules (phase_key, slug, title, position, published)
+values ('think', 'first-module', 'Finding a problem', 1, true);
+
+insert into public.lessons (module_id, slug, title, summary, type,
+                            estimated_minutes, completion_rule, position,
+                            published, blocks)
+values ((select id from public.modules where slug = 'first-module'),
+        'what-makes-a-problem-worth-solving', 'What makes a problem worth solving',
+        'One sentence.', 'concept', 12, 'decision', 1, true,
+        '[{"kind":"text","id":"intro","text":"…"}]'::jsonb);
+```
+
+Block shapes are defined in `src/lib/learning/blocks.ts`. Anything the schema
+there rejects is dropped at render time and counted on the page, so validate
+new content by opening the lesson.
+
 ## The tables that do not exist yet
 
 Not built, because their shape depends on content nobody has written. These are

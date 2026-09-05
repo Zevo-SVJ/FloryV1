@@ -82,8 +82,7 @@ export const NAV_GROUPS: readonly NavGroup[] = [
         label: "Lessons",
         summary: "The teaching inside each phase.",
         access: "learner",
-        status: "planned",
-        arrivesIn: "Prompt 3 — Learning engine",
+        status: "built",
       },
       {
         href: "/learn/missions",
