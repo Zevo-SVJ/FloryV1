@@ -13,6 +13,8 @@ import { getArtifactFeedback } from "@/lib/mentor/queries";
 import { FeedbackHistory } from "@/components/mentor/feedback";
 import { AskMentorForm } from "@/components/mentor/ask-form";
 import { ContextualTools } from "@/components/toolbox/item-card";
+import { SkillTags } from "@/components/progress/skill";
+import { getSkillsForMission } from "@/lib/progress/queries";
 import { MISSION_STATUS_LABEL, MISSION_TYPE_LABEL, EVIDENCE_KIND_LABEL } from "@/lib/workspace/labels";
 
 export async function generateMetadata({
@@ -51,6 +53,10 @@ export default async function MissionPage({
 
   // What to reach for while doing this mission. See the lesson page for why.
   const tools = await getToolsForMission(detail.mission.id);
+
+  /* What this mission practises. The primary one is marked — a mission is
+     usually about one skill and touches several. */
+  const skills = await getSkillsForMission(detail.mission.id);
 
   /*
    * Every review this deliverable has had, oldest kept. Shown on the mission
@@ -139,6 +145,14 @@ export default async function MissionPage({
                   {mission.why_it_matters}
                 </p>
               </aside>
+            ) : null}
+
+            {skills.length > 0 ? (
+              <SkillTags
+                heading="Practises"
+                skills={skills.map(({ skill }) => ({ key: skill.key, label: skill.label }))}
+                primaryKey={skills.find(({ isPrimary }) => isPrimary)?.skill.key}
+              />
             ) : null}
 
             {mission.objectives.length > 0 ? (

@@ -50,8 +50,8 @@ insert into auth.users (id, email, raw_user_meta_data) values
 update public.profiles set role = 'mentor' where id = :'mentor';
 
 -- An unpublished draft, to check the gate.
-insert into public.toolbox_items (kind, slug, title, summary, published)
-values ('prompt', 'unpublished-prompt', 'Draft', 'A draft nobody has published yet.', false);
+insert into public.toolbox_items (kind, slug, title, summary, status)
+values ('prompt', 'unpublished-prompt', 'Draft', 'A draft nobody has published yet.', 'draft');
 
 -- ── The seed ────────────────────────────────────────────────────────────────
 

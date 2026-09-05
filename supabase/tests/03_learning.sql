@@ -60,8 +60,8 @@ insert into public.learner_mentor_relationships (learner_id, mentor_id)
 values (:'david', :'mentor');
 
 -- A draft nobody has published, to check the published gate.
-insert into public.lessons (module_id, slug, title, position, published, is_demo, blocks)
-values ('00000000-0000-4000-8000-000000000001', 'unpublished-draft', 'Draft', 9, false, true, '[]'::jsonb);
+insert into public.lessons (module_id, slug, title, position, status, is_demo, blocks)
+values ('00000000-0000-4000-8000-000000000001', 'unpublished-draft', 'Draft', 9, 'draft', true, '[]'::jsonb);
 
 -- ── The seed itself ─────────────────────────────────────────────────────────
 

@@ -688,6 +688,222 @@ none, because it invites people to use it for the things it cannot do. The SQL
 for the two operations that matter is on the page rather than in a document
 nobody opens.
 
+## Progress, skills and milestones
+
+`LEARN → UNDERSTAND → DECIDE → APPLY → BUILD → VERIFY → SHIP → LEARN FROM
+RESULTS → BECOME INDEPENDENT`.
+
+### The one rule everything else follows from
+
+**Completion is not capability.** Finishing a lesson is evidence that somebody
+read something. Producing work that another person approved is evidence that
+they can do something. The progress system is built so that no amount of the
+first can be mistaken for the second, and that constraint is in the database
+rather than in a component:
+
+- A completed lesson caps a skill at `introduced`.
+- A completed mission reaches `practicing`.
+- Only a mentor's approval reaches `demonstrated`.
+
+There is no path a learner can walk alone that ends in `demonstrated`.
+
+### Six levels, six questions
+
+Progress is not one number. Each level answers something different and is
+computed by its own rule:
+
+| Level | Question | Source |
+| --- | --- | --- |
+| Global | How far through LOCK? | `learner_overall_progress` |
+| Phase | How far through THINK? | `learner_phase_progress` |
+| Module | How far through this subject? | `learner_module_progress` |
+| Lesson | Started, in progress, done? | `learner_lesson_progress` |
+| Mission | Not started → approved → completed | `learner_mission_progress` |
+| Skill | What can they actually do? | `learner_skill_states` |
+| Project | How far has the product got? | `projects`, the build log |
+
+### Nothing stores a percentage
+
+Every figure above is a **view**, computed on read from records that already
+exist. There is no `progress_percent` column anywhere, no nightly recalculation
+and no cache to invalidate. A wrong number is therefore a wrong row rather than
+a stale one, and every number can be traced to the event that produced it.
+
+The three tables that *are* written — `xp_events`, `skill_evidence`,
+`learner_milestones` — are append-only ledgers of things that happened, not
+state to be kept in step.
+
+Every view is declared `security_invoker`, which is the security of the whole
+section in one word: the view runs with the policies of whoever selected from
+it, so a learner sees their own rows because `skill_evidence`'s policy says so.
+There is no `where profile_id = auth.uid()` inside a view that somebody could
+forget to write.
+
+### The progress rules, stated
+
+- **Phase progress** — weighted units. A published lesson counts **1**, a
+  published mission counts **3**. `percent = round(100 × units_done /
+  units_total)`.
+- **Global progress** — the identical rule, summed across every phase. One rule
+  applied twice, so the roadmap, the dashboard and the progress page cannot
+  disagree.
+- **Unpublished content is excluded from both sides.** A phase that has nothing
+  published has `percent = null`, not `0`. Zero would claim the learner had
+  skipped lessons that do not exist, and most of the curriculum is still
+  unwritten.
+- **Module progress** — completed published lessons over published lessons.
+- **Skill state** — counted from evidence, thresholds above.
+- **Current phase** — the earliest started, unfinished phase. Earliest rather
+  than most recent, because LOCK is a sequence.
+
+The weights live in the `learner_phase_progress` view. `src/lib/progress/rules.ts`
+names the same numbers so the interface can *show* the rule under the bar; it
+does not recompute anything, because a second implementation is a second answer.
+
+### Milestones and achievements are one system
+
+The brief asked for both and then listed nearly the same things under each —
+FIRST DEPLOY, FIRST USER, FIRST PAYMENT, SHIPPER appear on both lists. Two
+tables, two requirement engines and two award paths for one concept would be a
+duplicated source of truth and two places to get the security wrong.
+
+So: one `milestones` table, one evaluator, one `learner_milestones` record, and
+a `kind` column that decides only which heading a row appears under. A milestone
+is a marker on the journey; an achievement is a first worth recognising.
+
+Requirements are a closed set of deterministic predicates — `project_started`,
+`lessons_completed`, `missions_completed`, `mission_completed`,
+`artifacts_submitted`, `artifacts_approved`, `evidence_submitted`,
+`skill_demonstrated`, `phase_completed`, `manual` — each a counting question
+against records that already exist. None of them reads a page view or a session.
+Given the same database, `milestone_is_met()` returns the same answer every
+time.
+
+`manual` is the honest answer rather than a gap. LOCK has no analytics and no
+billing integration, so it cannot see a real user or a real payment. A mentor
+confirms those through `award_milestone()`, which refuses a caller who is not
+staff, one acting on their own account, and one not assigned to that learner —
+and the row records who did it.
+
+### XP is a ledger, and it is last
+
+There is no `learner_xp.total` column. There is `xp_events`, and a total is
+`sum(amount)` over it. That makes XP auditable: every point traces to the
+lesson, mission or approval that produced it.
+
+Amounts live in `xp_rules` — one row per kind, with the reasoning — so they are
+edited in one place and never appear in a component. An approved artifact is
+worth six lessons, which is the product's opinion about what learning is,
+expressed as data that can be seen and changed.
+
+Duplicate awards are impossible by construction: a unique index on
+`(profile_id, kind, subject_type, subject_key)`. Completing the same lesson
+twice, re-submitting the same artifact, replaying the same milestone — all
+collide and the second insert is dropped.
+
+XP appears last and small on every surface. It is a signal, not the measure.
+
+### Streaks do not punish
+
+`learner_streak` is a view over the activity feed: consecutive days on which
+something real happened. Yesterday still counts as current, because a streak
+that breaks at midnight is a pressure device. Nothing anywhere says the number
+used to be higher.
+
+### The activity feed reuses the build log
+
+The build log has recorded submissions, completions and reviews since Prompt 4,
+written automatically by the functions that did them. `learner_activity` reads
+it and adds only what it cannot know about: lessons finished (which have no
+project) and milestones earned. There is no second event table to keep in step.
+
+### Progress is written by the events that earn it
+
+`complete_lesson()`, `complete_mission()`, `submit_artifact()` and
+`review_artifact()` each gained three lines at the end: award the XP, record the
+skill evidence, re-evaluate the milestones. In the same transaction, so a
+mission that completes but whose award fails is not a completed mission. A
+project gets an `after insert` trigger, because a project is created by an
+ordinary insert rather than by a domain function.
+
+### What a learner cannot do
+
+`xp_events`, `skill_evidence` and `learner_milestones` have **no insert, update
+or delete grant for `authenticated` at any role** — learner, mentor or admin.
+The privilege does not exist to be misused, so no policy has to catch it.
+`award_xp()`, `record_skill_evidence()` and `evaluate_milestones()` have no
+`execute` grant either: they are called only from other definer functions, which
+run as the owner. Reads are gated by `can_review(profile_id)`, the same rule
+Prompt 6 applied everywhere else.
+
+Suite 07 attempts each of these — awarding XP, inflating it, awarding a
+milestone, forging evidence, deleting evidence, calling each award function,
+making a milestone easier, rewriting the XP amounts — and asserts every one is
+refused.
+
+## Content infrastructure
+
+### The lifecycle
+
+`draft → review → published → archived`, as `content_status` on `phases`,
+`modules`, `lessons`, `missions`, `toolbox_items`, `skills` and `milestones`.
+A boolean could not say the thing a curriculum being written most needs to say:
+*this is drafted and waiting to be read*.
+
+`status` is authoritative. `published` still exists and is now a **generated
+column** — `status = 'published'` — so every policy, function and query written
+across Prompts 3 to 6 keeps working, unchanged, and the two can never disagree.
+
+A trigger keeping them in step was the cheaper option and it is wrong in a way
+worth recording: `insert into lessons (..., published) values (..., true)` would
+still be accepted, the trigger would overwrite it from a defaulted `status`, and
+the row would land as a draft while its author believed it was live. A generated
+column *rejects* that insert. Failing loudly at the point of the mistake beats
+silently doing something else, especially for the column that decides what a
+learner sees.
+
+**The authoring convention from Prompt 7 onward: set `status`, never
+`published`.**
+
+### Versioning, kept small
+
+`content_version` and `published_at` on `lessons` and `missions`. Neither forks
+content. Progress rows key on the lesson's stable `id`, which never changes, so
+editing or archiving a lesson can never make somebody's completion disappear —
+there is a test that archives a completed lesson and asserts both the completion
+and the skill evidence survive. What these columns buy is the ability to *say*
+that the lesson somebody completed is not the lesson on screen today, which is
+the honest limit of what a training platform needs before it needs a CMS.
+
+### Relationships, not copies
+
+A lesson introduces skills through `lesson_skills`; a mission practises them
+through `mission_skills`, one of which may be `is_primary`. The toolbox already
+had `lesson_toolbox_items` and `mission_toolbox_items` from Prompt 5, and
+resources hang off `lesson_resources` from Prompt 3. The same prompt is named by
+five lessons and stored once.
+
+Two join tables rather than one polymorphic one, because a foreign key that
+points at two tables is not a foreign key.
+
+### Where the curriculum goes
+
+A phase already exists as a row. To author content into it:
+
+1. `insert into public.modules (phase_key, slug, title, position, status)` —
+   `status` `'draft'` while writing.
+2. `insert into public.lessons (module_id, slug, title, type, blocks, ...)` —
+   `blocks` is the JSONB array `src/lib/learning/blocks.ts` parses; 22 kinds.
+3. `insert into public.lesson_skills` and `lesson_prerequisites` for the
+   relationships.
+4. `insert into public.missions` for the work, with `mission_skills`,
+   `mission_prerequisites` and `required_evidence`.
+5. Link toolbox items with `lesson_toolbox_items` / `mission_toolbox_items`.
+6. Flip `status` to `'published'` when it is ready. Nothing else changes.
+
+Skills and milestones are already seeded — twenty-three and fifteen — so a
+lesson written later has something to link to.
+
 ## Design
 
 The tokens are the design system, and they are all in `src/app/globals.css`.

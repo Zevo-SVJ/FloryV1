@@ -6,6 +6,22 @@ import { Forbidden } from "@/components/states/forbidden";
 import { checkAccess, requireSection } from "@/lib/lock/access";
 import { createClient } from "@/lib/supabase/server";
 import { getAssignedLearners } from "@/lib/mentor/queries";
+import { getXpRules } from "@/lib/progress/queries";
+import {
+  CONTENT_STATUS_LABEL,
+  SKILL_AREA_LABEL,
+  XP_EVENT_LABEL,
+  AWARD_KIND_LABEL,
+} from "@/lib/progress/labels";
+import type { ContentStatus } from "@/types/database";
+
+/** Draft first, archived last — the order content moves through. */
+const CONTENT_STATUSES: readonly ContentStatus[] = [
+  "draft",
+  "review",
+  "published",
+  "archived",
+] as const;
 
 export const metadata: Metadata = { title: "Admin" };
 
@@ -17,10 +33,16 @@ export const metadata: Metadata = { title: "Admin" };
  * exist is editing: content is authored with SQL, and a half-built CMS is worse
  * than none because it invites people to use it for the things it cannot do.
  *
- * Prompt 7 decides whether content editing belongs in the product at all. Until
- * then this page answers the questions an administrator actually has, and the
- * SQL for the two operations that matter is on the page rather than in a
- * document nobody opens.
+ * Prompt 7 asked whether content editing belongs here and the answer is still
+ * no. What it added instead is visibility of the *definitions* — skills,
+ * milestones and XP rules — because an administrator needs to know what the
+ * progress system is scoring before they can reason about a learner's numbers.
+ * Reading them is useful; a form for editing them would be a CMS with three
+ * tables and no versioning.
+ *
+ * Content lifecycle is now shown as four states rather than a published count,
+ * since that is the thing an administrator actually watches while a curriculum
+ * is being written.
  */
 export default async function AdminPage() {
   const section = requireSection("/admin");
@@ -29,18 +51,33 @@ export default async function AdminPage() {
 
   const supabase = await createClient();
 
-  const [profiles, relationships, lessons, missions, toolbox, learners] = await Promise.all([
-    supabase.from("profiles").select("*").order("created_at"),
-    supabase.from("learner_mentor_relationships").select("*"),
-    supabase.from("lessons").select("id,published"),
-    supabase.from("missions").select("id,published"),
-    supabase.from("toolbox_items").select("id,published"),
-    getAssignedLearners(),
-  ]);
+  const [profiles, relationships, lessons, missions, toolbox, learners, skills, milestones, xpRules] =
+    await Promise.all([
+      supabase.from("profiles").select("*").order("created_at"),
+      supabase.from("learner_mentor_relationships").select("*"),
+      supabase.from("lessons").select("id,status"),
+      supabase.from("missions").select("id,status"),
+      supabase.from("toolbox_items").select("id,status"),
+      getAssignedLearners(),
+      supabase.from("skills").select("*").order("area").order("position"),
+      supabase.from("milestones").select("*").order("position"),
+      getXpRules(),
+    ]);
 
   const accounts = profiles.data ?? [];
-  const published = <T extends { published: boolean }>(rows: T[] | null) =>
-    `${(rows ?? []).filter((row) => row.published).length} / ${(rows ?? []).length}`;
+
+  /*
+   * Four counts rather than one fraction. "12 / 40 published" hides the
+   * question an administrator has while a curriculum is being written, which
+   * is how much is drafted and how much is waiting to be read.
+   */
+  const byStatus = <T extends { status: ContentStatus }>(rows: T[] | null) => {
+    const all = rows ?? [];
+    return CONTENT_STATUSES.map((status) => ({
+      status,
+      count: all.filter((row) => row.status === status).length,
+    })).filter((entry) => entry.count > 0);
+  };
 
   return (
     <div className="space-y-8">
@@ -92,21 +129,105 @@ export default async function AdminPage() {
       </section>
 
       <section className="space-y-3">
-        <Label>Published content</Label>
+        <Label>Content lifecycle</Label>
         <div className="grid gap-3 sm:grid-cols-3">
-          <Card className="space-y-1 p-4">
-            <p className="label text-ink-subtle">Lessons</p>
-            <p className="font-mono text-sm tabular-nums text-ink">{published(lessons.data)}</p>
+          {[
+            { label: "Lessons", rows: lessons.data },
+            { label: "Missions", rows: missions.data },
+            { label: "Toolbox", rows: toolbox.data },
+          ].map(({ label, rows }) => {
+            const counts = byStatus(rows);
+            return (
+              <Card key={label} className="space-y-2 p-4">
+                <p className="label text-ink-subtle">{label}</p>
+                {counts.length === 0 ? (
+                  <p className="text-sm text-ink-subtle">Nothing authored yet</p>
+                ) : (
+                  <dl className="space-y-1 text-sm">
+                    {counts.map(({ status, count }) => (
+                      <div key={status} className="flex items-baseline justify-between gap-3">
+                        <dt className="text-ink-muted">{CONTENT_STATUS_LABEL[status]}</dt>
+                        <dd className="font-mono tabular-nums text-ink">{count}</dd>
+                      </div>
+                    ))}
+                  </dl>
+                )}
+              </Card>
+            );
+          })}
+        </div>
+        <p className="max-w-measure text-sm text-ink-subtle">
+          A row&rsquo;s status is the authoritative column and its published
+          flag is generated from it, so the two cannot disagree. Set the status;
+          the visibility follows.
+        </p>
+      </section>
+
+      {/* The definitions the progress system scores against. Read-only, and
+          that is the decision rather than an omission. */}
+      <section className="space-y-3">
+        <Label>Progress definitions</Label>
+        <div className="grid gap-4 lg:grid-cols-2">
+          <Card className="space-y-3 p-5">
+            <p className="text-sm font-medium text-ink">
+              Skills · {(skills.data ?? []).length}
+            </p>
+            <dl className="space-y-1 text-sm">
+              {Object.entries(
+                (skills.data ?? []).reduce<Record<string, number>>((acc, skill) => {
+                  acc[skill.area] = (acc[skill.area] ?? 0) + 1;
+                  return acc;
+                }, {}),
+              ).map(([area, count]) => (
+                <div key={area} className="flex items-baseline justify-between gap-3">
+                  <dt className="text-ink-muted">
+                    {SKILL_AREA_LABEL[area as keyof typeof SKILL_AREA_LABEL]}
+                  </dt>
+                  <dd className="font-mono tabular-nums text-ink">{count}</dd>
+                </div>
+              ))}
+            </dl>
           </Card>
-          <Card className="space-y-1 p-4">
-            <p className="label text-ink-subtle">Missions</p>
-            <p className="font-mono text-sm tabular-nums text-ink">{published(missions.data)}</p>
-          </Card>
-          <Card className="space-y-1 p-4">
-            <p className="label text-ink-subtle">Toolbox</p>
-            <p className="font-mono text-sm tabular-nums text-ink">{published(toolbox.data)}</p>
+
+          <Card className="space-y-3 p-5">
+            <p className="text-sm font-medium text-ink">
+              Milestones · {(milestones.data ?? []).length}
+            </p>
+            <dl className="space-y-1 text-sm">
+              {(["milestone", "achievement"] as const).map((kind) => (
+                <div key={kind} className="flex items-baseline justify-between gap-3">
+                  <dt className="text-ink-muted">{AWARD_KIND_LABEL[kind]}</dt>
+                  <dd className="font-mono tabular-nums text-ink">
+                    {(milestones.data ?? []).filter((row) => row.kind === kind).length}
+                  </dd>
+                </div>
+              ))}
+              <div className="flex items-baseline justify-between gap-3 border-t border-border pt-1">
+                <dt className="text-ink-muted">Awarded by a mentor</dt>
+                <dd className="font-mono tabular-nums text-ink">
+                  {(milestones.data ?? []).filter((row) => row.requirement === "manual").length}
+                </dd>
+              </div>
+            </dl>
           </Card>
         </div>
+
+        <Card className="space-y-3 p-5">
+          <p className="text-sm font-medium text-ink">XP rules</p>
+          <dl className="grid gap-x-6 gap-y-2 text-sm sm:grid-cols-2">
+            {xpRules.map((rule) => (
+              <div key={rule.kind} className="flex items-baseline justify-between gap-3">
+                <dt className="text-ink-muted">{XP_EVENT_LABEL[rule.kind]}</dt>
+                <dd className="font-mono tabular-nums text-ink">{rule.amount}</dd>
+              </div>
+            ))}
+          </dl>
+          <p className="text-sm text-ink-subtle">
+            Amounts live in public.xp_rules. Changing one takes effect on the
+            next event and never rewrites XP already awarded — the ledger is a
+            record of what was paid at the time.
+          </p>
+        </Card>
       </section>
 
       <section className="max-w-measure space-y-3">

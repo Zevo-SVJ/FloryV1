@@ -14,6 +14,8 @@ import {
 import { getLesson } from "@/lib/learning/queries";
 import { getToolsForLesson } from "@/lib/toolbox/queries";
 import { ContextualTools } from "@/components/toolbox/item-card";
+import { SkillTags } from "@/components/progress/skill";
+import { getSkillsForLesson } from "@/lib/progress/queries";
 
 export async function generateMetadata({
   params,
@@ -54,6 +56,10 @@ export default async function LessonPage({
    * should have to guess which item from a growing library is the relevant one.
    */
   const tools = await getToolsForLesson(detail.lesson.id);
+
+  /* What this lesson develops, named on the page. A learner should know what a
+     piece of content is for before spending an hour on it. */
+  const skills = await getSkillsForLesson(detail.lesson.id);
 
   const { lesson, blocks, module, phase, resources, prerequisites, unlocked, progress } = detail;
   const completed = progress?.status === "completed";
@@ -108,6 +114,12 @@ export default async function LessonPage({
         </StateBlock>
       ) : (
         <>
+          {skills.length > 0 ? (
+            <div className="max-w-measure">
+              <SkillTags skills={skills.map((skill) => ({ key: skill.key, label: skill.label }))} />
+            </div>
+          ) : null}
+
           {lesson.objectives.length > 0 ? (
             <section className="max-w-measure space-y-3">
               <Label>What you will be able to do</Label>

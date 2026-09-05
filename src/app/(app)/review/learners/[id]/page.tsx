@@ -8,6 +8,14 @@ import { Forbidden } from "@/components/states/forbidden";
 import { NoteForm, AnswerForm } from "@/components/mentor/review-form";
 import { checkAccess, requireSection } from "@/lib/lock/access";
 import { getLearnerDetail } from "@/lib/mentor/queries";
+import { getProgressSnapshot, getSkillStates, getAwards, getActivity } from "@/lib/progress/queries";
+import { focusPhase, movingSkills } from "@/lib/progress/rules";
+import { CurrentPhase } from "@/components/progress/phase-progress";
+import { SkillLine } from "@/components/progress/skill";
+import { AwardLine } from "@/components/progress/award";
+import { ActivityFeed } from "@/components/progress/activity";
+import { AwardMilestoneForm } from "@/components/progress/award-form";
+import { ProgressBar } from "@/components/ui/progress-bar";
 import { ARTIFACT_STATUS_LABEL } from "@/lib/workspace/labels";
 import { QUESTION_STATUS_LABEL } from "@/lib/mentor/labels";
 import { PROJECT_STATUS_LABEL } from "@/lib/workspace/labels";
@@ -20,6 +28,13 @@ export const metadata: Metadata = { title: "Learner" };
  * Everything on this page is read-only except the two things a mentor owns: a
  * private note, and an answer. A mentor who could edit an artifact would be
  * doing the mission, and the database refuses that too.
+ *
+ * Prompt 7 added the progress half — phase, skills, milestones, activity. The
+ * learner id is passed to those queries as a *filter*, not as a permission:
+ * every one of them reads a `security_invoker` view whose policies say
+ * `can_review(profile_id)`, so a mentor with no assignment to this learner gets
+ * empty results whatever id reaches the query. The `notFound()` above is the
+ * interface being tidy; the database is what makes it safe.
  */
 export default async function LearnerDetailPage({
   params,
@@ -36,6 +51,22 @@ export default async function LearnerDetailPage({
   // Not assigned to this mentor, or not a learner at all.
   if (!detail) notFound();
 
+  const [snapshot, skills, awards, activity] = await Promise.all([
+    getProgressSnapshot(id),
+    getSkillStates(id),
+    getAwards(id),
+    getActivity(8, id),
+  ]);
+
+  const focus = focusPhase(snapshot.phases);
+  const moving = movingSkills(skills, 6);
+  const earned = awards.definitions
+    .flatMap((award) => {
+      const row = awards.earned.get(award.key);
+      return row ? [{ award, earned: row }] : [];
+    })
+    .sort((a, b) => b.earned.earned_at.localeCompare(a.earned.earned_at));
+
   return (
     <div className="space-y-8">
       <PageHeader
@@ -48,6 +79,9 @@ export default async function LearnerDetailPage({
             <HeaderMeta label="Lessons">{detail.lessonsCompleted}</HeaderMeta>
             <HeaderMeta label="Missions">{detail.missionsCompleted}</HeaderMeta>
             <HeaderMeta label="To review">{detail.pendingReviews}</HeaderMeta>
+            <HeaderMeta label="Overall">
+              {snapshot.overall?.percent == null ? "—" : `${snapshot.overall.percent}%`}
+            </HeaderMeta>
           </>
         }
       />
@@ -75,6 +109,109 @@ export default async function LearnerDetailPage({
           </dl>
         </Card>
       ) : null}
+
+      <div className="grid gap-4 lg:grid-cols-[1.4fr_1fr]">
+        <section className="space-y-3">
+          <Label>Where they are</Label>
+          {focus ? (
+            <CurrentPhase phase={focus} />
+          ) : (
+            <EmptyState title="Nothing published yet" className="h-full">
+              <p>
+                No phase has content this learner can reach, so there is no
+                position to report.
+              </p>
+            </EmptyState>
+          )}
+        </section>
+
+        <section className="space-y-3">
+          <Label>Overall</Label>
+          <Card className="flex h-full flex-col justify-between gap-6 p-5">
+            <div className="space-y-3">
+              <div className="flex items-baseline justify-between gap-3">
+                <span className="text-sm text-ink-muted">Through the roadmap</span>
+                <span className="font-mono text-sm tabular-nums text-ink">
+                  {snapshot.overall?.percent == null
+                    ? "—"
+                    : `${snapshot.overall.percent}%`}
+                </span>
+              </div>
+              <ProgressBar
+                value={snapshot.overall?.percent ?? null}
+                max={100}
+                label="Overall progress"
+              />
+            </div>
+            <p className="text-sm text-ink-subtle">
+              {snapshot.xp?.total ?? 0} XP · {awards.earned.size} of{" "}
+              {awards.definitions.length} milestones ·{" "}
+              {snapshot.streak?.active_days ?? 0} active days
+            </p>
+          </Card>
+        </section>
+      </div>
+
+      <div className="grid gap-4 md:grid-cols-2">
+        <section className="space-y-3">
+          <Label>Skills</Label>
+          {moving.length === 0 ? (
+            <EmptyState title="No skills in motion yet" className="h-full">
+              <p>
+                A skill moves on evidence. Nothing this learner has done has
+                produced any yet — which is the correct thing for this to say.
+              </p>
+            </EmptyState>
+          ) : (
+            <Card className="h-full px-5 py-2">
+              <ul className="divide-y divide-border">
+                {moving.map((skill) => (
+                  <SkillLine key={skill.skill_key} skill={skill} />
+                ))}
+              </ul>
+            </Card>
+          )}
+        </section>
+
+        <section className="space-y-3">
+          <Label>Milestones</Label>
+          {earned.length === 0 ? (
+            <EmptyState title="No milestones yet" className="h-full">
+              <p>
+                First Idea is earned the moment they name what they are
+                building.
+              </p>
+            </EmptyState>
+          ) : (
+            <Card className="h-full px-5 py-2">
+              <ul className="divide-y divide-border">
+                {earned.slice(0, 6).map(({ award, earned: row }) => (
+                  <AwardLine key={award.key} award={award} earnedAt={row.earned_at} />
+                ))}
+              </ul>
+            </Card>
+          )}
+        </section>
+      </div>
+
+      {/* Only the milestones a person has to confirm, and only the ones this
+          learner does not already hold. Plain strings, because anything passed
+          to a Client Component is serialized into the page. */}
+      <AwardMilestoneForm
+        learnerId={id}
+        options={awards.definitions
+          .filter(
+            (award) => award.requirement === "manual" && !awards.earned.has(award.key),
+          )
+          .map((award) => ({ key: award.key, title: award.title }))}
+      />
+
+      <ActivityFeed
+        entries={activity}
+        heading="Their recent activity"
+        emptyTitle="Nothing yet"
+        emptyBody="Lessons finished, work submitted and milestones reached appear here as they happen."
+      />
 
       <section className="space-y-3">
         <Label>Artifacts</Label>

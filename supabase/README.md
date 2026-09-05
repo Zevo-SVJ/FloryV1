@@ -198,6 +198,76 @@ values ('<learner uuid>', '<mentor uuid>');
 learner approving their own work, marking it final, forging feedback, altering a
 review, answering their own question, and reading mentor notes.
 
+## Progress, skills, milestones and XP
+
+Added by `20260910000000_progress_skills.sql`, seeded by
+`20260910000001_progress_seed.sql`.
+
+| Table | Notes |
+|---|---|
+| `skills` | 23 founder capabilities in 6 areas. Definitions, read-only to clients |
+| `lesson_skills` | Which skills a lesson introduces |
+| `mission_skills` | Which a mission practises. `is_primary` marks the one it is about |
+| `skill_evidence` | Append-only. Written only by `record_skill_evidence()` |
+| `milestones` | 15 definitions. `kind` is `milestone` or `achievement` |
+| `learner_milestones` | Earned, once, permanently. No update or delete policy |
+| `xp_rules` | One row per event kind, with the amount and the reasoning |
+| `xp_events` | The ledger. Unique on (learner, kind, subject) — no duplicate awards |
+
+| View (all `security_invoker`) | Answers |
+|---|---|
+| `learner_skill_states` | Every published skill, and the state its evidence justifies |
+| `learner_xp_totals` | `sum(amount)` over the ledger |
+| `learner_module_progress` | Completed published lessons over published lessons |
+| `learner_phase_progress` | Weighted: a lesson is 1, a mission is 3 |
+| `learner_overall_progress` | The same rule, summed across every phase |
+| `learner_activity` | Build log ∪ lesson completions ∪ milestones earned |
+| `learner_streak` | Consecutive active days. Yesterday still counts |
+
+**No table stores a percentage.** Every figure above is computed on read. The
+three tables that are written are append-only records of things that happened.
+
+**No client may write any of them.** `xp_events`, `skill_evidence` and
+`learner_milestones` have no insert, update or delete grant for `authenticated`
+at any role. `award_xp()`, `record_skill_evidence()` and `evaluate_milestones()`
+have no `execute` grant either — they are called from inside the domain
+functions, which run as the owner.
+
+`award_milestone()` is the one exception and the only progress function a client
+may call. It exists for FIRST USER, FIRST PAYMENT and FOUNDER, which LOCK
+genuinely cannot observe. It refuses a caller who is not staff, one acting on
+their own account, and one not assigned to that learner.
+
+`complete_lesson()`, `complete_mission()`, `submit_artifact()` and
+`review_artifact()` were replaced to award progress in the same transaction as
+the event. `projects` gained an `after insert` trigger for the same reason.
+
+`supabase/tests/07_progress.sql` covers all fifteen behaviours the brief names,
+including every attempt a learner could make to award themselves something.
+
+## Content lifecycle
+
+`content_status` — `draft` → `review` → `published` → `archived` — on `phases`,
+`modules`, `lessons`, `missions`, `toolbox_items`, `skills` and `milestones`.
+
+**`status` is authoritative; `published` is now a generated column** computed as
+`status = 'published'`. Every policy and function written before Prompt 7 still
+reads `published` and still works. Writing `published` directly is refused by
+the database rather than silently ignored.
+
+```sql
+-- Author content like this from now on.
+insert into public.lessons (module_id, slug, title, position, status, blocks)
+values ('<module uuid>', 'my-lesson', 'My lesson', 1, 'draft', '[]'::jsonb);
+
+-- Release it.
+update public.lessons set status = 'published' where slug = 'my-lesson';
+```
+
+`lessons` and `missions` also carry `content_version` and `published_at`.
+Neither forks content: progress keys on the stable `id`, so editing or archiving
+a lesson never erases somebody's completion.
+
 ## The tables that do not exist yet
 
 Not built, because their shape depends on content nobody has written. These are

@@ -57,11 +57,11 @@ values (:'david', :'mentor');
 -- A mission that demands proof, to exercise the evidence gate.
 insert into public.missions (
   id, phase_key, slug, title, type, objective, deliverable_title,
-  required_evidence, requires_reflection, position, published, is_demo
+  required_evidence, requires_reflection, position, status, is_demo
 ) values (
   '00000000-0000-4000-8000-000000000200', 'ship', 'ship-it', 'Ship it', 'deploy',
   'Put it in front of real people.', 'Ship Report',
-  '{deployment,repository}', false, 1, true, true
+  '{deployment,repository}', false, 1, 'published', true
 );
 
 select pg_temp.ok(

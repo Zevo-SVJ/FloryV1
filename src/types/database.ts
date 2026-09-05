@@ -32,6 +32,13 @@ export type AppRole = "learner" | "mentor" | "admin";
 
 /* ── Learning system ──────────────────────────────────────────────────────── */
 
+/**
+ * The editorial lifecycle of a piece of content, and the authoritative column.
+ * `published` is generated from it — `status = 'published'` — so the two can
+ * never disagree, and writing `published` directly is refused by the database.
+ */
+export type ContentStatus = "draft" | "review" | "published" | "archived";
+
 export type LessonType =
   | "lesson" | "concept" | "visual" | "example" | "teardown" | "decision"
   | "workshop" | "build" | "debug" | "case_study" | "checkpoint" | "reflection";
@@ -47,6 +54,7 @@ export type PhaseRow = {
   position: number;
   label: string;
   summary: string;
+  status: ContentStatus;
   published: boolean;
   created_at: string;
   updated_at: string;
@@ -59,6 +67,7 @@ export type ModuleRow = {
   title: string;
   summary: string;
   position: number;
+  status: ContentStatus;
   published: boolean;
   created_at: string;
   updated_at: string;
@@ -78,7 +87,10 @@ export type LessonRow = {
   blocks: unknown;
   completion_rule: CompletionRule;
   position: number;
+  status: ContentStatus;
   published: boolean;
+  content_version: number;
+  published_at: string | null;
   is_demo: boolean;
   created_at: string;
   updated_at: string;
@@ -193,7 +205,10 @@ export type MissionRow = {
   /* When true, `complete_mission()` refuses until a mentor has approved. */
   requires_review: boolean;
   position: number;
+  status: ContentStatus;
   published: boolean;
+  content_version: number;
+  published_at: string | null;
   is_demo: boolean;
   created_at: string;
   updated_at: string;
@@ -282,6 +297,7 @@ export type ToolboxItemRow = {
   /* JSONB. Parsed by `lib/toolbox/schemas.ts`, never trusted raw. */
   body: unknown;
   position: number;
+  status: ContentStatus;
   published: boolean;
   is_demo: boolean;
   created_at: string;
@@ -356,6 +372,187 @@ export type NotificationRow = {
   href: string | null;
   read_at: string | null;
   created_at: string;
+};
+
+/* ── Progress, skills, milestones, XP ────────────────────────────────────── */
+
+export type SkillArea = "thinking" | "product" | "design" | "build" | "ship" | "business";
+
+/**
+ * The five states, in order. The order is meaning, not presentation: nothing
+ * reaches `demonstrated` without somebody else approving the work behind it.
+ */
+export type SkillState =
+  | "not_started" | "introduced" | "practicing" | "demonstrated" | "strong";
+
+export type SkillEvidenceKind =
+  | "lesson_completed" | "mission_completed" | "artifact_approved";
+
+export type XpEventKind =
+  | "lesson_completed" | "mission_completed" | "artifact_submitted"
+  | "artifact_approved" | "reflection_submitted" | "milestone_earned"
+  | "project_started";
+
+export type AwardKind = "milestone" | "achievement";
+
+export type MilestoneRequirement =
+  | "project_started" | "lessons_completed" | "missions_completed"
+  | "mission_completed" | "artifacts_submitted" | "artifacts_approved"
+  | "evidence_submitted" | "skill_demonstrated" | "phase_completed" | "manual";
+
+export type SkillRow = {
+  key: string;
+  area: SkillArea;
+  label: string;
+  summary: string;
+  demonstrates: string;
+  position: number;
+  status: ContentStatus;
+  published: boolean;
+  created_at: string;
+  updated_at: string;
+};
+
+export type SkillEvidenceRow = {
+  id: string;
+  profile_id: string;
+  skill_key: string;
+  kind: SkillEvidenceKind;
+  lesson_id: string | null;
+  mission_id: string | null;
+  artifact_id: string | null;
+  detail: string;
+  occurred_at: string;
+};
+
+export type XpRuleRow = {
+  kind: XpEventKind;
+  amount: number;
+  label: string;
+  rationale: string;
+};
+
+export type XpEventRow = {
+  id: string;
+  profile_id: string;
+  kind: XpEventKind;
+  amount: number;
+  subject_type: string;
+  subject_key: string;
+  detail: string;
+  created_at: string;
+};
+
+export type MilestoneRow = {
+  key: string;
+  kind: AwardKind;
+  title: string;
+  summary: string;
+  description: string;
+  icon: string;
+  requirement: MilestoneRequirement;
+  requirement_config: Record<string, unknown>;
+  position: number;
+  status: ContentStatus;
+  published: boolean;
+  created_at: string;
+  updated_at: string;
+};
+
+export type LearnerMilestoneRow = {
+  profile_id: string;
+  milestone_key: string;
+  earned_at: string;
+  awarded_by: string | null;
+  note: string;
+};
+
+/* ── The derived views ───────────────────────────────────────────────────────
+ *
+ * Every one of these is computed on read from the records above. There is no
+ * table behind them holding a progress figure, which is why none of them has an
+ * `Insert` shape worth writing: the database would refuse it, and so would the
+ * design.
+ */
+
+export type LearnerSkillStateRow = {
+  profile_id: string;
+  skill_key: string;
+  area: SkillArea;
+  label: string;
+  summary: string;
+  demonstrates: string;
+  position: number;
+  lessons_count: number;
+  missions_count: number;
+  approvals_count: number;
+  last_evidence_at: string | null;
+  state: SkillState;
+};
+
+export type LearnerXpTotalRow = {
+  profile_id: string;
+  total: number;
+  events: number;
+  last_earned_at: string | null;
+};
+
+export type LearnerPhaseProgressRow = {
+  profile_id: string;
+  phase_key: string;
+  position: number;
+  label: string;
+  summary: string;
+  lessons_total: number;
+  lessons_done: number;
+  missions_total: number;
+  missions_done: number;
+  units_total: number;
+  units_done: number;
+  /** Null when the phase has nothing published. Never 0 in that case. */
+  percent: number | null;
+};
+
+export type LearnerModuleProgressRow = {
+  profile_id: string;
+  module_id: string;
+  phase_key: string;
+  title: string;
+  position: number;
+  lessons_total: number;
+  lessons_done: number;
+};
+
+export type LearnerOverallProgressRow = {
+  profile_id: string;
+  lessons_total: number;
+  lessons_done: number;
+  missions_total: number;
+  missions_done: number;
+  units_total: number;
+  units_done: number;
+  phases_complete: number;
+  phases_started_or_available: number;
+  percent: number | null;
+};
+
+export type LearnerActivityRow = {
+  profile_id: string;
+  source: "build_log" | "lesson" | "milestone";
+  occurred_at: string;
+  title: string;
+  detail: string;
+  mission_id: string | null;
+  artifact_id: string | null;
+  lesson_id: string | null;
+  milestone_key: string | null;
+};
+
+export type LearnerStreakRow = {
+  profile_id: string;
+  current_days: number | null;
+  active_days: number;
+  last_active_on: string | null;
 };
 
 export type Database = {
@@ -543,6 +740,49 @@ export type Database = {
         Relationships: [];
       };
 
+      /* Definitions, authored with SQL. No client write at any role. */
+      skills: { Row: SkillRow; Insert: SkillRow; Update: Partial<SkillRow>; Relationships: [] };
+      lesson_skills: {
+        Row: { lesson_id: string; skill_key: string };
+        Insert: { lesson_id: string; skill_key: string };
+        Update: Partial<{ lesson_id: string; skill_key: string }>;
+        Relationships: [];
+      };
+      mission_skills: {
+        Row: { mission_id: string; skill_key: string; is_primary: boolean };
+        Insert: { mission_id: string; skill_key: string; is_primary?: boolean };
+        Update: Partial<{ mission_id: string; skill_key: string; is_primary: boolean }>;
+        Relationships: [];
+      };
+      milestones: {
+        Row: MilestoneRow; Insert: MilestoneRow; Update: Partial<MilestoneRow>; Relationships: [];
+      };
+      xp_rules: {
+        Row: XpRuleRow; Insert: XpRuleRow; Update: Partial<XpRuleRow>; Relationships: [];
+      };
+
+      /*
+       * Earned records. `Insert` and `Update` describe writes the database
+       * refuses at every role — there is no grant for them — and are typed only
+       * because postgrest-js collapses a relation whose write shapes are
+       * unusable to `never`, which would take `select()` down with it.
+       */
+      skill_evidence: {
+        Row: SkillEvidenceRow;
+        Insert: SkillEvidenceRow;
+        Update: Partial<SkillEvidenceRow>;
+        Relationships: [];
+      };
+      xp_events: {
+        Row: XpEventRow; Insert: XpEventRow; Update: Partial<XpEventRow>; Relationships: [];
+      };
+      learner_milestones: {
+        Row: LearnerMilestoneRow;
+        Insert: LearnerMilestoneRow;
+        Update: Partial<LearnerMilestoneRow>;
+        Relationships: [];
+      };
+
       build_log_entries: {
         Row: BuildLogEntryRow;
         Insert: {
@@ -554,7 +794,15 @@ export type Database = {
         Relationships: [];
       };
     };
-    Views: Record<never, never>;
+    Views: {
+      learner_skill_states: { Row: LearnerSkillStateRow; Relationships: [] };
+      learner_xp_totals: { Row: LearnerXpTotalRow; Relationships: [] };
+      learner_module_progress: { Row: LearnerModuleProgressRow; Relationships: [] };
+      learner_phase_progress: { Row: LearnerPhaseProgressRow; Relationships: [] };
+      learner_overall_progress: { Row: LearnerOverallProgressRow; Relationships: [] };
+      learner_activity: { Row: LearnerActivityRow; Relationships: [] };
+      learner_streak: { Row: LearnerStreakRow; Relationships: [] };
+    };
     Functions: {
       current_app_role: { Args: Record<string, never>; Returns: AppRole | null };
       is_staff: { Args: Record<string, never>; Returns: boolean };
@@ -589,6 +837,12 @@ export type Database = {
         Args: { p_mission_id: string; p_reflection?: string | null };
         Returns: LearnerMissionProgressRow;
       };
+      /* The only progress-writing function a client may call, and it refuses
+         anybody who is not staff, and staff acting on themselves. */
+      award_milestone: {
+        Args: { p_profile_id: string; p_milestone_key: string; p_note?: string };
+        Returns: LearnerMilestoneRow;
+      };
     };
     Enums: {
       app_role: AppRole;
@@ -607,6 +861,13 @@ export type Database = {
       feedback_category: FeedbackCategory;
       question_status: QuestionStatus;
       notification_kind: NotificationKind;
+      content_status: ContentStatus;
+      skill_area: SkillArea;
+      skill_state: SkillState;
+      skill_evidence_kind: SkillEvidenceKind;
+      xp_event_kind: XpEventKind;
+      award_kind: AwardKind;
+      milestone_requirement: MilestoneRequirement;
     };
     CompositeTypes: Record<never, never>;
   };

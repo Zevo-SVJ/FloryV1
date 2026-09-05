@@ -1,6 +1,8 @@
 import { Card } from "@/components/ui/surface";
+import { ProgressBar } from "@/components/ui/progress-bar";
 import { cn } from "@/lib/utils/cn";
 import { PHASE_STATE_LABEL, type PhaseState, type RoadmapPhase } from "@/lib/lock/roadmap";
+import type { LearnerPhaseProgressRow } from "@/types/database";
 
 /**
  * The ten phases, as a route rather than a list.
@@ -13,8 +15,21 @@ import { PHASE_STATE_LABEL, type PhaseState, type RoadmapPhase } from "@/lib/loc
  * the four markers are a tick, a filled dot, an outline dot and a dash, so the
  * difference survives a monochrome screen and colour blindness. The accent
  * appears exactly once, on the phase you are in.
+ *
+ * `detail` is optional and additive. Without it this draws exactly what it drew
+ * in Prompt 2 — which is what lets a surface with no progress data still use
+ * it. With it, each phase also carries its counts and a bar. Extending the
+ * component beat adding a second ten-phase list beside it: two lists of the
+ * same ten things on one page is not more information.
  */
-export function Roadmap({ phases }: { phases: RoadmapPhase[] }) {
+export function Roadmap({
+  phases,
+  detail,
+}: {
+  phases: RoadmapPhase[];
+  /** Per-phase counts, keyed by phase key. Omit for the journey alone. */
+  detail?: ReadonlyMap<string, LearnerPhaseProgressRow>;
+}) {
   return (
     <ol className="relative space-y-px">
       {/* The rule. Behind the markers, stopping at the last one rather than
@@ -50,6 +65,33 @@ export function Roadmap({ phases }: { phases: RoadmapPhase[] }) {
               </div>
 
               <p className="text-sm text-ink-muted">{phase.summary}</p>
+
+              {(() => {
+                const row = detail?.get(phase.key);
+                if (!row) return null;
+
+                /* Null percent, not zero. A phase with nothing published has
+                   nothing to be a fraction of, and saying 0% would claim the
+                   learner had skipped lessons that do not exist. */
+                if (row.units_total === 0) {
+                  return <p className="label pt-1 text-ink-subtle">Not published yet</p>;
+                }
+
+                return (
+                  <div className="max-w-sm space-y-1.5 pt-2">
+                    <ProgressBar
+                      value={row.percent}
+                      max={100}
+                      label={`${phase.label} progress`}
+                    />
+                    <p className="label text-ink-subtle tabular-nums">
+                      {row.lessons_done}/{row.lessons_total} lessons ·{" "}
+                      {row.missions_done}/{row.missions_total} missions ·{" "}
+                      {row.percent}%
+                    </p>
+                  </div>
+                );
+              })()}
             </div>
           </div>
         </li>

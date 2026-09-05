@@ -61,11 +61,11 @@ values (:'david', :'zevo');
 -- A mission that needs a human verdict, alongside the seeded one that does not.
 insert into public.missions (
   id, phase_key, slug, title, type, objective, deliverable_title,
-  requires_review, requires_reflection, position, published, is_demo
+  requires_review, requires_reflection, position, status, is_demo
 ) values (
   '00000000-0000-4000-8000-000000000300', 'validate', 'validate-the-problem',
   'Validate the problem', 'research', 'Get evidence before you get a codebase.',
-  'Validation Report', true, false, 1, true, true
+  'Validation Report', true, false, 1, 'published', true
 );
 
 -- David does the work.
@@ -89,8 +89,14 @@ select pg_temp.ok(
   (public.submit_artifact('00000000-0000-4000-8000-000000000401')).status = 'submitted',
   'the learner submits'
 );
+/*
+ * Narrowed by kind rather than by total, since Prompt 7. Submitting now also
+ * earns milestones, and a milestone notification *is* addressed to the learner.
+ * What must never reach them is the submission notice itself — that one is for
+ * the mentor, and a learner seeing it would mean the RLS policy leaked.
+ */
 select pg_temp.ok(
-  (select count(*) from public.notifications) = 0,
+  (select count(*) from public.notifications where kind = 'artifact_submitted') = 0,
   'and is not notified about their own submission'
 );
 
@@ -243,9 +249,15 @@ reset role;
 set role authenticated;
 select pg_temp.claims(:'david');
 
--- Two by now: the review came back, and the question was answered.
+/*
+ * Two mentor notices by now: the review came back, and the question was
+ * answered. Counted by kind rather than in total, because Prompt 7 added
+ * milestone notices to the same table and this assertion is about the mentor
+ * layer telling the learner what a human did.
+ */
 select pg_temp.ok(
-  (select count(*) from public.notifications) = 2,
+  (select count(*) from public.notifications
+   where kind in ('artifact_reviewed', 'question_answered')) = 2,
   'the learner was told their work came back, and that their question was answered'
 );
 select pg_temp.ok(

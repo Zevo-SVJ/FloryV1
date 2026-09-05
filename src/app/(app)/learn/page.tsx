@@ -9,27 +9,39 @@ import { ProgressBar } from "@/components/ui/progress-bar";
 import { buildRoadmap } from "@/lib/lock/roadmap";
 import { PHASES } from "@/lib/lock/phases";
 import { getCurriculum, getLearningState } from "@/lib/learning/queries";
-import { deriveRoadmapProgress, remainingMinutes } from "@/lib/learning/progress";
+import { remainingMinutes } from "@/lib/learning/progress";
+import { getProgressSnapshot } from "@/lib/progress/queries";
+import { getWorkspaceSnapshot } from "@/lib/workspace/queries";
+import { roadmapFromPhases, focusPhase } from "@/lib/progress/rules";
 
 export const metadata: Metadata = { title: "Roadmap" };
 
 /**
- * The roadmap, now reading real progress.
+ * The roadmap: a journey, with the five questions answered at the top.
  *
- * Prompt 2 built this page against `buildRoadmap(null)` and said the learning
- * engine would replace that one argument. This is that change, and it is the
- * whole diff for the roadmap itself — the component, the state vocabulary and
- * the layout are untouched.
+ * Where am I, what have I completed, what am I working on, what comes next,
+ * why does it matter. Those five sit above the route because a person opening
+ * this page is orienting, not browsing — and the ten-phase list underneath
+ * answers "how far" rather than "where".
  *
- * Continue and Revisit sit above it because they are what somebody returning to
- * LOCK actually needs: where they stopped, and what they flagged. Both are
- * absent rather than empty when there is nothing to show.
+ * Progress now comes from `learner_phase_progress` rather than from counting
+ * lessons in TypeScript. That is the substantive change: the old derivation
+ * knew about lessons only, so a phase of finished missions read as untouched.
+ * One rule, in SQL, weighted, and the same rule the progress page and the
+ * dashboard use.
  */
 export default async function RoadmapPage() {
-  const [curriculum, state] = await Promise.all([getCurriculum(), getLearningState()]);
+  const [curriculum, state, snapshot, workspace] = await Promise.all([
+    getCurriculum(),
+    getLearningState(),
+    getProgressSnapshot(),
+    getWorkspaceSnapshot(),
+  ]);
 
-  const progress = deriveRoadmapProgress(curriculum, state.completedLessonIds);
+  const progress = roadmapFromPhases(snapshot.phases);
   const phases = buildRoadmap(progress);
+  const detail = new Map(snapshot.phases.map((row) => [row.phase_key, row]));
+  const focus = focusPhase(snapshot.phases);
   const remaining = remainingMinutes(curriculum, state.completedLessonIds);
 
   const allLessons = curriculum.flatMap(({ modules }) =>
@@ -57,6 +69,11 @@ export default async function RoadmapPage() {
           <>
             <HeaderMeta label="Phases">{PHASES.length}</HeaderMeta>
             <HeaderMeta label="Complete">{progress.completed.length}</HeaderMeta>
+            <HeaderMeta label="Overall">
+              {snapshot.overall?.percent === null || snapshot.overall === null
+                ? "—"
+                : `${snapshot.overall.percent}%`}
+            </HeaderMeta>
             <HeaderMeta label="Time left">
               {remaining === null ? "Not published yet" : `${remaining} min`}
             </HeaderMeta>
@@ -101,11 +118,13 @@ export default async function RoadmapPage() {
         </section>
 
         <section className="space-y-3">
-          <Label>Progress</Label>
+          <Label>Where you are</Label>
           <Card className="flex h-full flex-col justify-between gap-6 p-5">
             <div className="space-y-3">
               <div className="flex items-baseline justify-between gap-3">
-                <span className="text-sm text-ink-muted">Phases complete</span>
+                <span className="text-sm text-ink-muted">
+                  {focus ? focus.label : "Phases complete"}
+                </span>
                 <span className="font-mono text-sm tabular-nums text-ink">
                   {progress.completed.length} / {PHASES.length}
                 </span>
@@ -116,13 +135,55 @@ export default async function RoadmapPage() {
                 label="Phases complete"
               />
             </div>
+
+            {/* Why it matters, in the phase's own words. The summary is
+                written for exactly this: what you walk out of the phase
+                holding. */}
             <p className="text-sm text-ink-subtle">
-              A phase counts as complete when every lesson published in it is
-              done. A phase with nothing published in it never counts.
+              {focus
+                ? focus.summary
+                : "A phase counts as complete when everything published in it is done. A phase with nothing published never counts."}
             </p>
           </Card>
         </section>
       </div>
+
+      {/* What you are working on, and what comes after it. Missions rather
+          than lessons, because a mission is the unit of work. */}
+      {workspace.current || workspace.next ? (
+        <section className="space-y-3">
+          <Label>The work in front of you</Label>
+          <div className="grid gap-4 md:grid-cols-2">
+            {workspace.current ? (
+              <Card className="space-y-2 p-5">
+                <p className="label text-accent">Now</p>
+                <p className="text-[0.9375rem] font-medium text-ink">
+                  {workspace.current.mission.title}
+                </p>
+                <p className="text-sm text-ink-muted">{workspace.current.mission.objective}</p>
+                <p className="pt-2">
+                  <ButtonLink
+                    href={`/learn/missions/${workspace.current.mission.slug}`}
+                    size="sm"
+                  >
+                    Open the mission
+                  </ButtonLink>
+                </p>
+              </Card>
+            ) : null}
+
+            {workspace.next ? (
+              <Card className="space-y-2 p-5">
+                <p className="label text-ink-subtle">Next</p>
+                <p className="text-[0.9375rem] font-medium text-ink">
+                  {workspace.next.mission.title}
+                </p>
+                <p className="text-sm text-ink-muted">{workspace.next.mission.objective}</p>
+              </Card>
+            ) : null}
+          </div>
+        </section>
+      ) : null}
 
       {revisit.length > 0 ? (
         <section className="space-y-3">
@@ -165,7 +226,7 @@ export default async function RoadmapPage() {
       <RoadmapLegend />
 
       <section aria-label="Phases">
-        <Roadmap phases={phases} />
+        <Roadmap phases={phases} detail={detail} />
       </section>
     </div>
   );
