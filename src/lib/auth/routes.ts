@@ -109,6 +109,32 @@ export function signInUrl(returnTo?: string | null): string {
   return path ? `${SIGN_IN_PATH}?next=${encodeURIComponent(path)}` : SIGN_IN_PATH;
 }
 
+/**
+ * The sign-in URL, carrying a reason it is being shown again.
+ *
+ * The key is one of `AuthErrorKey`; the sign-in page looks the sentence up.
+ * Nothing a provider wrote travels in this parameter — see `auth-errors.ts`.
+ */
+export function signInUrlWithError(errorKey: string, returnTo?: string | null): string {
+  const base = signInUrl(returnTo);
+  const separator = base.includes("?") ? "&" : "?";
+  return `${base}${separator}error=${encodeURIComponent(errorKey)}`;
+}
+
+/**
+ * Where an identity provider, or a link in an email, should come back to.
+ *
+ * Relative on purpose. The caller prefixes the origin, because the value has to
+ * be absolute for the provider and `siteUrl()` is the one place that decides
+ * what this deployment's origin is. `next` is sanitized here rather than at the
+ * far end: it makes a round trip through somebody else's server, and what comes
+ * back is checked again on arrival.
+ */
+export function authCallbackPath(returnTo?: string | null): string {
+  const destination = samePath(returnTo) ?? AFTER_SIGN_IN;
+  return `${AUTH_CALLBACK_PATH}?next=${encodeURIComponent(destination)}`;
+}
+
 /** The inverse: read a `next` parameter without trusting it. */
 export function safeReturnTo(value: string | null | undefined): string {
   return samePath(value) ?? AFTER_SIGN_IN;

@@ -30,6 +30,11 @@ The application-side half of an account, keyed by `auth.users.id`.
 table LOCK owns, and every future foreign key points at `profiles(id)` so that
 deleting an account cascades through the whole schema in one step.
 
+`handle_new_user()` fills `display_name` from the first of `display_name`,
+`full_name` or `name` present in `raw_user_meta_data` — LOCK's own form sends
+the first, Google sends the other two. It reads no role from that field under
+any circumstances.
+
 ### Functions
 
 | Function | Returns |
@@ -59,10 +64,13 @@ than against `role in ('mentor','admin')`.
   API roles everything on `public` by default, so the revoke is load-bearing —
   and the test shim reproduces that default, or the test would prove nothing.
 - **`anon` is granted nothing.** LOCK has no public data.
-- **Signup metadata is untrusted.** `handle_new_user()` reads `display_name` out
-  of `raw_user_meta_data` and deliberately never reads `role` — that field is
-  `options.data` from the browser. There is a test that puts `"role": "admin"`
-  in it and asserts the account comes out a learner.
+- **Signup metadata is untrusted.** `handle_new_user()` reads a *name* out of
+  `raw_user_meta_data` and deliberately never reads `role`. That field is
+  `options.data` from the browser on a password signup, and the identity
+  provider's claims on a social one — neither is a source of authorization.
+  There is a test for each shape: one puts `"role": "admin"` in a form signup,
+  another puts it in a Google-shaped payload, and both assert the account comes
+  out a learner.
 
 Changing a role is SQL run by the project owner. See `SETUP.md`.
 

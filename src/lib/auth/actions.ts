@@ -9,8 +9,8 @@ import { isSupabaseConfigured, siteUrl } from "@/lib/env";
 import { requireUser } from "@/lib/auth/dal";
 import {
   AFTER_SIGN_IN,
-  AUTH_CALLBACK_PATH,
   SIGN_IN_PATH,
+  authCallbackPath,
   safeReturnTo,
 } from "@/lib/auth/routes";
 import { allow, requestKey } from "@/lib/security/rate-limit";
@@ -140,22 +140,42 @@ export async function signUp(_prev: FormState, formData: FormData): Promise<Form
       data: displayName ? { display_name: displayName } : {},
       /*
        * The callback, not the dashboard. `@supabase/ssr` uses the PKCE flow, so
-       * the confirmation link returns a `code` that must be exchanged for a
+       * a confirmation link returns a `code` that must be exchanged for a
        * session before there is one. Pointing this straight at `/dashboard`
        * produces an account nobody can get into.
+       *
+       * Only used when email confirmation is switched on. LOCK's own setup has
+       * it off — see the note on the no-session branch below.
        */
-      emailRedirectTo: `${siteUrl()}${AUTH_CALLBACK_PATH}?next=${encodeURIComponent(AFTER_SIGN_IN)}`,
+      emailRedirectTo: `${siteUrl()}${authCallbackPath(AFTER_SIGN_IN)}`,
     },
   });
 
   if (error) return describeAuthError(error);
 
-  // With email confirmation on, Supabase returns a user but no session: the
-  // account exists and is waiting on a click in an inbox.
+  /*
+   * A user but no session means email confirmation is switched on in the
+   * Supabase project: the account exists and is waiting on a click in an inbox.
+   *
+   * For LOCK that is a misconfiguration rather than a flow, and saying so is
+   * the honest answer. This is a private product with no SMTP provider
+   * configured, so the only sender available is Supabase's shared one — capped
+   * at a couple of messages an hour and routinely undelivered. Somebody would
+   * create the account, be told to check their inbox, and wait forever.
+   *
+   * The fix is a setting, not code: Authentication -> Sign In / Providers ->
+   * Email -> Confirm email, off. So the message names it. It is deliberately
+   * specific about where to click, because the person reading it is the one
+   * person who can change it.
+   */
   if (!data.session) {
     return {
       error: null,
-      message: "Check your inbox for a confirmation link, then sign in.",
+      message:
+        "Account created, but this project still has email confirmation switched on " +
+        "and no mail provider configured. Turn it off in Supabase under " +
+        "Authentication → Sign In / Providers → Email → Confirm email, then sign in. " +
+        "An existing account can also be confirmed by hand under Authentication → Users.",
     };
   }
 
@@ -224,6 +244,74 @@ export async function updateDisplayName(
 
   revalidatePath("/", "layout");
   return { error: null, message: "Saved." };
+}
+
+/* ── Continuing with Google ───────────────────────────────────────────────── */
+
+/**
+ * Hand the browser to Google.
+ *
+ * `signInWithOAuth` does not sign anybody in. It builds the provider's
+ * authorization URL, and — this is the part that only works on the server —
+ * writes the PKCE code verifier into a cookie as a side effect. Google later
+ * redirects back to `/auth/callback` with a `code`, and the exchange there
+ * needs that verifier. A Server Action can set cookies; a Server Component
+ * cannot, which is why this is an action and not something a page does while
+ * rendering.
+ *
+ * `skipBrowserRedirect` because there is no browser here to redirect. We take
+ * the URL and issue the redirect ourselves.
+ *
+ * Nothing about the account's role is decided here or anywhere in this file.
+ * Google supplies an identity; the database supplies the role, and its default
+ * is `learner` no matter what claims arrive.
+ */
+export async function signInWithGoogle(
+  _prev: FormState,
+  formData: FormData,
+): Promise<FormState> {
+  if (!isSupabaseConfigured()) return NOT_CONFIGURED;
+  if (!(await withinAttemptLimit("oauth"))) return TOO_MANY;
+
+  const next = safeReturnTo(formData.get("next")?.toString());
+  const supabase = await createClient();
+
+  const { data, error } = await supabase.auth.signInWithOAuth({
+    provider: "google",
+    options: {
+      redirectTo: `${siteUrl()}${authCallbackPath(next)}`,
+      skipBrowserRedirect: true,
+      queryParams: {
+        /*
+         * Always show the account chooser. Without it Google silently reuses
+         * whichever account the browser last used, which on a shared machine —
+         * or for anybody with a work and a personal address — signs you in as
+         * the wrong person with no way to notice.
+         */
+        prompt: "select_account",
+      },
+    },
+  });
+
+  if (error) {
+    if ((error as AuthApiError).code === "validation_failed") {
+      // What Supabase answers when the provider is not enabled on the project.
+      return {
+        error:
+          "Google sign-in is not enabled on this Supabase project yet. " +
+          "Enable it under Authentication → Sign In / Providers → Google.",
+      };
+    }
+    return describeAuthError(error);
+  }
+
+  if (!data.url) {
+    return { error: "Google sign-in is unavailable right now. Try again." };
+  }
+
+  // Outside any try/catch: `redirect` works by throwing, and a catch would
+  // swallow the navigation and report it as a failure.
+  redirect(data.url);
 }
 
 /* ── Signing out ──────────────────────────────────────────────────────────── */

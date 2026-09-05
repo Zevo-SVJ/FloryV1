@@ -2,11 +2,13 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import {
   AFTER_SIGN_IN,
+  authCallbackPath,
   isAuthOnlyPath,
   isProtectedPath,
   needsSession,
   safeReturnTo,
   signInUrl,
+  signInUrlWithError,
 } from "@/lib/auth/routes";
 
 /**
@@ -81,5 +83,42 @@ describe("path classification", () => {
     assert.ok(needsSession("/login"));
     assert.ok(!needsSession("/auth/callback"));
     assert.ok(!needsSession("/favicon.ico"));
+  });
+});
+
+describe("signInUrlWithError", () => {
+  it("carries the reason, and the destination when there is one", () => {
+    assert.equal(signInUrlWithError("cancelled"), "/login?error=cancelled");
+    assert.equal(
+      signInUrlWithError("cancelled", "/admin"),
+      "/login?next=%2Fadmin&error=cancelled",
+    );
+  });
+
+  it("encodes the key rather than pasting it in", () => {
+    assert.ok(!signInUrlWithError("a&b=c").includes("&b="));
+  });
+});
+
+describe("authCallbackPath", () => {
+  it("defaults to the dashboard", () => {
+    assert.equal(authCallbackPath(), "/auth/callback?next=%2Fdashboard");
+    assert.equal(authCallbackPath(null), "/auth/callback?next=%2Fdashboard");
+  });
+
+  it("carries a same-origin destination", () => {
+    assert.equal(authCallbackPath("/learn"), "/auth/callback?next=%2Flearn");
+  });
+
+  it("refuses a destination that leaves this origin", () => {
+    // This value makes a round trip through Google before coming back, so a
+    // hostile one would be an open redirect with a reputable referrer.
+    for (const attack of ["https://evil.example", "//evil.example", "/\\evil.example"]) {
+      assert.equal(
+        authCallbackPath(attack),
+        "/auth/callback?next=%2Fdashboard",
+        `allowed: ${attack}`,
+      );
+    }
   });
 });

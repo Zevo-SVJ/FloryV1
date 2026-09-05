@@ -73,6 +73,67 @@ cookies — which would let a protected page be prerendered at build time into
 whatever the build machine saw. `connection()` states the requirement once,
 centrally.
 
+### Two ways in, one exchange
+
+Google and email/password both end at `/auth/callback` with a `code` to trade
+for a session. One route serves both, because they *are* the same exchange, and
+a second would be a second place for the redirect allowlist and the `next`
+handling to drift apart.
+
+`signInWithGoogle` is a Server Action rather than an `onClick`, and that is
+structural: `signInWithOAuth` writes the PKCE code verifier into a cookie as a
+side effect of building the authorization URL. A Server Action can set cookies;
+a Server Component cannot. It also means the sign-in needs no Supabase client in
+the browser and starts working before JavaScript has loaded.
+
+`skipBrowserRedirect: true` because there is no browser in a Server Action to
+redirect — we take `data.url` and issue the redirect ourselves. The `redirect()`
+call sits outside any `try`/`catch`: it works by throwing, and a catch would
+swallow the navigation and report it as a failure.
+
+`prompt: select_account` is passed to Google on every attempt. Without it Google
+silently reuses whichever account the browser used last, which on a shared
+machine — or for anybody with a work and a personal address — signs you in as
+the wrong person with nothing to notice.
+
+### A provider's error text is never rendered
+
+An OAuth failure comes back as `error`, `error_code` and `error_description` on
+the redirect URI, all written by somebody else's server.
+`lib/auth/auth-errors.ts` maps them to one of seven fixed keys, the key travels
+in the redirect, and the sign-in page looks the sentence up. React would escape
+the raw string safely enough, but "safe to render" is not "ours to say" — a
+provider's prose in our typography reads as our copy. Anything unrecognised
+becomes `unknown` and still says something, because a silent bounce back to an
+unchanged form is the state people retry forever.
+
+### Email confirmation is off, deliberately
+
+LOCK has no SMTP provider, so the only sender is Supabase's shared one: a couple
+of messages an hour, routinely undelivered. Leaving confirmation on would mean
+accounts that exist and cannot be reached, with no path through from the app.
+
+Confirmation proves that whoever typed an address controls it, which matters
+when strangers can sign up. Here the accounts are made by the person who owns
+the project and signups close the moment they exist, so the property being
+bought is one LOCK does not need yet. When it does need real email — password
+resets, invitations — the answer is SMTP, and confirmation goes back on in the
+same change.
+
+The code does not assume the setting. If `signUp` returns a user with no
+session, the form says exactly which switch is on and where to find it, rather
+than claiming to have sent something.
+
+### Roles are untouched by any of this
+
+Google supplies an identity. The database supplies the role. The signup trigger
+reads a *name* from `raw_user_meta_data` — now `display_name`, `full_name` or
+`name`, so a Google account arrives with the name Google already knew — and
+still never reads a role from it. That field is a browser's `options.data` on a
+password signup and a provider's claims on a social one; neither is a source of
+authorization. There is a database assertion for the OAuth shape of that attack
+alongside the original one.
+
 ### Email confirmation needs `/auth/callback`
 
 `@supabase/ssr` uses PKCE, so the link in a confirmation email carries a `code`

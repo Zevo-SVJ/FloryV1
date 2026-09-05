@@ -50,8 +50,14 @@ appears somewhere else.
 
 ### Apply the schema
 
-**SQL Editor → New query**, paste the whole of
-`supabase/migrations/20260901000000_foundation.sql`, run it.
+**SQL Editor → New query**, paste each migration in `supabase/migrations/` in
+filename order and run it:
+
+1. `20260901000000_foundation.sql` — the schema, roles, policies and privileges.
+2. `20260905000000_oauth_display_names.sql` — teaches the signup trigger to read
+   a name from an OAuth provider (`full_name` / `name`), which is what Google
+   sends. Safe to run on a project that already has the first one; it replaces
+   one function and touches no data.
 
 With the CLI instead:
 
@@ -65,8 +71,6 @@ enabled.
 
 ### Auth settings
 
-**Authentication → Providers**: Email is on by default and is all LOCK uses.
-
 **Authentication → URL Configuration**:
 
 - **Site URL** — `http://localhost:3000` locally, your real origin in production.
@@ -74,23 +78,117 @@ enabled.
   - `http://localhost:3000/auth/callback`
   - `https://<your-domain>/auth/callback`
 
-That path is not optional. `@supabase/ssr` uses PKCE, so the link in a
-confirmation email carries a code that must be exchanged for a session on the
-server. Without the redirect allowed, the link fails and the account is
-confirmed but unusable.
+That path is not optional. `@supabase/ssr` uses PKCE, so both a Google sign-in
+and a confirmation email come back with a `code` that must be exchanged for a
+session on the server. Without the redirect allowed, the round trip completes
+and lands nowhere.
+
+#### Turn email confirmation OFF
+
+**Authentication → Sign In / Providers → Email → Confirm email — switch it off.**
+
+This is a real decision, not a shortcut, and it is the right one for LOCK as it
+stands:
+
+- No SMTP provider is configured, so the only sender available is Supabase's
+  shared one. It is capped at a couple of messages an hour and is routinely
+  undelivered — an account created this way waits on an email that never
+  arrives, and there is no way through from the app.
+- LOCK is private. Email confirmation exists to prove that whoever typed an
+  address controls it, which matters when strangers can sign up. Here the
+  accounts are made by the person who owns the project, and signups are closed
+  the moment they exist.
+
+With it off, creating an account signs you straight in. If you leave it on, the
+signup form says so explicitly rather than pretending to have sent something —
+and an account already stuck that way can be confirmed by hand under
+**Authentication → Users**.
+
+When LOCK later needs real email — password resets, invitations — the answer is
+an SMTP provider under **Project Settings → Authentication → SMTP Settings**,
+and confirmation can be switched back on in the same change.
 
 Restart `npm run dev` after editing `.env.local` — `NEXT_PUBLIC_` values are
 inlined at build time and a running server will not pick them up.
 
 ---
 
+## 2b. Google sign-in
+
+Optional, and entirely configuration: no code changes, and no credentials in
+this repository. Google's client secret lives in Supabase, which is the only
+place it belongs — it is never sent to a browser and never read by this app.
+
+Skip this and everything else still works; the button simply reports that the
+provider is not enabled.
+
+### In Google Cloud
+
+[console.cloud.google.com](https://console.cloud.google.com) → create or select
+a project.
+
+1. **APIs & Services → OAuth consent screen**
+   - **External** for a personal Google account; **Internal** if you have Google
+     Workspace and only your own domain will sign in.
+   - App name (`LOCK`), user support email, developer contact email. Save.
+   - While the consent screen is in **Testing**, only listed test users can sign
+     in — add your own address under **Audience → Test users**, or you will be
+     refused by Google before Supabase is ever reached.
+2. **APIs & Services → Credentials → Create credentials → OAuth client ID**
+   - Application type: **Web application**.
+   - **Authorized JavaScript origins**:
+     - `http://localhost:3000`
+     - `https://<your-domain>` (when you deploy)
+   - **Authorized redirect URIs** — this one matters more than any other line in
+     this document:
+
+     ```
+     https://<project-ref>.supabase.co/auth/v1/callback
+     ```
+
+     **Supabase's callback, not the app's.** Google redirects to Supabase;
+     Supabase then redirects to `/auth/callback` in LOCK. Putting
+     `http://localhost:3000/auth/callback` here is the single most common
+     mistake and produces `redirect_uri_mismatch` at Google's screen.
+3. Copy the **Client ID** and **Client secret**.
+
+### In Supabase
+
+**Authentication → Sign In / Providers → Google**:
+
+- Toggle **Enable Sign in with Google** on.
+- Paste the **Client ID** and **Client Secret**.
+- Leave the callback URL Supabase shows you as it is — that is the value you
+  already pasted into Google.
+- Save.
+
+Nothing else. LOCK reads no Google credentials; `signInWithGoogle` in
+`src/lib/auth/actions.ts` asks Supabase for the authorization URL and Supabase
+holds the secret.
+
+### If signups are closed
+
+Closing signups (below) closes Google too: a Google sign-in for an address with
+no account *is* a signup. LOCK reports that case as "That Google account has no
+access to LOCK, and new accounts are closed" rather than as a generic failure.
+So enable Google and sign in once with each address **before** closing signups,
+or reopen them briefly to add somebody.
+
+---
+
 ## 3. Create the accounts
 
-Go to `/signup` and create the accounts you need. Every one starts as a
-`learner` — that is enforced in the database, not in the form.
+Go to `/signup`. Either way in works, and both produce the same kind of account:
 
-If email confirmation is on (it is, by default), check the inbox and click the
-link before signing in.
+- **Continue with Google** — one click, no password, and the name on the profile
+  comes from your Google account.
+- **Email and password** — with confirmation switched off as above, creating the
+  account signs you straight in.
+
+Every account starts as a `learner`. That is enforced by the database, not by
+the form: the `role` column defaults to `learner`, no client holds the privilege
+to write it, and the signup trigger deliberately ignores a role in the metadata
+whether it came from our form or from Google's claims.
 
 ### Promote an account to mentor or admin
 
@@ -143,10 +241,14 @@ Point it at a specific server with `LOCK_TEST_PGHOST` / `LOCK_TEST_PGUSER` if
 By hand, in the browser:
 
 1. `/dashboard` while signed out → sent to `/login?next=%2Fdashboard`
-2. Sign in → back to `/dashboard`, not to the entry page
-3. `/admin` as a learner → "This section is not for your account"
-4. `/admin` as an admin → the section placeholder
-5. The mentor and admin links are absent from the sidebar for a learner
+2. Sign in with email and password → back to `/dashboard`, not the entry page
+3. Sign out, then **Continue with Google** → Google's account chooser, then
+   `/dashboard`
+4. Cancel at Google's consent screen → back on `/login` reading "Sign-in was
+   cancelled. Nothing happened to your account."
+5. `/admin` as a learner → "This section is not for your account"
+6. `/admin` as an admin → the section placeholder
+7. The mentor and admin links are absent from the sidebar for a learner
 
 ---
 
@@ -191,3 +293,28 @@ sign up again, or insert the profile by hand.
 
 **A role change does nothing.** You updated `auth.users`, not
 `public.profiles`. The role lives on the profile.
+
+**Google says `redirect_uri_mismatch`.** The Authorized redirect URI in Google
+Cloud must be `https://<project-ref>.supabase.co/auth/v1/callback` — Supabase's,
+not the app's. See section 2b.
+
+**Google says `access_blocked` or "app has not completed verification".** The
+consent screen is in Testing and your address is not a test user. Add it under
+**OAuth consent screen → Audience → Test users**.
+
+**"Google sign-in is not enabled on this Supabase project yet."** The provider
+toggle is off, or the client ID and secret were not saved.
+
+**Google signs me in as the wrong account.** It should not — LOCK asks for the
+account chooser every time. If it does, you are signed into that account in the
+browser; pick the other one at the chooser.
+
+**A Google sign-in lands back on `/login` saying it could not be completed.**
+`http://localhost:3000/auth/callback` is missing from **Redirect URLs** in
+Supabase, or the browser that finished the flow is not the one that started it
+— the PKCE verifier is a cookie and does not travel between browsers.
+
+**Two accounts for one person.** Supabase links a Google identity to an existing
+email account only when that email is confirmed. Signing up with a password and
+later using Google on the same address can otherwise produce a second account.
+For LOCK, pick one method per person.

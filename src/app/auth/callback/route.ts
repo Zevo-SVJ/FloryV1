@@ -1,36 +1,73 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { isSupabaseConfigured } from "@/lib/env";
-import { safeReturnTo, signInUrl } from "@/lib/auth/routes";
+import { safeReturnTo, signInUrl, signInUrlWithError } from "@/lib/auth/routes";
+import { classifyProviderError } from "@/lib/auth/auth-errors";
 
 /**
- * Where a confirmation email comes back to.
+ * Where an identity provider — and a link in an email — comes back to.
  *
- * `@supabase/ssr` uses the PKCE flow, so the link in the email carries a `code`
- * that is worth nothing until it is exchanged for a session — and the exchange
- * has to happen on the server, because the verifier lives in an HTTP-only
- * cookie. Without this route the link lands on a page that reads the session,
- * finds none, and bounces the person to sign in: an account created and
- * confirmed that nobody can get into.
+ * `@supabase/ssr` uses PKCE, so what arrives is a `code` that is worth nothing
+ * until it is exchanged for a session, and the exchange has to happen on the
+ * server because the verifier lives in an HTTP-only cookie. Without this route
+ * a Google sign-in lands on a page that reads the session, finds none, and
+ * bounces to the sign-in form: a completed round trip that appears to have done
+ * nothing.
  *
- * A failure sends them to sign in rather than showing an error page. By then
- * the account is confirmed and signing in works; a stack trace would be true
- * and useless.
+ * One route serves both flows. That is not a shortcut — the two are the same
+ * exchange, and a second route would be a second place for the redirect
+ * allowlist and the `next` handling to drift.
+ *
+ * Every failure path carries a reason. The earlier version redirected to
+ * `/login` with nothing attached, which left somebody who had just cancelled at
+ * Google's consent screen staring at an unchanged form, unsure whether they had
+ * done something wrong. A key travels instead — never the provider's own text;
+ * see `lib/auth/auth-errors.ts`.
  */
 export async function GET(request: NextRequest) {
   const { searchParams } = request.nextUrl;
-  const code = searchParams.get("code");
   const next = safeReturnTo(searchParams.get("next"));
 
-  if (!code || !isSupabaseConfigured()) {
-    return NextResponse.redirect(new URL(signInUrl(), request.url));
+  /*
+   * The provider refused, or the person changed their mind. This is checked
+   * before `code` because both parameters can be absent together, and "you
+   * cancelled" is a better answer than "something went wrong".
+   */
+  const providerError = searchParams.get("error");
+  const providerErrorCode = searchParams.get("error_code");
+  if (providerError || providerErrorCode) {
+    const key = classifyProviderError({
+      error: providerError,
+      errorCode: providerErrorCode,
+    });
+    return NextResponse.redirect(new URL(signInUrlWithError(key, next), request.url));
+  }
+
+  if (!isSupabaseConfigured()) {
+    return NextResponse.redirect(
+      new URL(signInUrlWithError("not_configured", next), request.url),
+    );
+  }
+
+  const code = searchParams.get("code");
+  if (!code) {
+    // Somebody opened this URL directly. Nothing failed; there is simply
+    // nothing to exchange, so send them to sign in without an alarm.
+    return NextResponse.redirect(new URL(signInUrl(next), request.url));
   }
 
   const supabase = await createClient();
   const { error } = await supabase.auth.exchangeCodeForSession(code);
 
   if (error) {
-    return NextResponse.redirect(new URL(signInUrl(), request.url));
+    /*
+     * A code that was already used, expired, or arrived in a browser that does
+     * not hold the matching verifier — opening the link in a different browser
+     * from the one that started the flow is the everyday version of this.
+     */
+    return NextResponse.redirect(
+      new URL(signInUrlWithError("exchange_failed", next), request.url),
+    );
   }
 
   return NextResponse.redirect(new URL(next, request.url));
