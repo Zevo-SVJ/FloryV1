@@ -45,7 +45,41 @@ const clean = (value: string | undefined): string | null => {
   return trimmed && trimmed.length > 0 ? trimmed : null;
 };
 
-const supabaseUrl = (): string | null => clean(process.env.NEXT_PUBLIC_SUPABASE_URL);
+/**
+ * The API paths a Supabase project serves, when one of them is pasted by mistake.
+ *
+ * The dashboard shows the project URL next to the RESTful endpoint, and the two
+ * are one line apart. Copying the wrong one costs an afternoon, because the
+ * failure is silent and wrong in an unhelpful direction: the client appends its
+ * own `/auth/v1` to whatever base it is given, so `…/rest/v1` turns a sign-in
+ * into `…/rest/v1/auth/v1/authorize`. That is a valid REST path, REST requires
+ * an API key on every request, and the browser — which is only ever *navigated*
+ * to the authorize URL and cannot attach a header to a navigation — is answered
+ * with "No API key found in request". Nothing in that message points at the
+ * variable that caused it.
+ *
+ * None of these is ever a legitimate base URL, so trimming one is unambiguous.
+ * A base that merely has a path — self-hosted behind a prefix — is left alone.
+ */
+const API_PATH = /\/(?:rest|auth|storage|realtime|functions)\/v1\/*$/;
+
+const supabaseUrl = (): string | null => {
+  const raw = clean(process.env.NEXT_PUBLIC_SUPABASE_URL);
+  if (!raw) return null;
+
+  const base = raw.replace(API_PATH, "").replace(/\/+$/, "");
+  if (!base) return null;
+
+  /* Unparseable is missing. A client built on it would throw at the first
+     request, far from the variable that is actually wrong. */
+  try {
+    new URL(base);
+  } catch {
+    return null;
+  }
+  return base;
+};
+
 const supabaseAnonKey = (): string | null => clean(process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY);
 
 export interface SupabaseEnv {

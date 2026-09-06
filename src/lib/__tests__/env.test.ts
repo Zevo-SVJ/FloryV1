@@ -92,6 +92,46 @@ describe("the Supabase configuration", () => {
     assert.deepEqual(missingPublicEnv(), []);
   });
 
+  /*
+   * The production failure this guards against: NEXT_PUBLIC_SUPABASE_URL set to
+   * the RESTful endpoint rather than the project URL. The client appends its
+   * own /auth/v1, so a sign-in navigated the browser to
+   * https://<ref>.supabase.co/rest/v1/auth/v1/authorize — a REST path, where the
+   * gateway demands an API key a navigation cannot carry, and answers
+   * "No API key found in request".
+   */
+  it("accepts an API endpoint where the project URL was meant", () => {
+    for (const suffix of ["/rest/v1", "/auth/v1", "/storage/v1", "/realtime/v1", "/functions/v1"]) {
+      set(`https://project.supabase.co${suffix}`, "anon-key");
+      assert.equal(
+        supabaseEnv()?.url,
+        "https://project.supabase.co",
+        `${suffix} should be trimmed back to the project URL`,
+      );
+    }
+
+    set("https://project.supabase.co/rest/v1/", "anon-key");
+    assert.equal(supabaseEnv()?.url, "https://project.supabase.co");
+
+    set("https://project.supabase.co///", "anon-key");
+    assert.equal(supabaseEnv()?.url, "https://project.supabase.co");
+  });
+
+  it("leaves a base URL that merely has a path alone", () => {
+    /* Self-hosted behind a prefix. Only the five API paths are ever wrong. */
+    set("https://example.test/supabase", "anon-key");
+    assert.equal(supabaseEnv()?.url, "https://example.test/supabase");
+
+    set("http://127.0.0.1:54321", "anon-key");
+    assert.equal(supabaseEnv()?.url, "http://127.0.0.1:54321");
+  });
+
+  it("treats a value that is not a URL as missing, by name", () => {
+    set("not a url", "anon-key");
+    assert.equal(isSupabaseConfigured(), false);
+    assert.deepEqual(missingPublicEnv(), [URL_KEY]);
+  });
+
   it("trims a trailing slash off the site URL", () => {
     const before = process.env.NEXT_PUBLIC_SITE_URL;
     process.env.NEXT_PUBLIC_SITE_URL = "https://lock.example/";
