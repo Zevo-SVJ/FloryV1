@@ -46,6 +46,74 @@ $$;
 \set stranger '44444444-4444-4444-4444-444444444444'
 \set boss     '55555555-5555-5555-5555-555555555555'
 
+-- ── Fixtures ────────────────────────────────────────────────────────────────
+--
+-- Two phases that belong to this test rather than to the curriculum.
+--
+-- `fixture-empty` has nothing in it, so the "nothing published" branch of the
+-- progress view still has something to be true about — none of the ten real
+-- phases is empty any more, which is the point of the curriculum.
+--
+-- `fixture-work` holds two lessons and one mission, which is the arithmetic the
+-- weighting assertions below check by hand. Pinning that arithmetic to a real
+-- phase would mean editing a lesson breaks the progress suite; the rule is what
+-- is under test, not the size of THINK.
+insert into public.phases (key, position, label, summary) values
+  ('fixture-empty', 99, 'Empty fixture', 'A phase with nothing in it, owned by this test.'),
+  ('fixture-work',  98, 'Work fixture',  'Two lessons and one mission, owned by this test.');
+
+insert into public.modules (id, phase_key, slug, title, summary, position, status)
+values ('00000000-0000-4000-8000-000000000001', 'fixture-work', 'fixture-module',
+        'Fixture module', 'The module the progress arithmetic is checked against.',
+        1, 'published');
+
+insert into public.lessons (
+  id, module_id, slug, title, summary, type, difficulty, estimated_minutes,
+  objectives, completion_rule, position, status, is_demo, blocks
+) values (
+  '00000000-0000-4000-8000-000000000010', '00000000-0000-4000-8000-000000000001',
+  'fixture-decision', 'A lesson that ends in a decision',
+  'Completed by making a decision, so the completion gate is exercised.',
+  'concept', 'foundational', 8, array['Reach the decision completion path'],
+  'decision', 1, 'published', true,
+  $json$[
+    {"kind":"text","id":"t1","text":"A fixture lesson. Its only reader is the test suite."},
+    {"kind":"decision","id":"decide-1",
+     "situation":"You can ship rough this weekend or polished in a month.",
+     "options":[
+       {"id":"rough","label":"Ship rough","tradeoff":"Evidence in days."},
+       {"id":"polished","label":"Ship polished","tradeoff":"A month on unconfirmed assumptions."},
+       {"id":"unsure","label":"I am not sure yet","tradeoff":"Fair, and one question settles it."}],
+     "recommended":"rough",
+     "explanation":"Ship rough, to a small chosen audience."}
+  ]$json$::jsonb
+), (
+  '00000000-0000-4000-8000-000000000011', '00000000-0000-4000-8000-000000000001',
+  'fixture-read', 'A lesson you simply read',
+  'The second lesson, so the phase has two of them to weigh.',
+  'concept', 'foundational', 4, array['Exist, so the arithmetic has two lessons'],
+  'read', 2, 'published', true,
+  $json$[{"kind":"text","id":"t1","text":"Nothing to answer here."}]$json$::jsonb
+);
+
+insert into public.lesson_skills (lesson_id, skill_key) values
+  ('00000000-0000-4000-8000-000000000010', 'problem-discovery'),
+  ('00000000-0000-4000-8000-000000000010', 'critical-thinking');
+
+insert into public.missions (
+  id, phase_key, module_id, slug, title, type, objective, deliverable_title,
+  required_evidence, requires_reflection, position, status, is_demo
+) values (
+  '00000000-0000-4000-8000-000000000100', 'fixture-work',
+  '00000000-0000-4000-8000-000000000001', 'fixture-problem-statement',
+  'Write the problem statement', 'research',
+  'Leave with one problem and one person who has it.', 'Problem Statement',
+  '{}', true, 1, 'published', true
+);
+
+insert into public.mission_skills (mission_id, skill_key, is_primary) values
+  ('00000000-0000-4000-8000-000000000100', 'problem-discovery', true);
+
 insert into auth.users (id, email, raw_user_meta_data) values
   (:'david',    'david@example.com', '{"display_name":"David"}'::jsonb),
   (:'rival',    'rival@example.com', '{"display_name":"Rival"}'::jsonb),
@@ -96,8 +164,19 @@ select pg_temp.ok(
 );
 select pg_temp.ok(
   (select percent from public.learner_phase_progress
-   where profile_id = :'david' and phase_key = 'monetize') is null,
+   where profile_id = :'david' and phase_key = 'fixture-empty') is null,
   'a phase with nothing published reports null, never 0%'
+);
+/*
+ * And the other half of that rule, which is the one a learner meets: none of
+ * the ten real phases is empty any more, so every one of them reports a number.
+ * A phase that reported null would be a phase with nothing in it, and there is
+ * no longer such a thing.
+ */
+select pg_temp.ok(
+  (select count(*) from public.learner_phase_progress
+   where profile_id = :'david' and phase_key not like 'fixture-%' and percent is null) = 0,
+  'and every real phase has content, so none of them reports null'
 );
 select pg_temp.ok(
   (select count(*) from public.learner_activity where profile_id = :'david') = 0,
@@ -343,38 +422,40 @@ set role authenticated;
 select pg_temp.claims(:'david');
 
 /*
- * The weighting, checked rather than trusted. THINK has one published module
- * with two lessons and one published mission: 2 lessons × 1 + 1 mission × 3 = 5
- * units. David has finished one lesson and one mission: 1 + 3 = 4. That is 80%,
- * and it is 80% because of a rule written in one place, not a formula invented
- * per screen.
+ * The weighting, checked rather than trusted. The fixture phase has one module
+ * with two lessons and one mission: 2 lessons × 1 + 1 mission × 3 = 5 units.
+ * David has finished one lesson and one mission: 1 + 3 = 4. That is 80%, and it
+ * is 80% because of a rule written in one place, not a formula invented per
+ * screen.
  */
 select pg_temp.ok(
   (select units_total from public.learner_phase_progress
-   where profile_id = :'david' and phase_key = 'think') = 5,
+   where profile_id = :'david' and phase_key = 'fixture-work') = 5,
   'phase units are lessons plus three times missions'
 );
 select pg_temp.ok(
   (select units_done from public.learner_phase_progress
-   where profile_id = :'david' and phase_key = 'think') = 4,
+   where profile_id = :'david' and phase_key = 'fixture-work') = 4,
   'and the same weights apply to what is done'
 );
 select pg_temp.ok(
   (select percent from public.learner_phase_progress
-   where profile_id = :'david' and phase_key = 'think') = 80,
+   where profile_id = :'david' and phase_key = 'fixture-work') = 80,
   'so the phase reads 80%, explainably'
 );
 
 -- Asked twice, the same answer. A progress figure that drifts is not a figure.
 select pg_temp.ok(
   (select percent from public.learner_phase_progress
-   where profile_id = :'david' and phase_key = 'think')
+   where profile_id = :'david' and phase_key = 'fixture-work')
   = (select percent from public.learner_phase_progress
-     where profile_id = :'david' and phase_key = 'think'),
+     where profile_id = :'david' and phase_key = 'fixture-work'),
   'progress is deterministic'
 );
 select pg_temp.ok(
-  (select percent from public.learner_overall_progress where profile_id = :'david') = 80,
+  (select percent from public.learner_overall_progress where profile_id = :'david')
+  = (select round(100.0 * sum(units_done) / nullif(sum(units_total), 0))::integer
+     from public.learner_phase_progress where profile_id = :'david'),
   'and global progress applies the identical rule across every phase'
 );
 select pg_temp.ok(
@@ -509,7 +590,7 @@ select pg_temp.ok(
   'a lesson in review is not visible to a learner'
 );
 select pg_temp.ok(
-  (select count(*) from public.lessons where slug = 'how-lock-teaches') = 1,
+  (select count(*) from public.lessons where slug = 'fixture-decision') = 1,
   'and a published one is'
 );
 reset role;

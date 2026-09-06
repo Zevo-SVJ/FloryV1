@@ -1,5 +1,4 @@
 import type { Metadata } from "next";
-import Link from "next/link";
 import { Screen, ToolbarButton } from "@/components/ui/screen";
 import { Group, LinkRow } from "@/components/ui/list";
 import { Meter, ModuleRow, NextAction, PhaseRow } from "@/components/learning/course";
@@ -74,17 +73,10 @@ export default async function LearnPage() {
         {!started ? (
           <NextAction
             eyebrow="Start here"
-            title="Learn how LOCK works, then build"
-            description="Five minutes on how the programme runs, what you will produce, and where to begin. Then you start the first module."
+            title="You are here to build a real SaaS"
+            description="Five minutes on how the programme runs, what you will produce, and where you begin. Then you are in the first module."
             href="/learn/start"
-            action="Start here"
-            aside={
-              nextLesson ? (
-                <Quiet href={`/learn/lessons/${nextLesson.lesson.slug}`}>
-                  Skip to the first lesson
-                </Quiet>
-              ) : null
-            }
+            action="Start building"
           />
         ) : nextLesson && nextModule ? (
           <NextAction
@@ -189,12 +181,6 @@ export default async function LearnPage() {
          */}
         <Group title="Also" className="rise rise-3">
           <LinkRow
-            href="/learn/start"
-            leading={<Icon name="sparkle" className="size-[1.15rem] text-ink-subtle" />}
-            title="How LOCK works"
-            detail="How the programme runs, and what you will produce."
-          />
-          <LinkRow
             href="/learn/lessons"
             leading={<Icon name="list" className="size-[1.15rem] text-ink-subtle" />}
             title="Every lesson"
@@ -209,16 +195,5 @@ export default async function LearnPage() {
         </Group>
       </div>
     </Screen>
-  );
-}
-
-function Quiet({ href, children }: { href: string; children: React.ReactNode }) {
-  return (
-    <Link
-      href={href}
-      className="tactile text-subhead text-ink-muted underline decoration-ink/20 underline-offset-4 hover:text-ink hover:decoration-ink/50"
-    >
-      {children}
-    </Link>
   );
 }

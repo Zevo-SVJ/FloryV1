@@ -183,8 +183,8 @@ describe("areaAt", () => {
   it("resolves a child to its area, so a screen always lights up a tab", () => {
     const cases: [string, string][] = [
       ["/learn/start", "learn"],
-      ["/learn/lessons/how-lock-teaches", "learn"],
-      ["/learn/modules/demo-module", "learn"],
+      ["/learn/lessons/problems-not-features", "learn"],
+      ["/learn/modules/problems-worth-solving", "learn"],
       ["/learn/missions/find-the-problem", "learn"],
       ["/build/artifacts", "build"],
       ["/build/log", "build"],

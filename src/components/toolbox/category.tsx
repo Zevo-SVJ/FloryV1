@@ -26,6 +26,7 @@ export async function ToolboxCategory({
   resourceKind,
   views,
   activeView,
+  empty,
 }: {
   kind: ToolboxKind;
   eyebrow: string;
@@ -42,6 +43,8 @@ export async function ToolboxCategory({
    */
   views?: readonly { href: string; label: string }[];
   activeView?: string;
+  /** What to say when this particular view has nothing in it. */
+  empty?: { title: string; body: string };
 }) {
   const all = await getToolboxItems(kind);
 
@@ -108,9 +111,9 @@ export async function ToolboxCategory({
 
       <Group>
         {items.length === 0 ? (
-          <EmptyState title="Nothing here yet">
-            Items appear as the curriculum is published. Each one will say what it
-            is for, when to reach for it, and what you should produce with it.
+          <EmptyState title={empty?.title ?? "Nothing here yet"}>
+            {empty?.body ??
+              "The Toolbox is curated rather than collected: a thing is here because a lesson or a mission sends you to it, and it says what it is for and what you should produce with it."}
           </EmptyState>
         ) : (
           items.map((item) => (

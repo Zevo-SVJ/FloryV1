@@ -20,6 +20,11 @@ export default function Page() {
       description="Walkthroughs worth watching once, with the reason they are here and the part to watch."
       views={RESOURCE_VIEWS}
       activeView="/resources/videos"
+      empty={{
+        title: "No videos, on purpose",
+        body:
+          "A video earns a place here by being better than the lesson that would otherwise send you to it, and by still being there in a year. Nothing has cleared that bar yet, and a list of links that rot is worse than no list. The lessons and the Docs carry everything you need in the meantime.",
+      }}
     />
   );
 }

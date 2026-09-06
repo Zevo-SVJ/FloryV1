@@ -56,20 +56,25 @@ values ('prompt', 'unpublished-prompt', 'Draft', 'A draft nobody has published y
 -- ── The seed ────────────────────────────────────────────────────────────────
 
 select pg_temp.ok(
-  (select count(*) from public.toolbox_items where published) = 19,
-  'nineteen published items — a curated set, not a dump'
+  (select count(*) from public.toolbox_items where published) = 18,
+  'eighteen published items — a curated set, not a dump'
+);
+select pg_temp.ok(
+  (select count(*) from public.toolbox_items where is_demo) = 0,
+  'and none of them is a demonstration of one'
 );
 select pg_temp.ok(
   (select count(distinct kind) from public.toolbox_items where published) = 6,
   'all six kinds are represented'
 );
 select pg_temp.ok(
-  (select count(*) from public.mission_toolbox_items) = 4,
-  'the demo mission surfaces its own tools'
+  (select count(*) from public.mission_toolbox_items) > 0
+    and (select count(distinct mission_id) from public.mission_toolbox_items) > 5,
+  'missions across the programme surface their own tools'
 );
 select pg_temp.ok(
-  (select count(*) from public.lesson_toolbox_items) = 3,
-  'so does the demo lesson'
+  (select count(*) from public.lesson_toolbox_items) > 0,
+  'so do the lessons that hand one to you'
 );
 
 -- ── Search ──────────────────────────────────────────────────────────────────
@@ -103,7 +108,8 @@ set role authenticated;
 select pg_temp.claims(:'david');
 
 select pg_temp.ok(
-  (select count(*) from public.toolbox_items) = 19,
+  (select count(*) from public.toolbox_items) = 18
+    and (select count(*) from public.toolbox_items where slug = 'unpublished-prompt') = 0,
   'a learner sees published items and not drafts'
 );
 select pg_temp.denied(
@@ -183,7 +189,8 @@ reset role;
 set role authenticated;
 select pg_temp.claims(:'mentor');
 
-select pg_temp.ok((select count(*) from public.toolbox_items) = 20,
+select pg_temp.ok(
+  (select count(*) from public.toolbox_items where slug = 'unpublished-prompt') = 1,
   'staff see unpublished toolbox drafts');
 select pg_temp.denied(
   'update public.toolbox_items set title = ''edited'' where slug = ''idea-brief''',

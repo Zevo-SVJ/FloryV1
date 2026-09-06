@@ -58,14 +58,17 @@ update public.profiles set role = 'admin'  where id = :'boss';
 insert into public.learner_mentor_relationships (learner_id, mentor_id)
 values (:'david', :'zevo');
 
--- A mission that needs a human verdict, alongside the seeded one that does not.
+-- A mission that needs a human verdict. It belongs to the test rather than to
+-- the curriculum: review is a property this suite has to control, and a real
+-- mission's settings are an editorial decision that should not break security
+-- assertions when it changes.
 insert into public.missions (
   id, phase_key, slug, title, type, objective, deliverable_title,
   requires_review, requires_reflection, position, status, is_demo
 ) values (
-  '00000000-0000-4000-8000-000000000300', 'validate', 'validate-the-problem',
+  '00000000-0000-4000-8000-000000000300', 'validate', 'fixture-validate-the-problem',
   'Validate the problem', 'research', 'Get evidence before you get a codebase.',
-  'Validation Report', true, false, 1, 'published', true
+  'Validation Report', true, false, 90, 'published', true
 );
 
 -- David does the work.

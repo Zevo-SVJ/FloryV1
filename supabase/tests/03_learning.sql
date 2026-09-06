@@ -59,6 +59,77 @@ update public.profiles set role = 'mentor' where id = :'mentor';
 insert into public.learner_mentor_relationships (learner_id, mentor_id)
 values (:'david', :'mentor');
 
+-- ── Fixtures ────────────────────────────────────────────────────────────────
+--
+-- The engine's edge cases need lessons shaped to exercise them: one that
+-- completes on a decision, one that completes on a knowledge check, one that is
+-- not published at all. The real curriculum contains none of those shapes on
+-- purpose — it never gates progression on a subjective answer — so the suite
+-- builds its own rather than leaning on content that ships to a learner.
+--
+-- These rows are deleted from a real database by the curriculum migration. They
+-- exist here, in the test, which is the only place they were ever needed.
+
+insert into public.modules (id, phase_key, slug, title, summary, position, status)
+values ('00000000-0000-4000-8000-000000000001', 'think', 'engine-fixtures',
+        'Engine fixtures', 'Lessons that exist to exercise the engine.', 90,
+        'published');
+
+-- Completes on a decision, and carries one of every interactive block so the
+-- grading paths can be reached.
+insert into public.lessons (
+  id, module_id, slug, title, summary, type, difficulty, estimated_minutes,
+  objectives, completion_rule, position, status, is_demo, blocks
+) values (
+  :'lesson1', '00000000-0000-4000-8000-000000000001',
+  'fixture-decision', 'A lesson that ends in a decision',
+  'Exercises grading, reflection and decision completion.',
+  'concept', 'foundational', 8,
+  array['Reach every grading path in one lesson'],
+  'decision', 1, 'published', true,
+  $json$[
+    {"kind":"text","id":"t1","text":"A fixture lesson. Its only reader is the test suite."},
+    {"kind":"choice","id":"q-1","question":"Which of these is graded?",
+     "multiple":false,
+     "options":[{"id":"a","label":"A reflection"},{"id":"b","label":"A knowledge check"}],
+     "correct":["b"],
+     "explanation":"A reflection has no right answer; a knowledge check does, and the database decides it."},
+    {"kind":"decision","id":"decide-1",
+     "situation":"You can ship rough this weekend or polished in a month.",
+     "options":[
+       {"id":"rough","label":"Ship rough","tradeoff":"Evidence in days, a first impression you cannot retake."},
+       {"id":"polished","label":"Ship polished","tradeoff":"Credible on day one, a month on unconfirmed assumptions."},
+       {"id":"unsure","label":"I am not sure yet","tradeoff":"Fine, and there is a question that settles it: what would you learn this weekend?"}],
+     "recommended":"rough",
+     "explanation":"Ship rough, to a small chosen audience."},
+    {"kind":"reflection","id":"reflect-1",
+     "prompt":"Which of the two did you answer before reading on?"}
+  ]$json$::jsonb
+);
+
+-- Completes on a knowledge check, and is locked behind the first.
+insert into public.lessons (
+  id, module_id, slug, title, summary, type, difficulty, estimated_minutes,
+  objectives, completion_rule, position, status, is_demo, blocks
+) values (
+  :'lesson2', '00000000-0000-4000-8000-000000000001',
+  'fixture-check', 'A lesson that ends in a check',
+  'Exercises prerequisites and knowledge-check completion.',
+  'teardown', 'foundational', 4,
+  array['Reach the knowledge-check completion path'],
+  'knowledge_check', 2, 'published', true,
+  $json$[
+    {"kind":"text","id":"t1","text":"Locked until the first fixture lesson is complete."},
+    {"kind":"boolean","id":"q-tf",
+     "question":"A lesson counts as complete once you have scrolled to the bottom.",
+     "correct":["false"],
+     "explanation":"Completion depends on the lesson's own rule, decided in the database rather than by the page."}
+  ]$json$::jsonb
+);
+
+insert into public.lesson_prerequisites (lesson_id, requires_lesson_id)
+values (:'lesson2', :'lesson1');
+
 -- A draft nobody has published, to check the published gate.
 insert into public.lessons (module_id, slug, title, position, status, is_demo, blocks)
 values ('00000000-0000-4000-8000-000000000001', 'unpublished-draft', 'Draft', 9, 'draft', true, '[]'::jsonb);
@@ -71,12 +142,17 @@ select pg_temp.ok(
   'phases keep the order the program has'
 );
 select pg_temp.ok(
-  (select jsonb_array_length(blocks) from public.lessons where id = :'lesson1') > 10,
-  'the demo lesson carries a full block vocabulary'
+  (select count(*) from public.lessons where not is_demo) > 40,
+  'the real curriculum is seeded, not a demonstration of one'
 );
 select pg_temp.ok(
-  (select count(*) from public.lessons where is_demo) >= 2,
-  'demo content is flagged so it can be deleted in one statement'
+  (select count(distinct kind) from public.lessons l, jsonb_array_elements(l.blocks) b,
+     lateral (select b->>'kind' as kind) k where not l.is_demo) >= 8,
+  'and it uses the block vocabulary rather than a wall of prose'
+);
+select pg_temp.ok(
+  (select count(*) from public.lessons where is_demo and status = 'published' and slug not like 'fixture-%') = 0,
+  'no demonstration lesson is published to a learner'
 );
 
 -- ── Content is read-only to clients ─────────────────────────────────────────
@@ -85,7 +161,8 @@ set role authenticated;
 select pg_temp.claims(:'david');
 
 select pg_temp.ok(
-  (select count(*) from public.lessons) = 2,
+  (select count(*) from public.lessons where slug = 'unpublished-draft') = 0
+    and (select count(*) from public.lessons where slug like 'fixture-%') = 2,
   'a learner sees published lessons and not drafts'
 );
 select pg_temp.ok(
@@ -266,7 +343,7 @@ select pg_temp.ok(
   'but not their notes — a note is thinking out loud, not submitted work'
 );
 select pg_temp.ok(
-  (select count(*) from public.lessons) = 3,
+  (select count(*) from public.lessons where slug = 'unpublished-draft') = 1,
   'staff see unpublished drafts'
 );
 

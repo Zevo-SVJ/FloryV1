@@ -184,7 +184,7 @@ export default async function ModulePage({
         {/* ── What it produces ────────────────────────────────────────────── */}
         {mission ? (
           <div className="rise rise-2">
-            <MissionCallout entry={mission} />
+            <MissionCallout entry={mission} ready={entry.nextLesson === null} />
           </div>
         ) : null}
 

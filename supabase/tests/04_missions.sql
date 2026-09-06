@@ -54,19 +54,30 @@ update public.profiles set role = 'mentor' where id = :'mentor';
 insert into public.learner_mentor_relationships (learner_id, mentor_id)
 values (:'david', :'mentor');
 
--- A mission that demands proof, to exercise the evidence gate.
+-- ── Fixtures ────────────────────────────────────────────────────────────────
+--
+-- Two missions shaped for the gates this suite exercises: one that asks for a
+-- reflection and no proof, one that demands two kinds of evidence. The real
+-- curriculum has missions of both shapes, but pinning a security assertion to
+-- a piece of curriculum makes editing the curriculum break the security suite.
+-- These belong to the test.
+
 insert into public.missions (
   id, phase_key, slug, title, type, objective, deliverable_title,
   required_evidence, requires_reflection, position, status, is_demo
 ) values (
-  '00000000-0000-4000-8000-000000000200', 'ship', 'ship-it', 'Ship it', 'deploy',
+  :'mission', 'think', 'fixture-idea-brief', 'Find the problem', 'research',
+  'Leave with one problem and one person who has it.', 'Idea Brief',
+  '{}', true, 90, 'published', true
+), (
+  '00000000-0000-4000-8000-000000000200', 'ship', 'fixture-ship-it', 'Ship it', 'deploy',
   'Put it in front of real people.', 'Ship Report',
-  '{deployment,repository}', false, 1, 'published', true
+  '{deployment,repository}', false, 91, 'published', true
 );
 
 select pg_temp.ok(
-  (select count(*) from public.missions where is_demo) = 2,
-  'demo missions are flagged so they can be deleted in one statement'
+  (select count(*) from public.missions where is_demo and slug not like 'fixture-%') = 0,
+  'no demonstration mission ships with the curriculum'
 );
 
 set role authenticated;

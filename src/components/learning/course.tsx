@@ -362,13 +362,25 @@ export function ModuleRow({
 export function MissionCallout({
   entry,
   heading = "Your mission",
+  ready = true,
 }: {
   entry: MissionSummary;
   heading?: string;
+  /**
+   * Whether the lessons this mission rests on are done.
+   *
+   * The mission is always reachable — nothing here locks it, and the real
+   * prerequisites live in the database. What changes is weight: while the
+   * lessons are unread the mission is the *second* thing on the screen, and a
+   * filled accent button on it competes with the lesson the learner should
+   * open first.
+   */
+  ready?: boolean;
 }) {
   const { mission, progress } = entry;
   const done = progress?.status === "completed";
   const started = !done && progress !== null;
+  const emphasised = ready || done || started;
 
   return (
     <section className="overflow-hidden rounded-card bg-accent-quiet/70 p-5 sm:p-6">
@@ -389,11 +401,19 @@ export function MissionCallout({
       </p>
 
       <div className="mt-5 flex flex-wrap items-center gap-x-4 gap-y-2">
-        <ButtonLink href={`/learn/missions/${mission.slug}`} variant="accent" size="sm">
+        <ButtonLink
+          href={`/learn/missions/${mission.slug}`}
+          variant={emphasised ? "accent" : "secondary"}
+          size="sm"
+        >
           {done ? "Review the mission" : started ? "Continue the mission" : "Start the mission"}
         </ButtonLink>
         <span className="text-footnote text-ink-subtle">
-          {done ? "Complete" : "What you produce lands in My SaaS."}
+          {done
+            ? "Complete"
+            : emphasised
+              ? "What you produce lands in My SaaS."
+              : "The lessons above come first. What you produce lands in My SaaS."}
         </span>
       </div>
     </section>

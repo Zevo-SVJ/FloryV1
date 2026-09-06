@@ -62,12 +62,17 @@ export default async function HomePage() {
       }
     : !started && nextLesson
       ? {
+          /*
+           * Somebody who has done nothing gets orientation, and it is the only
+           * detour the programme makes. Five minutes, and it ends by opening the
+           * first module — so this is one screen on the way in, not a browse.
+           */
           eyebrow: "Start here",
           context: undefined,
-          title: "Learn how LOCK works",
-          body: "Five minutes on how the programme runs, what you will produce, and where to begin. Then you start the first module.",
+          title: "You are here to build a real SaaS",
+          body: "Five minutes on how the programme runs, what you will produce, and where you begin. Then you are in the first module.",
           href: "/learn/start",
-          cta: "Start here",
+          cta: "Start building",
         }
       : continueLesson
         ? {

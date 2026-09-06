@@ -272,7 +272,11 @@ export default async function MissionPage({
           ) : null}
 
           {/* Where the programme goes after this. A mission that ends in nothing
-              is the dead end the consolidation exists to remove. */}
+              is the dead end the consolidation exists to remove.
+
+              It is filled only once the mission is done. Until then the one
+              thing to do on this screen is the mission, and a second accent
+              button at the foot of it is an invitation to skip the work. */}
           {context?.nextModule ? (
             <NextUp
               eyebrow={`Next in ${context.phase.label}`}
@@ -280,6 +284,7 @@ export default async function MissionPage({
               description={context.nextModule.module.summary}
               href={`/learn/modules/${context.nextModule.module.slug}`}
               action="Open the next module"
+              emphasis={status === "completed" ? "primary" : "secondary"}
             />
           ) : (
             <NextUp
@@ -288,6 +293,7 @@ export default async function MissionPage({
               description="Your artifacts, the decisions behind them, and the product they belong to."
               href="/build"
               action="Open My SaaS"
+              emphasis={status === "completed" ? "primary" : "secondary"}
             />
           )}
         </>
