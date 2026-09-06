@@ -1,3 +1,4 @@
+import { connection } from "next/server";
 import { ButtonLink } from "@/components/ui/button";
 import { LockMark } from "@/components/layout/lock-mark";
 import { Label } from "@/components/ui/surface";
@@ -16,8 +17,19 @@ import { PHASES } from "@/lib/lock/phases";
  *
  * It does say plainly when the app has no database, because the first person to
  * clone this will hit that, and "nothing happens" is the worst possible answer.
+ *
+ * `connection()` comes first, and it is load-bearing rather than decorative.
+ * Without it this page has no request-time dependency on the unconfigured
+ * branch — `getUser()`, which declares one, is never reached — so Next.js
+ * prerenders it at build time and ships the "not configured" notice as a static
+ * HTML file. Every later request is answered from that file, so supplying the
+ * variables afterwards changes nothing and a redeploy only helps if the *build*
+ * could see them. A deployment that reads its configuration at runtime must say
+ * so before it reads it.
  */
 export default async function Home() {
+  await connection();
+
   const configured = isSupabaseConfigured();
   const user = configured ? await getUser() : null;
 
