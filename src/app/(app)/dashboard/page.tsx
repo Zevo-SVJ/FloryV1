@@ -42,7 +42,8 @@ export default async function HomePage() {
     ]);
 
   const name = profile.display_name?.trim();
-  const { current, activeKey, nextLesson, nextMission, continueLesson, phases } = overview;
+  const { activeKey, nextLesson, nextMission, nextModule, continueLesson, started, phases } =
+    overview;
   const moving = movingSkills(skills, 3);
   const returned = mentorView.needsWork[0] ?? null;
 
@@ -52,7 +53,21 @@ export default async function HomePage() {
    * first wastes the review. Then the lesson in flight, then the next lesson,
    * then the mission, then naming the product.
    */
-  const action = returned
+  const action = !started && nextLesson
+    ? {
+        /*
+         * Somebody who has done nothing gets orientation, not a lesson. It is
+         * the one case where "what do I do now" is genuinely "understand how
+         * this works" — and it is a two-minute read that ends in the first
+         * module rather than a detour.
+         */
+        eyebrow: "Start here",
+        title: "Learn how LOCK works",
+        body: "Five minutes on how the programme runs, what you will produce, and where to begin. Then you start the first module.",
+        href: "/learn/start",
+        cta: "Start here",
+      }
+    : returned
     ? {
         eyebrow: "Returned by your mentor",
         title: returned.title,
@@ -70,7 +85,9 @@ export default async function HomePage() {
         }
       : nextLesson
         ? {
-            eyebrow: current ? `Phase ${String(current.number).padStart(2, "0")} · ${current.label}` : "Next",
+            eyebrow: nextModule
+              ? `${String(nextLesson.phase.number).padStart(2, "0")} ${nextLesson.phase.label} · ${nextModule.module.title}`
+              : "Next lesson",
             title: nextLesson.lesson.title,
             body: nextLesson.lesson.summary,
             href: `/learn/lessons/${nextLesson.lesson.slug}`,
@@ -93,11 +110,11 @@ export default async function HomePage() {
                 cta: "Start my SaaS",
               }
             : {
-                eyebrow: "Roadmap",
-                title: "Look at what comes next",
-                body: "Nothing is open right now. The roadmap shows the whole route and which phase is under your feet.",
+                eyebrow: "Up to date",
+                title: "Everything published so far is done",
+                body: "Learn shows the whole programme and which phase is under your feet. The next phase opens as it is written.",
                 href: "/learn",
-                cta: "See the roadmap",
+                cta: "Go to Learn",
               };
 
   return (
@@ -117,12 +134,24 @@ export default async function HomePage() {
           </p>
         </div>
 
-        <JourneyStrip
-          phases={phases.map((p) => ({
-            key: p.key, number: p.number, label: p.label, state: p.state, percent: p.percent,
-          }))}
-          activeKey={activeKey}
-        />
+        <div className="space-y-3">
+          <JourneyStrip
+            phases={phases.map((p) => ({
+              key: p.key, number: p.number, label: p.label, state: p.state, percent: p.percent,
+            }))}
+            activeKey={activeKey}
+          />
+          <p className="flex flex-wrap items-baseline gap-x-4 gap-y-1">
+            <Quiet href="/learn">See the whole programme</Quiet>
+            {nextModule ? (
+              /* Not the `label` style: uppercasing a module's title turns a
+                 name into a shout, and this is a sentence about where you are. */
+              <span className="text-sm text-ink-subtle">
+                You are in {nextModule.module.title}
+              </span>
+            ) : null}
+          </p>
+        </div>
       </header>
 
       {/* ── What you are building, and what happened ─────────────────────── */}
@@ -187,7 +216,6 @@ export default async function HomePage() {
               <Stat label="Missions">
                 {workspace.completedCount}/{workspace.totalCount}
               </Stat>
-              <Stat label="XP">{progress.xp?.total ?? 0}</Stat>
             </dl>
           </section>
 

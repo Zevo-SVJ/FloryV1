@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { ToolboxCategory } from "@/components/toolbox/category";
+import { ToolboxCategory, RESOURCE_VIEWS } from "@/components/toolbox/category";
 
 export const metadata: Metadata = { title: "Videos" };
 
@@ -18,6 +18,8 @@ export default function Page() {
       eyebrow="Resources"
       title="Videos"
       description="Walkthroughs worth watching once, with the reason they are here and the part to watch."
+      views={RESOURCE_VIEWS}
+      activeView="/resources/videos"
     />
   );
 }

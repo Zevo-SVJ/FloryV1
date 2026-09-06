@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { PageHeader, HeaderMeta } from "@/components/ui/page-header";
 import { EmptyState } from "@/components/states/empty-state";
 import { ButtonLink } from "@/components/ui/button";
@@ -22,12 +23,24 @@ export async function ToolboxCategory({
   title,
   description,
   resourceKind,
+  views,
+  activeView,
 }: {
   kind: ToolboxKind;
   eyebrow: string;
   title: string;
   description: string;
   resourceKind?: "video" | "article" | "doc" | "tool" | "book" | "reference";
+  /**
+   * Sibling views of the same library.
+   *
+   * Resources used to be three sidebar destinations — Videos, Docs, References
+   * — which is one library filtered three ways, presented as three places to
+   * remember. They are one destination now, and this row is how the narrower
+   * views stay reachable from it instead of becoming orphans.
+   */
+  views?: readonly { href: string; label: string }[];
+  activeView?: string;
 }) {
   const all = await getToolboxItems(kind);
 
@@ -64,6 +77,28 @@ export async function ToolboxCategory({
         }
       />
 
+      {views && views.length > 0 ? (
+        <nav aria-label="Views" className="flex flex-wrap gap-2">
+          {views.map((view) => {
+            const active = view.href === activeView;
+            return (
+              <Link
+                key={view.href}
+                href={view.href}
+                aria-current={active ? "page" : undefined}
+                className={
+                  active
+                    ? "label rounded-control bg-accent-quiet px-3 py-2 text-accent"
+                    : "label rounded-control px-3 py-2 text-ink-subtle transition-colors hover:bg-surface-sunken hover:text-ink"
+                }
+              >
+                {view.label}
+              </Link>
+            );
+          })}
+        </nav>
+      ) : null}
+
       {items.length === 0 ? (
         <EmptyState title="Nothing here yet">
           <p>
@@ -83,3 +118,16 @@ export async function ToolboxCategory({
     </div>
   );
 }
+
+/**
+ * The four views onto the resource library.
+ *
+ * One list, so the row cannot say something different on each of the four
+ * pages that draw it.
+ */
+export const RESOURCE_VIEWS = [
+  { href: "/resources", label: "Everything" },
+  { href: "/resources/videos", label: "Videos" },
+  { href: "/resources/docs", label: "Docs" },
+  { href: "/resources/references", label: "References" },
+] as const;

@@ -9,21 +9,32 @@ import type { AppRole } from "@/types/database";
  * rules from here rather than repeating them, so adding a page is one edit and
  * cannot leave a route protected in the navigation but open in the proxy.
  *
- * Foundation held a flat list of eight sections. The product has groups —
- * LEARN has a roadmap, lessons and missions — so the list is now nested, and
- * the flat `SECTIONS` view is *derived* from the nested one rather than
- * maintained beside it. Everything written against the flat list still works.
- *
  * `access` is the *minimum* a visitor must be to reach an item. It is not the
  * security boundary — that is `checkAccess()` in the data access layer, next to
  * the data. This decides whether a link is drawn and whether the proxy
  * redirects early.
  *
- * Every destination here is built and does what its summary says. The registry
- * once carried a `status` field so a half-built page could admit it; nothing is
- * half-built now, so the field is gone rather than left always reading the same
- * value. A dot that can never appear is worse than no dot: it implies a state
- * the product does not have.
+ * ── What changed, and why ────────────────────────────────────────────────────
+ *
+ * The sidebar used to carry eighteen destinations, three of which — Roadmap,
+ * Lessons, Missions — were three views onto the same curriculum. A learner had
+ * to know which of the three answered "what do I do next" before they could
+ * find out, and the answer was different on each. Six more were Videos, Docs
+ * and References, which are one library filtered three ways.
+ *
+ * The navigation now names what a learner does, not what the database stores:
+ *
+ *   Home      what to do now
+ *   Learn     the whole programme, one destination
+ *   My SaaS   the thing being built
+ *   Toolbox   what to build it with
+ *   Progress  how far along
+ *   Mentor    who reads the work
+ *
+ * The routes that were demoted still exist and still work; they are listed in
+ * `SECONDARY_ROUTES` so the session boundary keeps covering them, and they are
+ * reachable from inside Learn. They are no longer places a learner has to
+ * choose between before they can start.
  */
 
 export type SectionAccess = "learner" | "staff" | "admin";
@@ -38,8 +49,12 @@ export interface Section {
 
 export interface NavGroup {
   id: string;
-  /** The sidebar heading. Uppercased by the stylesheet, not by this string. */
-  label: string;
+  /**
+   * The sidebar heading, uppercased by the stylesheet rather than by this
+   * string. Omitted for the first group: Home and Learn do not need a category
+   * above them, and a heading there would be a word the reader has to skip.
+   */
+  label?: string;
   /** The lowest role that sees the group at all. */
   access: SectionAccess;
   items: readonly Section[];
@@ -47,39 +62,19 @@ export interface NavGroup {
 
 export const NAV_GROUPS: readonly NavGroup[] = [
   {
-    id: "workspace",
-    label: "Workspace",
+    id: "primary",
     access: "learner",
     items: [
       {
         href: "/dashboard",
         label: "Home",
-        summary: "Where you are, and what to do next.",
+        summary: "What to do now, and what you have done so far.",
         access: "learner",
       },
-    ],
-  },
-  {
-    id: "learn",
-    label: "Learn",
-    access: "learner",
-    items: [
       {
         href: "/learn",
-        label: "Roadmap",
-        summary: "The ten phases, from an idea to a product people pay for.",
-        access: "learner",
-      },
-      {
-        href: "/learn/lessons",
-        label: "Lessons",
-        summary: "The teaching inside each phase.",
-        access: "learner",
-      },
-      {
-        href: "/learn/missions",
-        label: "Missions",
-        summary: "The work that turns a lesson into something you have built.",
+        label: "Learn",
+        summary: "The programme: ten phases, their modules, lessons and missions.",
         access: "learner",
       },
     ],
@@ -144,6 +139,12 @@ export const NAV_GROUPS: readonly NavGroup[] = [
         summary: "The tools you build with, and when each one earns its place.",
         access: "learner",
       },
+      {
+        href: "/resources",
+        label: "Resources",
+        summary: "Videos, documentation and references worth coming back to.",
+        access: "learner",
+      },
     ],
   },
   {
@@ -165,40 +166,15 @@ export const NAV_GROUPS: readonly NavGroup[] = [
       },
       {
         href: "/progress/achievements",
-        label: "Achievements",
+        label: "Milestones",
         summary: "Milestones that mark real ground covered.",
         access: "learner",
       },
     ],
   },
   {
-    id: "resources",
-    label: "Resources",
-    access: "learner",
-    items: [
-      {
-        href: "/resources/videos",
-        label: "Videos",
-        summary: "Walkthroughs worth watching once.",
-        access: "learner",
-      },
-      {
-        href: "/resources/docs",
-        label: "Docs",
-        summary: "Documentation for the tools you actually use.",
-        access: "learner",
-      },
-      {
-        href: "/resources/references",
-        label: "References",
-        summary: "Material worth coming back to.",
-        access: "learner",
-      },
-    ],
-  },
-  {
     id: "mentor",
-    label: "Your Mentor",
+    label: "Mentor",
     access: "learner",
     items: [
       {
@@ -238,25 +214,46 @@ export const NAV_GROUPS: readonly NavGroup[] = [
 ] as const;
 
 /**
+ * Routes that exist and work, but are not places to send somebody.
+ *
+ * Every one of these is reachable from inside the experience it belongs to —
+ * the lesson and mission indexes from Learn, the narrowed resource views from
+ * Resources. They are listed so the session boundary derived below keeps
+ * covering them if their parent prefix ever stops being a navigation item, and
+ * so that "which routes did we demote rather than delete" has an answer in the
+ * code rather than only in a commit message.
+ */
+export const SECONDARY_ROUTES: readonly string[] = [
+  "/learn/lessons",
+  "/learn/missions",
+  "/learn/modules",
+  "/learn/start",
+  "/resources/videos",
+  "/resources/docs",
+  "/resources/references",
+] as const;
+
+/**
  * Every item, flattened.
  *
  * Derived rather than maintained: a second hand-written list is a second thing
- * to forget to update. Everything Foundation wrote against `SECTIONS` still
- * works unchanged.
+ * to forget to update.
  */
 export const SECTIONS: readonly Section[] = NAV_GROUPS.flatMap((group) => group.items);
 
 /**
  * The URL prefixes the shell owns.
  *
- * Taken from the first path segment of every item, so `/learn/lessons` and
- * `/learn/missions` both contribute `/learn` and a redirecting parent route is
- * covered without being listed. `lib/auth/routes.ts` protects these, which is
- * why deriving them beats writing them out: a new child page cannot end up
- * outside the session boundary by omission.
+ * Taken from the first path segment of every navigation item *and* every
+ * secondary route, so a demoted page cannot fall outside the session boundary
+ * by no longer being in the sidebar.
  */
 export const PROTECTED_ROOTS: readonly string[] = [
-  ...new Set(SECTIONS.map((section) => `/${section.href.split("/")[1] ?? ""}`)),
+  ...new Set(
+    [...SECTIONS.map((section) => section.href), ...SECONDARY_ROUTES].map(
+      (href) => `/${href.split("/")[1] ?? ""}`,
+    ),
+  ),
 ];
 
 /** Does this role clear the bar an item or a group sets? */
@@ -294,9 +291,10 @@ export function navGroupsFor(role: AppRole): NavGroup[] {
 /**
  * The item a path belongs to.
  *
- * Longest match first, so `/learn/lessons` resolves to Lessons rather than to
- * the Roadmap at `/learn`. Sorting by length is what makes a nested route
- * highlight the right link.
+ * Longest match first, so `/build/artifacts` resolves to Artifacts rather than
+ * to the overview at `/build`. Everything under `/learn` now resolves to Learn,
+ * which is the point of the consolidation: the lesson you are reading is inside
+ * the programme, not in a separate library.
  */
 export const sectionAt = (pathname: string): Section | undefined =>
   [...SECTIONS]

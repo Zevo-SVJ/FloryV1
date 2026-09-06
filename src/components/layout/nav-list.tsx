@@ -34,7 +34,12 @@ export function NavList({
     <nav aria-label="Sections" className="space-y-6">
       {groups.map((group) => (
         <div key={group.id} className="space-y-1">
-          <h2 className="label px-3 text-ink-subtle">{group.label}</h2>
+          {/* The first group carries no heading: "Home" and "Learn" do not need
+              a category above them, and a word the reader skips is a word too
+              many in a sidebar this short. */}
+          {group.label ? (
+            <h2 className="label px-3 text-ink-subtle">{group.label}</h2>
+          ) : null}
 
           <ul className="space-y-0.5">
             {group.items.map((item) => {

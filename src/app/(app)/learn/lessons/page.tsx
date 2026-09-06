@@ -9,16 +9,16 @@ import { cn } from "@/lib/utils/cn";
 export const metadata: Metadata = { title: "Lessons" };
 
 /**
- * The teaching, arranged around where the learner actually is.
+ * Every lesson, for when you are looking for one specific thing.
  *
- * The old page listed all ten phases at equal weight, so nine tenths of it read
- * "No modules published in this phase yet." — a page that is mostly an apology.
- * This opens on the current phase with its modules and lessons in full, and
- * reduces the rest to a compact index that still shows the shape of the whole
- * curriculum without pretending each empty phase deserves a section.
+ * A secondary index, and it says so at the top. It used to be one of three
+ * learning destinations in the sidebar, which made a learner choose between the
+ * roadmap, the lessons and the missions before they could start — three routes
+ * into one curriculum, none of them the obvious one. Learn is that route now.
  *
- * The lessons themselves are rows on dividers rather than cards. A curriculum
- * is mostly lessons; a card each is what made the old page a wall.
+ * This still exists and is still linked from Learn, because "where was that
+ * lesson about interviews" is a real question and hunting through modules is a
+ * poor answer to it. It is a reference, not a place to begin.
  */
 export default async function LessonsPage() {
   const [overview, state] = await Promise.all([getLearningOverview(), getLearningState()]);
@@ -31,11 +31,24 @@ export default async function LessonsPage() {
   return (
     <div className="space-y-12">
       <header className="space-y-3">
-        <p className="label text-ink-subtle">Learn</p>
-        <h1 className="text-display max-w-measure text-balance">Lessons</h1>
+        <nav aria-label="Breadcrumb" className="flex flex-wrap items-center gap-x-2 gap-y-1">
+          <Link href="/learn" className="label text-ink-subtle transition-colors hover:text-ink">
+            Learn
+          </Link>
+          <span aria-hidden className="label text-border-strong">/</span>
+          <span className="label text-ink-muted">Index</span>
+        </nav>
+        <h1 className="text-display max-w-measure text-balance">Every lesson</h1>
         <p className="max-w-measure text-lede text-ink-muted">
-          The teaching inside each phase. You do them in order, because each one
-          is the input to the next.
+          The complete index, for finding one specific thing. To work through
+          the programme in order,{" "}
+          <Link
+            href="/learn"
+            className="text-ink underline decoration-border-strong underline-offset-4 hover:decoration-ink"
+          >
+            go to Learn
+          </Link>
+          .
         </p>
 
         {totalLessons > 0 ? (
@@ -56,11 +69,11 @@ export default async function LessonsPage() {
         <section className="border-y border-border py-8">
           <p className="label text-ink-subtle">In preparation</p>
           <p className="mt-2 max-w-measure text-lede text-ink-muted">
-            No lessons are open yet. The roadmap shows the ten phases the
-            curriculum is being written into.
+            No lessons are open yet. Learn shows the ten phases the curriculum
+            is being written into.
           </p>
           <p className="mt-4">
-            <ButtonLink href="/learn" size="sm">See the roadmap</ButtonLink>
+            <ButtonLink href="/learn" size="sm">Go to Learn</ButtonLink>
           </p>
         </section>
       ) : null}

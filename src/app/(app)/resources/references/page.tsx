@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { ToolboxCategory } from "@/components/toolbox/category";
+import { ToolboxCategory, RESOURCE_VIEWS } from "@/components/toolbox/category";
 
 export const metadata: Metadata = { title: "References" };
 
@@ -18,6 +18,8 @@ export default function Page() {
       eyebrow="Resources"
       title="References"
       description="Books, articles and material worth coming back to after the phase is over."
+      views={RESOURCE_VIEWS}
+      activeView="/resources/references"
     />
   );
 }

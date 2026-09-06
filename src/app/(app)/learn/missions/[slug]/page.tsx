@@ -16,6 +16,8 @@ import { ContextualTools } from "@/components/toolbox/item-card";
 import { SkillTags } from "@/components/progress/skill";
 import { getSkillsForMission } from "@/lib/progress/queries";
 import { MISSION_STATUS_LABEL, MISSION_TYPE_LABEL, EVIDENCE_KIND_LABEL } from "@/lib/workspace/labels";
+import { getMissionContext } from "@/lib/learning/overview";
+import { NextUp } from "@/components/learning/course";
 
 export async function generateMetadata({
   params,
@@ -66,12 +68,45 @@ export default async function MissionPage({
    */
   const feedback = detail.artifact ? await getArtifactFeedback(detail.artifact.id) : [];
 
+  /* The module this mission concludes. Without it the page's only way out was
+     a library, which is the trip the consolidation exists to remove. */
+  const context = await getMissionContext(detail.mission.id);
+
   const { mission, progress, artifact, blocks, evidence, prerequisites, requiredLesson, unlocked, project } =
     detail;
   const status = progress?.status ?? "not_started";
 
   return (
     <div className="space-y-10">
+      {/* Where this sits. A mission is the end of a module, and saying so is
+          what stops it reading as a task from a separate system. */}
+      <nav aria-label="Breadcrumb" className="flex flex-wrap items-center gap-x-2 gap-y-1">
+        <Link href="/learn" className="label text-ink-subtle transition-colors hover:text-ink">
+          Learn
+        </Link>
+        {context ? (
+          <>
+            <span aria-hidden className="label text-border-strong">/</span>
+            <span className="label text-ink-subtle">
+              {String(context.phase.number).padStart(2, "0")} {context.phase.label}
+            </span>
+          </>
+        ) : null}
+        {context?.module ? (
+          <>
+            <span aria-hidden className="label text-border-strong">/</span>
+            <Link
+              href={`/learn/modules/${context.module.module.slug}`}
+              className="label text-ink-muted transition-colors hover:text-ink"
+            >
+              {context.module.module.title}
+            </Link>
+          </>
+        ) : null}
+        <span aria-hidden className="label text-border-strong">/</span>
+        <span className="label text-ink-muted">Mission</span>
+      </nav>
+
       <PageHeader
         eyebrow={`Mission · ${MISSION_TYPE_LABEL[mission.type]}`}
         title={mission.title}
@@ -85,9 +120,19 @@ export default async function MissionPage({
           </>
         }
         action={
-          <ButtonLink href="/learn/missions" variant="secondary" size="sm">
-            All missions
-          </ButtonLink>
+          context?.module ? (
+            <ButtonLink
+              href={`/learn/modules/${context.module.module.slug}`}
+              variant="secondary"
+              size="sm"
+            >
+              Back to the module
+            </ButtonLink>
+          ) : (
+            <ButtonLink href="/learn" variant="secondary" size="sm">
+              Back to Learn
+            </ButtonLink>
+          )
         }
       />
 
@@ -243,6 +288,26 @@ export default async function MissionPage({
               />
             </section>
           ) : null}
+
+          {/* Where the programme goes after this. A mission that ends in nothing
+              is the dead end the consolidation exists to remove. */}
+          {context?.nextModule ? (
+            <NextUp
+              eyebrow={`Next in ${context.phase.label}`}
+              title={context.nextModule.module.title}
+              description={context.nextModule.module.summary}
+              href={`/learn/modules/${context.nextModule.module.slug}`}
+              action="Open the next module"
+            />
+          ) : (
+            <NextUp
+              eyebrow="What this produced"
+              title="Everything you make lands in My SaaS"
+              description="Your artifacts, the decisions behind them, and the product they belong to."
+              href="/build"
+              action="Open My SaaS"
+            />
+          )}
         </>
       )}
     </div>

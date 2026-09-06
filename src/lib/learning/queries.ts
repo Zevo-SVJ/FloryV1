@@ -36,6 +36,9 @@ export interface LessonSummary {
   completionRule: LessonRow["completion_rule"];
   position: number;
   isDemo: boolean;
+  /** What the lesson claims you will be able to do. Used to build a module's
+      "what you will learn" without inventing copy for it. */
+  objectives: string[];
 }
 
 export interface ModuleWithLessons {
@@ -59,6 +62,7 @@ const toSummary = (row: LessonRow): LessonSummary => ({
   completionRule: row.completion_rule,
   position: row.position,
   isDemo: row.is_demo,
+  objectives: row.objectives,
 });
 
 /**

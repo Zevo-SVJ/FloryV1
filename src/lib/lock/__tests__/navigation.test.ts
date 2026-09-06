@@ -3,6 +3,7 @@ import { describe, it } from "node:test";
 import {
   NAV_GROUPS,
   PROTECTED_ROOTS,
+  SECONDARY_ROUTES,
   SECTIONS,
   groupOf,
   navGroupsFor,
@@ -56,7 +57,7 @@ describe("navGroupsFor", () => {
     const hrefs = navGroupsFor("learner").flatMap((g) => g.items.map((i) => i.href));
     assert.ok(hrefs.includes("/mentor"));
     assert.ok(hrefs.includes("/dashboard"));
-    assert.ok(hrefs.includes("/learn/lessons"));
+    assert.ok(hrefs.includes("/learn"));
   });
 
   it("gives a mentor the review queue but not admin", () => {
@@ -140,13 +141,64 @@ describe("the registry itself", () => {
       assert.ok(groupOf(section.href), `${section.href} belongs to no group`);
     }
   });
+
+  it("keeps demoted routes behind the session boundary", () => {
+    /*
+     * The point of `SECONDARY_ROUTES`: taking a page out of the sidebar must
+     * not take it out of the protected set. A lesson index nobody links to is
+     * still a lesson index, and it still reads a learner's progress.
+     */
+    for (const route of SECONDARY_ROUTES) {
+      const covered = PROTECTED_PREFIXES.some(
+        (prefix) => route === prefix || route.startsWith(`${prefix}/`),
+      );
+      assert.ok(covered, `${route} is demoted but not protected`);
+    }
+  });
+
+  it("does not list a demoted route in the sidebar", () => {
+    const hrefs = SECTIONS.map((section) => section.href);
+    for (const route of SECONDARY_ROUTES) {
+      assert.ok(!hrefs.includes(route), `${route} is both demoted and in the navigation`);
+    }
+  });
+
+  it("keeps the learner sidebar small enough to read", () => {
+    /*
+     * Not arbitrary: the refoundation exists because eighteen destinations made
+     * the learner choose before they could start. This fails loudly if the
+     * sidebar starts growing back.
+     */
+    assert.ok(
+      sectionsFor("learner").length <= 15,
+      `the learner sidebar has grown to ${sectionsFor("learner").length} items`,
+    );
+  });
 });
 
 describe("sectionAt", () => {
   it("prefers the longest match, so a child does not resolve to its parent", () => {
-    assert.equal(sectionAt("/learn")?.href, "/learn");
-    assert.equal(sectionAt("/learn/lessons")?.href, "/learn/lessons");
-    assert.equal(sectionAt("/learn/lessons/think-01")?.href, "/learn/lessons");
+    assert.equal(sectionAt("/build")?.href, "/build");
+    assert.equal(sectionAt("/build/artifacts")?.href, "/build/artifacts");
+    assert.equal(sectionAt("/build/artifacts/x")?.href, "/build/artifacts");
+  });
+
+  it("resolves everything under the programme to Learn", () => {
+    /*
+     * The consolidation, asserted. Lessons and missions are no longer separate
+     * destinations, so reading one must light up Learn rather than nothing —
+     * a page that highlights no sidebar item reads as being outside the app.
+     */
+    for (const path of [
+      "/learn",
+      "/learn/start",
+      "/learn/lessons",
+      "/learn/lessons/how-lock-teaches",
+      "/learn/missions",
+      "/learn/modules/demo-module",
+    ]) {
+      assert.equal(sectionAt(path)?.href, "/learn", `${path} does not resolve to Learn`);
+    }
   });
 
   it("does not match a path that merely starts with the same letters", () => {

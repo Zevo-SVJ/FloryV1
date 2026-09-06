@@ -31,6 +31,18 @@ export interface ModuleWithProgress {
   minutes: number;
   /** The first unfinished lesson in this module, if any. */
   nextLesson: LessonSummary | null;
+  /** 1-based position within its phase. What the interface calls "Module 02". */
+  number: number;
+  /** The phase this module belongs to. Lets a module stand on its own. */
+  phaseKey: string;
+  /**
+   * What this module teaches, gathered from its lessons.
+   *
+   * Modules have no objectives column and should not get one: the claim
+   * belongs to the lesson that makes it, and a second copy on the module is a
+   * second thing to keep true. De-duplicated, in lesson order.
+   */
+  objectives: string[];
 }
 
 export interface PhaseNode {
@@ -72,6 +84,19 @@ export interface LearningOverview {
   nextLesson: { lesson: LessonSummary; phase: PhaseNode } | null;
   /** The single mission to do now. */
   nextMission: MissionSummary | null;
+  /** The module holding `nextLesson` — the one thing to open now. */
+  nextModule: ModuleWithProgress | null;
+  /**
+   * Has this learner done anything at all?
+   *
+   * Decides whether the programme greets them with "Start here" or "Continue".
+   * Derived from completed work rather than stored, so it cannot drift from
+   * what the progress pages report.
+   */
+  started: boolean;
+  moduleCount: number;
+  totalMissions: number;
+  missionsDone: number;
   continueLesson: LessonSummary | null;
   revisit: LessonSummary[];
   completedLessons: number;
@@ -108,10 +133,13 @@ export const getLearningOverview = cache(async (): Promise<LearningOverview> => 
     const phaseMissions = missionsByPhase.get(phase.key) ?? [];
     const row = phaseProgress.get(phase.key);
 
-    const moduleNodes: ModuleWithProgress[] = modules.map((entry) => {
+    const moduleNodes: ModuleWithProgress[] = modules.map((entry, index) => {
       const done = entry.lessons.filter((l) => state.completedLessonIds.has(l.id)).length;
       return {
         module: entry.module,
+        number: index + 1,
+        phaseKey: phase.key,
+        objectives: [...new Set(entry.lessons.flatMap((l) => l.objectives))],
         lessons: entry.lessons,
         lessonsDone: done,
         // A mission belongs to a module when it names one; the rest sit at the
@@ -168,18 +196,96 @@ export const getLearningOverview = cache(async (): Promise<LearningOverview> => 
     phases.flatMap((p) => p.modules.flatMap((m) => m.lessons)).map((l) => [l.id, l]),
   );
 
+  const allModules = phases.flatMap((p) => p.modules);
+  const nextModule = nextLesson
+    ? (allModules.find((m) => m.lessons.some((l) => l.id === nextLesson.lesson.id)) ?? null)
+    : null;
+
+  const completedLessons = phases.reduce((t, p) => t + p.lessonsDone, 0);
+  const missionsDone = missions.filter((m) => m.progress?.status === "completed").length;
+
   return {
     phases,
     current,
     activeKey,
     nextLesson,
     nextMission,
+    nextModule,
+    started: completedLessons > 0 || missions.some((m) => m.progress !== null),
+    moduleCount: allModules.length,
+    totalMissions: missions.length,
+    missionsDone,
     continueLesson: state.continueLessonId ? (byId.get(state.continueLessonId) ?? null) : null,
     revisit: [...state.revisitLessonIds].map((id) => byId.get(id)).filter((l): l is LessonSummary => !!l),
-    completedLessons: phases.reduce((t, p) => t + p.lessonsDone, 0),
+    completedLessons,
     totalLessons: phases.reduce((t, p) => t + p.lessonCount, 0),
     overallPercent: progress.overall?.percent ?? null,
   };
+});
+
+/**
+ * Where a lesson sits, and what comes either side of it.
+ *
+ * This is what stops a lesson being a dead end. Before it, finishing a lesson
+ * left the learner on a page with no forward motion, so the only way to the
+ * next one was back out to an index — which is exactly the trip the
+ * consolidation exists to remove. Everything here is derived from the tree that
+ * is already loaded; it costs no extra query.
+ */
+export const getLessonContext = cache(async (lessonId: string) => {
+  const overview = await getLearningOverview();
+
+  for (const phase of overview.phases) {
+    for (const entry of phase.modules) {
+      const index = entry.lessons.findIndex((lesson) => lesson.id === lessonId);
+      if (index === -1) continue;
+
+      const nextModule = phase.modules[entry.number] ?? null;
+      /* The mission is the module's conclusion, so it only counts as "next"
+         from the last lesson — offering it from lesson one would skip the
+         teaching it applies. */
+      const onLastLesson = index === entry.lessons.length - 1;
+
+      return {
+        phase,
+        module: entry,
+        index,
+        total: entry.lessons.length,
+        previous: index > 0 ? (entry.lessons[index - 1] ?? null) : null,
+        next: entry.lessons[index + 1] ?? null,
+        mission: onLastLesson ? (entry.missions[0] ?? null) : null,
+        nextModule,
+      };
+    }
+  }
+
+  return null;
+});
+
+/**
+ * Where a mission sits in the curriculum.
+ *
+ * A mission is the end of a module, and the mission page had no way of saying
+ * so — its only route out was "All missions", which sent the learner to a
+ * library instead of back to the work. This gives it the module it concludes
+ * and the module that follows.
+ */
+export const getMissionContext = cache(async (missionId: string) => {
+  const overview = await getLearningOverview();
+
+  for (const phase of overview.phases) {
+    for (const entry of phase.modules) {
+      if (!entry.missions.some((m) => m.mission.id === missionId)) continue;
+      return { phase, module: entry, nextModule: phase.modules[entry.number] ?? null };
+    }
+    /* Missions that name no module still belong to a phase — the schema allows
+       it, so the page must not assume otherwise. */
+    if (phase.missions.some((m) => m.mission.id === missionId)) {
+      return { phase, module: null, nextModule: phase.modules[0] ?? null };
+    }
+  }
+
+  return null;
 });
 
 /** One module, for its own page. Reuses the tree rather than re-querying. */

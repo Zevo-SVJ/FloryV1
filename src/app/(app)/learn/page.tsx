@@ -1,189 +1,278 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { ButtonLink } from "@/components/ui/button";
-import { JourneyStrip } from "@/components/learning/journey";
-import { PhaseBand, PhaseInPreparation, ModuleBlock } from "@/components/learning/hierarchy";
+import {
+  ContinueCard,
+  CourseProgress,
+  ModuleCard,
+  PhaseSection,
+} from "@/components/learning/course";
 import { getLearningOverview } from "@/lib/learning/overview";
 
-export const metadata: Metadata = { title: "Roadmap" };
+export const metadata: Metadata = { title: "Learn" };
 
 /**
- * The journey, as the page rather than as a list on it.
+ * The classroom. One programme, one page, one thing to do next.
  *
- * What was here before: a stats row, two cards in a two-column grid that left
- * the right half of the screen empty, a legend card explaining four dots, and
- * ten identical rows nine of which said "NOT PUBLISHED YET". The structure of
- * the programme was present and unreadable.
+ * What was here before: a roadmap that was one of three learning destinations,
+ * beside a lesson library and a mission library. Each had its own idea of where
+ * the learner was, and none of them was the place to start — a learner had to
+ * understand the difference between a roadmap, a lesson and a mission before
+ * they could open anything.
  *
- * What replaced it: the strip at the top answers "where am I" in one shape, the
- * current phase opens to show its modules, and every other phase stays one
- * quiet line. A phase nobody has written yet says what it is *for* — the shape
- * of the ten stays visible, which is the reason to show all ten at all.
+ * What is here now, in the order it is read:
  *
- * The legend is gone. Four states are named in words on the rows themselves, so
- * a card teaching the reader to decode dots was explaining a problem rather
- * than solving it.
+ *   1. what LOCK is, in one sentence and one progress bar
+ *   2. the single thing to do now — start, or carry on exactly where you were
+ *   3. the whole journey, as the sections of one course
+ *
+ * The ten phases are sections of one programme rather than ten destinations.
+ * Only the phase the learner is in opens; the rest state their shape and stay
+ * shut. Seeing all ten matters — the destination is the point — but reading all
+ * ten at once is the wall of cards this replaced.
  */
-export default async function RoadmapPage() {
+export default async function LearnPage() {
   const overview = await getLearningOverview();
-  const { phases, current, activeKey, nextLesson, nextMission, revisit } = overview;
-  const active = phases.find((p) => p.key === activeKey) ?? current;
+  const {
+    phases,
+    activeKey,
+    nextLesson,
+    nextMission,
+    nextModule,
+    started,
+    completedLessons,
+    totalLessons,
+    moduleCount,
+    totalMissions,
+  } = overview;
 
+  const published = phases.filter((phase) => phase.published);
   /*
-   * The one module to open now: the one holding the "Next" lesson. Marking
-   * every unfinished module made the accent meaningless and made two untouched
-   * modules both claim to be in progress.
+   * The first phase with nothing in it is the one being written; the ones
+   * behind it are "later". Not "coming next" — that reads as "this is your next
+   * step", which is a different phase entirely and a genuinely misleading thing
+   * to say. Nine identical notices reads as nine failures; a column of states
+   * reads as a plan.
    */
-  const nextModuleId =
-    active?.modules.find((entry) =>
-      nextLesson
-        ? entry.lessons.some((lesson) => lesson.id === nextLesson.lesson.id)
-        : entry.nextLesson !== null,
-    )?.module.id ?? null;
+  const beingWrittenKey = phases.find((phase) => !phase.published)?.key ?? null;
 
   return (
     <div className="space-y-12">
-      {/* ── Where you are ────────────────────────────────────────────────── */}
+      {/* ── What this is ─────────────────────────────────────────────────── */}
       <header className="space-y-6">
-        <div className="space-y-2">
-          <p className="label text-ink-subtle">Learn</p>
-          <h1 className="text-display max-w-measure text-balance">Your build journey</h1>
+        <div className="space-y-3">
+          <p className="label text-ink-subtle">The programme</p>
+          <h1 className="text-display max-w-measure text-balance">
+            Build a real SaaS with AI
+          </h1>
           <p className="max-w-measure text-lede text-ink-muted">
-            {active
-              ? `Ten phases, from an idea to a product people pay for. You are on ${String(active.number).padStart(2, "0")} — ${active.label.toLowerCase()}.`
-              : "Ten phases, from an idea to a product people pay for. Each one is the input to the next."}
+            Ten phases, from an idea nobody has validated to a product people pay
+            for. You learn a thing, then you do it — and what you produce becomes
+            the SaaS you are building.
           </p>
         </div>
 
-        <JourneyStrip
-          phases={phases.map((p) => ({
-            key: p.key, number: p.number, label: p.label, state: p.state, percent: p.percent,
-          }))}
-          activeKey={activeKey}
-          href={null}
-        />
+        <div className="flex flex-col gap-4 border-y border-border py-4 sm:flex-row sm:items-center sm:justify-between">
+          <CourseProgress
+            done={completedLessons}
+            total={totalLessons}
+            label="Progress through the programme"
+            className="w-full sm:max-w-xs"
+          />
+          <p className="label flex flex-wrap items-center gap-x-4 gap-y-1 text-ink-subtle">
+            <span className="tabular-nums">10 phases</span>
+            <span className="tabular-nums">
+              {moduleCount} {moduleCount === 1 ? "module" : "modules"}
+            </span>
+            <span className="tabular-nums">
+              {totalLessons} {totalLessons === 1 ? "lesson" : "lessons"}
+            </span>
+            <span className="tabular-nums">
+              {totalMissions} {totalMissions === 1 ? "mission" : "missions"}
+            </span>
+          </p>
+        </div>
       </header>
 
       {/* ── The one thing to do now ──────────────────────────────────────── */}
-      {nextLesson || nextMission ? (
-        <section className="border-y border-border py-6">
-          <div className="flex flex-col gap-5 sm:flex-row sm:items-end sm:justify-between">
-            <div className="min-w-0 space-y-1.5">
-              <p className="label text-accent">Next</p>
-              <p className="text-title text-balance">
-                {nextLesson ? nextLesson.lesson.title : nextMission!.mission.title}
-              </p>
-              <p className="max-w-measure text-sm leading-relaxed text-ink-muted">
-                {nextLesson ? nextLesson.lesson.summary : nextMission!.mission.objective}
-              </p>
-            </div>
-            <div className="shrink-0">
-              <ButtonLink
-                href={
-                  nextLesson
-                    ? `/learn/lessons/${nextLesson.lesson.slug}`
-                    : `/learn/missions/${nextMission!.mission.slug}`
-                }
+      {!started ? (
+        <ContinueCard
+          eyebrow="Start here"
+          title="Learn how LOCK works, then build"
+          description="Five minutes on how the programme runs, what you will produce, and where to begin. Then you start the first module."
+          href="/learn/start"
+          action="Start here"
+          aside={
+            nextLesson ? (
+              <Link
+                href={`/learn/lessons/${nextLesson.lesson.slug}`}
+                className="text-sm text-ink-muted underline decoration-border-strong underline-offset-4 hover:text-ink"
               >
-                {nextLesson ? "Start the lesson" : "Open the mission"}
-              </ButtonLink>
-            </div>
-          </div>
+                Skip to the first lesson
+              </Link>
+            ) : null
+          }
+        />
+      ) : nextLesson && nextModule ? (
+        <ContinueCard
+          eyebrow="Continue learning"
+          /* Phase and module by name. The module *number* is in neither — it
+             is the one part of the address a learner never needs, and on a
+             phone it was what pushed the line onto a second row mid-title. */
+          context={`${String(nextLesson.phase.number).padStart(2, "0")} ${nextLesson.phase.label} · ${nextModule.module.title}`}
+          title={nextLesson.lesson.title}
+          description={nextLesson.lesson.summary}
+          href={`/learn/lessons/${nextLesson.lesson.slug}`}
+          action="Continue"
+          progress={{ done: nextModule.lessonsDone, total: nextModule.lessons.length }}
+          aside={<StartHereLink />}
+        />
+      ) : nextMission ? (
+        <ContinueCard
+          eyebrow="Next up"
+          context="Every lesson so far is done"
+          title={nextMission.mission.title}
+          description={nextMission.mission.objective}
+          href={`/learn/missions/${nextMission.mission.slug}`}
+          action="Open the mission"
+          aside={<StartHereLink />}
+        />
+      ) : (
+        <ContinueCard
+          eyebrow="You are up to date"
+          title="Everything published so far is done"
+          description="The next phase opens as it is written. Your work so far is in My SaaS."
+          href="/build"
+          action="Open My SaaS"
+          aside={<StartHereLink />}
+        />
+      )}
 
-          {revisit.length > 0 ? (
-            <p className="mt-5 flex flex-wrap items-baseline gap-x-3 gap-y-1 text-sm">
-              <span className="label text-ink-subtle">Flagged to revisit</span>
-              {revisit.slice(0, 3).map((lesson) => (
-                <Link
-                  key={lesson.id}
-                  href={`/learn/lessons/${lesson.slug}`}
-                  className="text-ink-muted underline decoration-border-strong underline-offset-4 hover:text-ink"
-                >
-                  {lesson.title}
-                </Link>
-              ))}
-            </p>
-          ) : null}
-        </section>
-      ) : null}
+      {/* ── The whole journey ────────────────────────────────────────────── */}
+      <section>
+        <h2 className="label pb-4 text-ink-subtle">Your journey</h2>
 
-      {/* ── The ten phases ───────────────────────────────────────────────── */}
-      <section className="space-y-2">
-        <h2 className="label text-ink-subtle">The ten phases</h2>
+        <div>
+          {phases.map((phase) => {
+            const active = phase.key === activeKey && phase.published;
+            const counts = phase.published
+              ? [
+                  `${phase.modules.length} ${phase.modules.length === 1 ? "module" : "modules"}`,
+                  `${phase.lessonCount} ${phase.lessonCount === 1 ? "lesson" : "lessons"}`,
+                  phase.missions.length > 0
+                    ? `${phase.missions.length} ${phase.missions.length === 1 ? "mission" : "missions"}`
+                    : null,
+                ]
+                  .filter(Boolean)
+                  .join(" · ")
+              : null;
 
-        {/*
-         * A single rule down the left, behind the marks, stopping before the
-         * last one so the route reads as finite rather than trailing off.
-         */}
-        <ol className="relative space-y-9 pt-4">
-          <span aria-hidden className="absolute top-6 bottom-6 left-3 w-px bg-border" />
-
-          {phases.map((phase) => (
-            <li key={phase.key}>
-              <PhaseBand
+            return (
+              <PhaseSection
+                key={phase.key}
                 number={phase.number}
                 label={phase.label}
                 summary={phase.summary}
-                state={phase.state}
-                meta={
-                  phase.published ? (
-                    <p className="flex flex-wrap items-center gap-x-4 gap-y-1">
-                      <span className="label tabular-nums text-ink-subtle">
-                        {phase.lessonsDone}/{phase.lessonCount} lessons
-                      </span>
-                      {phase.missions.length > 0 ? (
-                        <span className="label tabular-nums text-ink-subtle">
-                          {phase.missionsDone}/{phase.missions.length} missions
-                        </span>
-                      ) : null}
-                      {phase.percent !== null ? (
-                        <span className="label tabular-nums text-ink-muted">{phase.percent}%</span>
-                      ) : null}
-                    </p>
-                  ) : null
-                }
+                active={active}
+                counts={counts}
+                status={phaseStatus({
+                  published: phase.published,
+                  active,
+                  done: phase.lessonsDone,
+                  total: phase.lessonCount,
+                  beingWritten: phase.key === beingWrittenKey,
+                })}
               >
-                {/*
-                 * Only the current phase opens. Expanding all ten would be the
-                 * old wall of cards again, and collapsing all ten would hide
-                 * the only part anybody needs today.
-                 */}
-                {phase.published && phase.key === activeKey && phase.modules.length > 0 ? (
-                  <div className="grid gap-3 md:grid-cols-2">
-                    {phase.modules.map((entry, index) => (
-                      <ModuleBlock
+                {active && phase.modules.length > 0 ? (
+                  <div className="grid gap-4 md:grid-cols-2">
+                    {phase.modules.map((entry) => (
+                      <ModuleCard
                         key={entry.module.id}
-                        number={index + 1}
+                        number={entry.number}
                         title={entry.module.title}
                         summary={entry.module.summary}
                         href={`/learn/modules/${entry.module.slug}`}
-                        next={entry.module.id === nextModuleId}
-                        counts={{
-                          lessons: entry.lessons.length,
-                          lessonsDone: entry.lessonsDone,
-                          missions: entry.missions.length,
-                          minutes: entry.minutes,
-                        }}
+                        lessons={entry.lessons.length}
+                        lessonsDone={entry.lessonsDone}
+                        missions={entry.missions.length}
+                        minutes={entry.minutes}
+                        next={entry.module.id === nextModule?.module.id}
                       />
                     ))}
                   </div>
-                ) : phase.published && phase.modules[0] ? (
-                  <p className="flex flex-wrap items-center gap-x-4 gap-y-1">
-                    <Link
-                      href={`/learn/modules/${phase.modules[0].module.slug}`}
-                      className="text-sm text-ink-muted underline decoration-border-strong underline-offset-4 hover:text-ink"
-                    >
-                      {phase.modules.length} {phase.modules.length === 1 ? "module" : "modules"}
-                    </Link>
-                  </p>
-                ) : phase.published ? null : (
-                  <PhaseInPreparation summary={`${phase.label} is written before it opens.`} />
-                )}
-              </PhaseBand>
-            </li>
-          ))}
-        </ol>
+                ) : null}
+              </PhaseSection>
+            );
+          })}
+        </div>
       </section>
+
+      {/*
+       * The two libraries that used to be sidebar destinations. They still
+       * exist and still work; they are here, at the bottom, because a learner
+       * following the programme never needs them — and somebody looking for one
+       * specific thing should not have to remember a URL.
+       */}
+      <footer className="border-t border-border pt-6">
+        <p className="label text-ink-subtle">Looking for something specific?</p>
+        <p className="mt-2 flex flex-wrap gap-x-6 gap-y-2 text-sm">
+          <Link
+            href="/learn/lessons"
+            className="text-ink-muted underline decoration-border-strong underline-offset-4 hover:text-ink"
+          >
+            Every lesson
+          </Link>
+          <Link
+            href="/learn/missions"
+            className="text-ink-muted underline decoration-border-strong underline-offset-4 hover:text-ink"
+          >
+            Every mission
+          </Link>
+          <Link
+            href="/learn/start"
+            className="text-ink-muted underline decoration-border-strong underline-offset-4 hover:text-ink"
+          >
+            How LOCK works
+          </Link>
+        </p>
+        {published.length < phases.length ? (
+          <p className="mt-4 max-w-measure text-sm text-ink-subtle">
+            {published.length} of {phases.length} phases are written. The rest are
+            listed above so the destination is visible while the programme is
+            being published.
+          </p>
+        ) : null}
+      </footer>
     </div>
   );
+}
+
+function StartHereLink() {
+  return (
+    <Link
+      href="/learn/start"
+      className="text-sm text-ink-muted underline decoration-border-strong underline-offset-4 hover:text-ink"
+    >
+      How LOCK works
+    </Link>
+  );
+}
+
+/** The right-hand word on a phase. One line, always true. */
+function phaseStatus({
+  published,
+  active,
+  done,
+  total,
+  beingWritten,
+}: {
+  published: boolean;
+  active: boolean;
+  done: number;
+  total: number;
+  beingWritten: boolean;
+}): string {
+  if (!published) return beingWritten ? "Being written" : "Later";
+  if (total > 0 && done === total) return "Complete";
+  if (done > 0) return `${Math.round((done / total) * 100)}% complete`;
+  return active ? "You are here" : "Not started";
 }

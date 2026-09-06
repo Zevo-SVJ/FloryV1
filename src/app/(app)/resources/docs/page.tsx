@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { ToolboxCategory } from "@/components/toolbox/category";
+import { ToolboxCategory, RESOURCE_VIEWS } from "@/components/toolbox/category";
 
 export const metadata: Metadata = { title: "Docs" };
 
@@ -18,6 +18,8 @@ export default function Page() {
       eyebrow="Resources"
       title="Docs"
       description="Documentation for the tools you actually use, so you are not searching for it mid-build."
+      views={RESOURCE_VIEWS}
+      activeView="/resources/docs"
     />
   );
 }

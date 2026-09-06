@@ -9,13 +9,15 @@ import { cn } from "@/lib/utils/cn";
 export const metadata: Metadata = { title: "Missions" };
 
 /**
- * Where learning turns into something that exists.
+ * Every mission, for when you are looking for one specific thing.
  *
- * Missions were a list of bordered rows with three small badges each, which
- * made the most consequential thing in LOCK look like a settings table. They
- * are numbered now — `01.02` reads as position in a programme rather than as a
- * row in a list — grouped under their phase, and each one leads with what it
- * produces, because the deliverable is the point.
+ * A secondary index, like the lesson index beside it. A mission is the end of a
+ * module, and that is where a learner meets it — on the module page and at the
+ * bottom of the module's last lesson. A separate "Missions" destination in the
+ * sidebar taught the opposite: that missions were their own system you had to
+ * remember to visit, rather than the point of the module you were already in.
+ *
+ * Kept because "which mission produced the idea brief" is a real question.
  */
 export default async function MissionsPage() {
   const [overview, project] = await Promise.all([getLearningOverview(), getProject()]);
@@ -26,11 +28,18 @@ export default async function MissionsPage() {
   return (
     <div className="space-y-12">
       <header className="space-y-3">
-        <p className="label text-ink-subtle">Learn</p>
-        <h1 className="text-display max-w-measure text-balance">Missions</h1>
+        <nav aria-label="Breadcrumb" className="flex flex-wrap items-center gap-x-2 gap-y-1">
+          <Link href="/learn" className="label text-ink-subtle transition-colors hover:text-ink">
+            Learn
+          </Link>
+          <span aria-hidden className="label text-border-strong">/</span>
+          <span className="label text-ink-muted">Index</span>
+        </nav>
+        <h1 className="text-display max-w-measure text-balance">Every mission</h1>
         <p className="max-w-measure text-lede text-ink-muted">
-          Learn, then do. Each mission is a piece of founder work that produces
-          an artifact for your product and goes to your mentor for review.
+          Each mission ends a module: it produces an artifact for your product
+          and goes to your mentor for review. You meet them inside the module
+          they belong to — this is the complete index.
         </p>
         {total > 0 ? (
           <p className="label pt-1 tabular-nums text-ink-subtle">{done}/{total} complete</p>
@@ -55,7 +64,7 @@ export default async function MissionsPage() {
             the work is designed rather than improvised around the software.
           </p>
           <p className="mt-4">
-            <ButtonLink href="/learn" size="sm">See the roadmap</ButtonLink>
+            <ButtonLink href="/learn" size="sm">Go to Learn</ButtonLink>
           </p>
         </section>
       ) : null}
