@@ -2,7 +2,13 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import path from "node:path";
 import { after, describe, it } from "node:test";
-import { isSupabaseConfigured, requireSupabaseEnv, siteUrl, supabaseEnv } from "@/lib/env";
+import {
+  isSupabaseConfigured,
+  missingPublicEnv,
+  requireSupabaseEnv,
+  siteUrl,
+  supabaseEnv,
+} from "@/lib/env";
 
 /**
  * The configuration read, and the one property that makes it correct.
@@ -65,6 +71,25 @@ describe("the Supabase configuration", () => {
       assert.equal((error as Error).name, "MissingEnvError");
       assert.deepEqual((error as { variables: string[] }).variables, [URL_KEY, KEY_KEY]);
     }
+  });
+
+  /*
+   * The production failure this whole file exists for. All three variables were
+   * present as keys in `process.env` on the deployed server and every one of
+   * them held an empty string, so the dashboard showed three configured
+   * variables while the process saw three blanks. A key that exists is not a
+   * value that exists.
+   */
+  it("counts a variable that exists but holds an empty string as missing", () => {
+    set("", "");
+    assert.equal(isSupabaseConfigured(), false);
+    assert.deepEqual(missingPublicEnv(), [URL_KEY, KEY_KEY]);
+
+    set("https://project.supabase.co", "");
+    assert.deepEqual(missingPublicEnv(), [KEY_KEY]);
+
+    set("https://project.supabase.co", "anon-key");
+    assert.deepEqual(missingPublicEnv(), []);
   });
 
   it("trims a trailing slash off the site URL", () => {

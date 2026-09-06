@@ -63,6 +63,34 @@ export function supabaseEnv(): SupabaseEnv | null {
 
 export const isSupabaseConfigured = (): boolean => supabaseEnv() !== null;
 
+/**
+ * Which of the public variables this deployment is missing, by name.
+ *
+ * A variable set to an empty string counts as missing, and that is not a
+ * hypothetical: it is how a real production deployment failed. All three keys
+ * were present in `process.env` and every one of them held "". The dashboard
+ * showed three configured variables; the process saw three blanks.
+ *
+ * Names only. A value never leaves this module.
+ */
+export function missingPublicEnv(): string[] {
+  const missing: string[] = [];
+  if (!supabaseUrl()) missing.push("NEXT_PUBLIC_SUPABASE_URL");
+  if (!supabaseAnonKey()) missing.push("NEXT_PUBLIC_SUPABASE_ANON_KEY");
+  return missing;
+}
+
+/**
+ * Whether this is a deployment rather than somebody's laptop.
+ *
+ * It decides which advice is worth giving when the configuration is absent,
+ * and nothing else. `VERCEL_ENV` is set on every Vercel deployment; the
+ * `NODE_ENV` fallback covers anywhere else a production build is served.
+ */
+export function isDeployed(): boolean {
+  return Boolean(clean(process.env.VERCEL_ENV)) || process.env.NODE_ENV === "production";
+}
+
 /** The same config, insisted upon. Throws a message a developer can act on. */
 export function requireSupabaseEnv(): SupabaseEnv {
   const env = supabaseEnv();

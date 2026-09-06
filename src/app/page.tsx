@@ -3,7 +3,7 @@ import { ButtonLink } from "@/components/ui/button";
 import { LockMark } from "@/components/layout/lock-mark";
 import { Label } from "@/components/ui/surface";
 import { getUser } from "@/lib/auth/dal";
-import { isSupabaseConfigured } from "@/lib/env";
+import { isDeployed, isSupabaseConfigured, missingPublicEnv } from "@/lib/env";
 import { AFTER_SIGN_IN, SIGN_IN_PATH } from "@/lib/auth/routes";
 import { PHASES } from "@/lib/lock/phases";
 
@@ -32,6 +32,18 @@ export default async function Home() {
 
   const configured = isSupabaseConfigured();
   const user = configured ? await getUser() : null;
+  /*
+   * Names of the variables this deployment cannot read, and where to set them.
+   *
+   * The previous version of this notice told everybody to edit `.env.local` and
+   * restart the dev server, which on a deployed URL is advice for a machine
+   * nobody is sitting at. It cost a production incident several hours: the
+   * variables existed in the dashboard, held empty strings, and the page said
+   * to go and look at a file. Saying which variable and which place is the
+   * whole job of an error message. Names only — never a value.
+   */
+  const missing = configured ? [] : missingPublicEnv();
+  const deployed = isDeployed();
 
   return (
     <main className="mx-auto flex min-h-dvh w-full max-w-read flex-col px-6">
@@ -80,11 +92,36 @@ export default async function Home() {
           <div className="rounded-card border border-border bg-surface p-5">
             <Label className="text-danger">Not configured</Label>
             <p className="mt-2 text-sm text-ink-muted">
-              LOCK has no Supabase project to talk to. Copy{" "}
-              <code className="font-mono text-ink">.env.example</code> to{" "}
-              <code className="font-mono text-ink">.env.local</code>, fill in the two
-              values from your project&rsquo;s API settings, and restart the dev server.
-              The steps are in <code className="font-mono text-ink">SETUP.md</code>.
+              LOCK has no Supabase project to talk to.{" "}
+              {missing.length > 0 ? (
+                <>
+                  {missing.length === 1 ? "This variable is" : "These variables are"}{" "}
+                  missing or empty:{" "}
+                  {missing.map((name, i) => (
+                    <span key={name}>
+                      {i > 0 ? ", " : null}
+                      <code className="font-mono text-ink">{name}</code>
+                    </span>
+                  ))}
+                  .{" "}
+                </>
+              ) : null}
+              {deployed ? (
+                <>
+                  Set {missing.length === 1 ? "it" : "them"} to a non-empty value in
+                  your hosting provider&rsquo;s environment variables for this
+                  environment, then redeploy. A variable that exists with a blank
+                  value reads exactly like one that was never added.
+                </>
+              ) : (
+                <>
+                  Copy <code className="font-mono text-ink">.env.example</code> to{" "}
+                  <code className="font-mono text-ink">.env.local</code>, fill in the
+                  values from your project&rsquo;s API settings, and restart the dev
+                  server. The steps are in{" "}
+                  <code className="font-mono text-ink">SETUP.md</code>.
+                </>
+              )}
             </p>
           </div>
         )}
