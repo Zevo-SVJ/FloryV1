@@ -1,10 +1,9 @@
 import type { ReactNode } from "react";
-import { LockMark } from "@/components/layout/lock-mark";
-import { NavList } from "@/components/layout/nav-list";
-import { MobileNav } from "@/components/layout/mobile-nav";
+import { SideRail } from "@/components/shell/side-rail";
+import { TabBar } from "@/components/shell/tab-bar";
 import { AccountBlock } from "@/components/layout/account-block";
 import { requireProfile, getUser } from "@/lib/auth/dal";
-import { navGroupsFor } from "@/lib/lock/navigation";
+import { areasFor, TAB_IDS } from "@/lib/lock/navigation";
 
 /**
  * The application shell.
@@ -14,66 +13,50 @@ import { navGroupsFor } from "@/lib/lock/navigation";
  * First it insists on a session and a profile. `requireProfile()` runs here,
  * next to the render, and redirects if there is none. The proxy already turned
  * signed-out visitors away, but the proxy is a convenience — this is the check
- * that counts, and every route inside this group inherits it by being inside
- * it.
+ * that counts, and every route inside this group inherits it by being inside it.
  *
- * Second it draws the frame. Which links exist is decided here, on the server,
- * from a role read out of the database — never in the browser, and never from
- * anything the browser sent. `navGroupsFor` is called once and the result is
- * handed to both the sidebar and the mobile drawer, so the two cannot disagree
- * about what this account may see.
+ * Second it draws the frame, and the frame is now two different things rather
+ * than one thing shrunk.
  *
- * The layout is a sticky sidebar beside a normally scrolling document above
- * `lg`, and a top bar with a drawer below it.
+ *   Wide     a floating, collapsible rail beside the content
+ *   Narrow   a floating tab bar over the content, and a sheet for the rest
  *
- * The sidebar is `sticky` with its own `h-dvh` rather than the grid being
- * `h-dvh` with `overflow-hidden`. That was the first attempt and it clipped:
- * a single implicit grid row is sized `auto`, so it grew past the container's
- * height and the last navigation group was cut off the bottom of the screen
- * with no way to scroll to it. Sticky puts the height on the element that needs
- * it, leaves the page's own scrollbar to the content, and cannot clip.
+ * They are not the same component at two sizes. A phone gets four thumb-sized
+ * tabs and a More sheet; a Mac gets six named destinations it can collapse to
+ * icons. The old shell was a permanent 15rem panel on the left at every width
+ * above `lg` and that same panel as a slide-in drawer below it — a desktop
+ * pattern wearing a phone's clothes.
  *
- * `min-w-0` on `main` is what stops a wide table or a long unbroken string in a
- * child page from pushing the whole document sideways — a grid item's default
- * minimum width is its content.
+ * Which links exist is still decided here, on the server, from a role read out
+ * of the database. `areasFor` is called once and its result is handed to both,
+ * so the two cannot disagree about what this account may see.
+ *
+ * There is no page container. Width belongs to the task, not to the shell, so
+ * each screen chooses `read`, `content` or `wide` through the `Screen`
+ * primitive — a lesson is not a mission workspace and neither is a course
+ * overview.
  */
 export default async function AppLayout({ children }: { children: ReactNode }) {
   const profile = await requireProfile();
   const user = await getUser();
-  const groups = navGroupsFor(profile.role);
+  const areas = areasFor(profile.role);
   const account = <AccountBlock profile={profile} email={user?.email ?? null} />;
 
+  const tabs = TAB_IDS.map((id) => areas.find((area) => area.id === id)).filter(
+    (area): area is NonNullable<typeof area> => area !== undefined,
+  );
+  const overflow = areas.filter((area) => !TAB_IDS.includes(area.id));
+
   return (
-    <div className="min-h-dvh lg:grid lg:grid-cols-[var(--spacing-sidebar)_1fr]">
-      {/* Desktop: a quiet column that does not scroll with the content. */}
-      <aside className="hidden border-r border-border bg-surface-sunken lg:sticky lg:top-0 lg:flex lg:h-dvh lg:flex-col">
-        <div className="flex h-14 shrink-0 items-center border-b border-border px-4">
-          <LockMark href="/dashboard" />
-        </div>
+    <div className="flex min-h-dvh">
+      <SideRail areas={areas} account={account} />
 
-        <div className="min-h-0 flex-1 overflow-y-auto p-3">
-          <NavList groups={groups} />
-        </div>
+      {/* `min-w-0`: a grid or flex child's default minimum width is its
+          content, so without this a wide table inside a page pushes the whole
+          document sideways. */}
+      <main className="min-w-0 flex-1">{children}</main>
 
-        {account}
-      </aside>
-
-      {/* Mobile: a bar that stays put, and the drawer behind its trigger. */}
-      <header className="sticky top-0 z-40 flex h-14 items-center gap-2 border-b border-border bg-canvas px-3 lg:hidden">
-        <MobileNav groups={groups} account={account} />
-        <LockMark href="/dashboard" />
-      </header>
-
-      <main className="min-w-0">
-        {/*
-         * One content measure for the whole application. Pages set their own
-         * internal rhythm and never their own page padding, which is what keeps
-         * twenty routes from looking like twenty templates.
-         */}
-        <div className="mx-auto w-full max-w-[64rem] px-5 py-8 sm:px-8 lg:px-10 lg:py-12">
-          {children}
-        </div>
-      </main>
+      <TabBar tabs={tabs} overflow={overflow} account={account} />
     </div>
   );
 }

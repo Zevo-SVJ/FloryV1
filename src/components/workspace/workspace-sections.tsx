@@ -78,7 +78,7 @@ export function ProductFacts({ project }: { project: ProjectRow }) {
           <dt className="label pt-0.5 text-ink-subtle">{row.term}</dt>
           <dd
             className={cn(
-              "max-w-measure text-[0.9375rem] leading-relaxed",
+              "max-w-read text-[0.9375rem] leading-relaxed",
               row.pending ? "text-ink-subtle" : "text-ink",
             )}
           >
@@ -112,7 +112,7 @@ export function CurrentWork({ current, next }: { current: MissionSummary; next: 
         </div>
 
         <h3 className="mt-2 text-[1.125rem] leading-snug font-medium text-ink">{mission.title}</h3>
-        <p className="mt-1.5 max-w-measure text-[0.9375rem] leading-relaxed text-ink-muted">
+        <p className="mt-1.5 max-w-read text-[0.9375rem] leading-relaxed text-ink-muted">
           {mission.objective}
         </p>
 

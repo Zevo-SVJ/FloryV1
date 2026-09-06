@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { PageHeader, HeaderMeta } from "@/components/ui/page-header";
+import { Screen } from "@/components/ui/screen";
 import { Card, Label, Badge } from "@/components/ui/surface";
 import { EmptyState } from "@/components/states/empty-state";
 import { Forbidden } from "@/components/states/forbidden";
@@ -14,6 +14,7 @@ import { CurrentPhase } from "@/components/progress/phase-progress";
 import { SkillLine } from "@/components/progress/skill";
 import { AwardLine } from "@/components/progress/award";
 import { ActivityFeed } from "@/components/progress/activity";
+import { Group } from "@/components/ui/list";
 import { AwardMilestoneForm } from "@/components/progress/award-form";
 import { ProgressBar } from "@/components/ui/progress-bar";
 import { ARTIFACT_STATUS_LABEL } from "@/lib/workspace/labels";
@@ -68,23 +69,14 @@ export default async function LearnerDetailPage({
     .sort((a, b) => b.earned.earned_at.localeCompare(a.earned.earned_at));
 
   return (
-    <div className="space-y-8">
-      <PageHeader
-        eyebrow="Learner"
-        title={detail.learner.display_name ?? "Learner"}
-        description={detail.project?.description ?? "No project described yet."}
-        meta={
-          <>
-            <HeaderMeta label="Project">{detail.project?.name ?? "None yet"}</HeaderMeta>
-            <HeaderMeta label="Lessons">{detail.lessonsCompleted}</HeaderMeta>
-            <HeaderMeta label="Missions">{detail.missionsCompleted}</HeaderMeta>
-            <HeaderMeta label="To review">{detail.pendingReviews}</HeaderMeta>
-            <HeaderMeta label="Overall">
-              {snapshot.overall?.percent == null ? "—" : `${snapshot.overall.percent}%`}
-            </HeaderMeta>
-          </>
-        }
-      />
+    <Screen
+      title={detail.learner.display_name ?? "Learner"}
+      eyebrow="Learner"
+      lede={detail.project?.description ?? "No project described yet."}
+      back={{ href: "/review", label: "Review" }}
+      width="content"
+    >
+      <div className="space-y-8">
 
       {detail.project ? (
         <Card className="space-y-3 p-5">
@@ -163,13 +155,11 @@ export default async function LearnerDetailPage({
               </p>
             </EmptyState>
           ) : (
-            <Card className="h-full px-5 py-2">
-              <ul className="divide-y divide-border">
-                {moving.map((skill) => (
-                  <SkillLine key={skill.skill_key} skill={skill} />
-                ))}
-              </ul>
-            </Card>
+            <Group>
+              {moving.map((skill) => (
+                <SkillLine key={skill.skill_key} skill={skill} />
+              ))}
+            </Group>
           )}
         </section>
 
@@ -183,13 +173,11 @@ export default async function LearnerDetailPage({
               </p>
             </EmptyState>
           ) : (
-            <Card className="h-full px-5 py-2">
-              <ul className="divide-y divide-border">
-                {earned.slice(0, 6).map(({ award, earned: row }) => (
-                  <AwardLine key={award.key} award={award} earnedAt={row.earned_at} />
-                ))}
-              </ul>
-            </Card>
+            <Group>
+              {earned.slice(0, 6).map(({ award, earned: row }) => (
+                <AwardLine key={award.key} award={award} earnedAt={row.earned_at} />
+              ))}
+            </Group>
           )}
         </section>
       </div>
@@ -278,7 +266,7 @@ export default async function LearnerDetailPage({
         )}
       </section>
 
-      <section className="max-w-measure space-y-3">
+      <section className="max-w-read space-y-3">
         <Card className="p-5">
           <NoteForm learnerId={detail.learner.id} />
         </Card>
@@ -321,6 +309,7 @@ export default async function LearnerDetailPage({
           </ul>
         </section>
       ) : null}
-    </div>
+      </div>
+    </Screen>
   );
 }

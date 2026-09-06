@@ -1,16 +1,28 @@
 import Link from "next/link";
-import { Badge } from "@/components/ui/surface";
-import { KIND_LABEL } from "@/lib/toolbox/schemas";
 import type { ToolboxItemRow } from "@/types/database";
+import { Badge } from "@/components/ui/surface";
+import { Group, LinkRow } from "@/components/ui/list";
+import { Icon, type IconName } from "@/components/ui/icon";
+import { KIND_LABEL } from "@/lib/toolbox/schemas";
 
 /**
  * One item in a list, and in search results.
  *
- * Leads with the kind, because the first question in a mixed result set is
- * "what sort of thing is this?". The summary answers "what is it" without
- * opening it — which is why the schema makes that column required and long
- * enough to say something.
+ * The kind leads — in a mixed result set the first question is "what sort of
+ * thing is this?" — but as an icon rather than as a word, because six repeated
+ * uppercase category labels down a list is six words the eye has to read before
+ * it reaches the titles it came for. The summary answers "what is it" without
+ * opening it, which is why the schema makes that column required.
  */
+const KIND_ICON: Record<ToolboxItemRow["kind"], IconName> = {
+  prompt: "sparkle",
+  template: "note",
+  framework: "learn",
+  checklist: "check",
+  resource: "play",
+  stack_tool: "build",
+};
+
 export function ToolboxItemCard({
   item,
   showKind = true,
@@ -19,26 +31,26 @@ export function ToolboxItemCard({
   showKind?: boolean;
 }) {
   return (
-    <Link
+    <LinkRow
       href={`/toolbox/item/${item.slug}`}
-      className="-mx-3 block rounded-control px-3 py-3.5 transition-colors hover:bg-surface-sunken"
-    >
-      <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
-        {showKind ? <span className="label text-ink-subtle">{KIND_LABEL[item.kind]}</span> : null}
-        <span className="text-[0.9375rem] font-medium text-ink">{item.title}</span>
-        {item.is_demo ? <Badge>Demo</Badge> : null}
-      </div>
-      <p className="mt-1.5 max-w-measure text-sm text-ink-muted">{item.summary}</p>
-      {item.tags.length > 0 ? (
-        <p className="mt-2 flex flex-wrap gap-2">
-          {item.tags.slice(0, 4).map((tag) => (
-            <span key={tag} className="label text-ink-subtle">
-              {tag}
-            </span>
-          ))}
-        </p>
-      ) : null}
-    </Link>
+      align="start"
+      leading={
+        showKind ? (
+          <Icon
+            name={KIND_ICON[item.kind]}
+            title={KIND_LABEL[item.kind]}
+            className="size-[1.15rem] text-ink-subtle"
+          />
+        ) : undefined
+      }
+      title={
+        <span className="flex flex-wrap items-baseline gap-x-2.5">
+          <span>{item.title}</span>
+          {item.is_demo ? <Badge>Demo</Badge> : null}
+        </span>
+      }
+      detail={item.summary}
+    />
   );
 }
 
@@ -59,15 +71,22 @@ export function ContextualTools({
   if (items.length === 0) return null;
 
   return (
-    <section className="max-w-measure space-y-3">
-      <p className="label text-ink-subtle">{heading}</p>
-      <ul className="divide-y divide-border border-y border-border">
-        {items.map((item) => (
-          <li key={item.id}>
-            <ToolboxItemCard item={item} />
-          </li>
-        ))}
-      </ul>
-    </section>
+    <Group title={heading}>
+      {items.map((item) => (
+        <ToolboxItemCard key={item.id} item={item} />
+      ))}
+    </Group>
+  );
+}
+
+/** A link out of a list into the wider library. Used under a short result set. */
+export function MoreInToolbox({ href, label }: { href: string; label: string }) {
+  return (
+    <Link
+      href={href}
+      className="tactile text-subhead font-medium text-accent hover:text-accent-hover"
+    >
+      {label}
+    </Link>
   );
 }

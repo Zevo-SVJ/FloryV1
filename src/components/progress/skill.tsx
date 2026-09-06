@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { Card, Label } from "@/components/ui/surface";
+import { Row } from "@/components/ui/list";
 import { cn } from "@/lib/utils/cn";
 import {
   SKILL_STATE_LABEL,
@@ -110,13 +111,15 @@ export function SkillCard({
 /** The compact form, for the dashboard. One line each, no card. */
 export function SkillLine({ skill }: { skill: LearnerSkillStateRow }) {
   return (
-    <li className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1 py-2">
-      <span className="text-sm text-ink">{skill.label}</span>
-      <span className="flex items-center gap-3">
-        <SkillMeter state={skill.state} />
-        <span className="label text-ink-subtle">{SKILL_STATE_LABEL[skill.state]}</span>
-      </span>
-    </li>
+    <Row
+      title={skill.label}
+      trailing={
+        <>
+          <SkillMeter state={skill.state} />
+          <span>{SKILL_STATE_LABEL[skill.state]}</span>
+        </>
+      }
+    />
   );
 }
 

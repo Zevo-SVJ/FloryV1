@@ -1,5 +1,5 @@
-import { Card, Label } from "@/components/ui/surface";
 import { EmptyState } from "@/components/states/empty-state";
+import { Group, Row } from "@/components/ui/list";
 import { formatDate } from "@/components/progress/award";
 import type { LearnerActivityRow } from "@/types/database";
 
@@ -31,34 +31,27 @@ export function ActivityFeed({
   emptyBody?: string;
 }) {
   return (
-    <section className="space-y-3">
-      <Label as="h2">{heading}</Label>
-
+    <Group title={heading}>
       {entries.length === 0 ? (
-        <EmptyState title={emptyTitle}>
-          <p>{emptyBody}</p>
-        </EmptyState>
+        <EmptyState title={emptyTitle}>{emptyBody}</EmptyState>
       ) : (
-        <Card className="divide-y divide-border">
-          {entries.map((entry) => (
-            <article
-              key={`${entry.source}-${entry.occurred_at}-${entry.title}`}
-              className="space-y-1 p-4"
-            >
-              <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
-                <span className="label text-ink-subtle">{SOURCE_LABEL[entry.source]}</span>
-                <span className="label text-ink-subtle tabular-nums">
+        entries.map((entry) => (
+          <Row
+            key={`${entry.source}-${entry.occurred_at}-${entry.title}`}
+            align="start"
+            title={entry.title}
+            detail={entry.detail ?? undefined}
+            trailing={
+              <span className="hidden text-right sm:block">
+                <span className="block">{SOURCE_LABEL[entry.source]}</span>
+                <span className="mt-0.5 block font-mono tabular-nums">
                   {formatDate(entry.occurred_at)}
                 </span>
-              </div>
-              <p className="text-[0.9375rem] text-ink">{entry.title}</p>
-              {entry.detail ? (
-                <p className="max-w-measure text-sm text-ink-muted">{entry.detail}</p>
-              ) : null}
-            </article>
-          ))}
-        </Card>
+              </span>
+            }
+          />
+        ))
       )}
-    </section>
+    </Group>
   );
 }

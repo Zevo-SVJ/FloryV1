@@ -22,15 +22,15 @@ export default async function Home() {
   const user = configured ? await getUser() : null;
 
   return (
-    <main className="mx-auto flex min-h-dvh w-full max-w-measure flex-col px-6">
+    <main className="mx-auto flex min-h-dvh w-full max-w-read flex-col px-6">
       <header className="py-8">
         <LockMark />
       </header>
 
       <div className="flex flex-1 flex-col justify-center gap-10 pb-24">
         <div className="space-y-5">
-          <h1 className="text-display">Build real SaaS products with AI.</h1>
-          <p className="text-lede max-w-[38ch] text-ink-muted">
+          <h1 className="text-large">Build real SaaS products with AI.</h1>
+          <p className="text-body max-w-[38ch] text-ink-muted">
             You are the founder. The tools are the execution layer. LOCK is the
             program that takes you from an idea to a product people pay for.
           </p>

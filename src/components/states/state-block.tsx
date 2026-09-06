@@ -45,19 +45,24 @@ export function StateBlock({
   return (
     <div
       className={cn(
-        "mx-auto flex w-full max-w-measure flex-col items-start gap-4 py-16",
+        "mx-auto flex w-full max-w-read flex-col items-start gap-4 py-14",
         className,
       )}
     >
       {eyebrow ? (
-        <p className={cn("label", tone === "danger" ? "text-danger" : "text-ink-subtle")}>
+        <p
+          className={cn(
+            "text-footnote font-semibold tracking-[0.01em] uppercase",
+            tone === "danger" ? "text-danger" : "text-ink-subtle",
+          )}
+        >
           {eyebrow}
         </p>
       ) : null}
 
       <div className="space-y-3">
-        <Heading className="text-title">{title}</Heading>
-        {description ? <div className="text-lede text-ink-muted">{description}</div> : null}
+        <Heading className="text-title1">{title}</Heading>
+        {description ? <div className="text-body text-ink-muted">{description}</div> : null}
       </div>
 
       {children}

@@ -1,16 +1,11 @@
 import type { Metadata } from "next";
-import { Card } from "@/components/ui/surface";
+import { Screen } from "@/components/ui/screen";
+import { Group, LinkRow, Row, RowValue } from "@/components/ui/list";
+import { Icon } from "@/components/ui/icon";
+import { Meter } from "@/components/learning/course";
 import { EmptyState } from "@/components/states/empty-state";
-import { ProductHeader } from "@/components/workspace/product-header";
 import { StartProjectForm } from "@/components/workspace/start-project-form";
-import {
-  Band,
-  BandLink,
-  ProductFacts,
-  CurrentWork,
-  WorkEntry,
-  ProductJourney,
-} from "@/components/workspace/workspace-sections";
+import { CurrentWork, ProductFacts } from "@/components/workspace/workspace-sections";
 import { getWorkspaceSnapshot, getBuildLog, getArtifacts } from "@/lib/workspace/queries";
 import { getCurriculum } from "@/lib/learning/queries";
 import { getProgressSnapshot } from "@/lib/progress/queries";
@@ -18,22 +13,18 @@ import { getProgressSnapshot } from "@/lib/progress/queries";
 export const metadata: Metadata = { title: "My SaaS" };
 
 /**
- * The product workspace.
+ * The product workspace: the thing being built, not a second dashboard.
  *
- * Two states, and they are different pages rather than one page with things
+ * Two states, and they are different screens rather than one screen with things
  * hidden. Before a product exists this is a setup step; after, it is the place
- * the learner comes back to. Nothing is drawn empty in between — a workspace of
- * blank cards is a list of things you have failed to do.
+ * the learner comes back to.
  *
- * The populated state answers the six questions in the order somebody asks
- * them: what am I building (the masthead), what is it (the facts), what do I do
- * now (current work, and the only accent on the page), where is my work
- * (artifacts, build log), how far have I come (the journey).
- *
- * What this page deliberately does *not* do is restate LOCK. There is no
- * roadmap, no lesson list, no toolbox and no achievement wall — the artifact
- * list and the build log are doors with counts on them, not contents. This is
- * the product's page; the programme lives elsewhere.
+ * The populated state answers the four questions in the order somebody asks
+ * them: what am I building, what do I do now, what is it, and where is what I
+ * have made. It deliberately does *not* restate LOCK — there is no roadmap, no
+ * lesson list and no achievement wall here. Artifacts and the build log are
+ * doors with counts on them, not contents. This is the product's screen; the
+ * programme lives in Learn.
  */
 export default async function WorkspacePage() {
   const snapshot = await getWorkspaceSnapshot();
@@ -41,63 +32,49 @@ export default async function WorkspacePage() {
   /* ── State A: nothing exists yet ─────────────────────────────────────── */
   if (!snapshot.project) {
     return (
-      <div className="space-y-10">
-        <header className="space-y-2">
-          <p className="label text-ink-subtle">My SaaS</p>
-          <h1 className="text-title">Your product workspace</h1>
-          <p className="max-w-measure text-[0.9375rem] leading-relaxed text-ink-muted">
-            LOCK carries one product through the whole programme. Name it, and
-            every mission from here applies to something real.
-          </p>
-        </header>
+      <Screen
+        title="Name what you are building"
+        eyebrow="My SaaS"
+        width="content"
+        lede="LOCK carries one product through the whole programme. Name it, and every mission from here applies to something real."
+      >
+        <div className="grid gap-8 lg:grid-cols-[minmax(0,24rem)_1fr] lg:gap-12">
+          <Group title="What are you building?" className="rise">
+            <div className="px-4 py-4">
+              <StartProjectForm />
+            </div>
+          </Group>
 
-        {/*
-         * The form on the left, what happens next on the right. A single
-         * centred form on an empty page reads as an interruption; putting the
-         * consequence beside it makes it a step in a process. The column
-         * collapses under the form on anything narrower than `lg`, so on a
-         * phone the first thing on screen is still the name field.
-         */}
-        <div className="grid gap-10 lg:grid-cols-[minmax(0,26rem)_1fr] lg:gap-14">
-          <Band title="What are you building?">
-            <StartProjectForm />
-          </Band>
-
-          <div className="lg:pt-0">
-            <Band title="What this sets up">
-              <ol className="divide-y divide-border">
-                {[
-                  {
-                    n: "01",
-                    t: "Missions attach to it",
-                    d: "Every mission produces a deliverable for this product rather than an exercise.",
-                  },
-                  {
-                    n: "02",
-                    t: "Artifacts collect here",
-                    d: "What you produce is kept, reviewed by your mentor, and kept again.",
-                  },
-                  {
-                    n: "03",
-                    t: "The build log writes itself",
-                    d: "Submissions, reviews and completions are recorded as they happen.",
-                  },
-                ].map((step) => (
-                  <li key={step.n} className="flex gap-4 py-3 first:pt-0">
-                    <span className="label pt-0.5 tabular-nums text-ink-subtle">{step.n}</span>
-                    <span className="min-w-0">
-                      <span className="block text-[0.9375rem] font-medium text-ink">{step.t}</span>
-                      <span className="block max-w-measure text-sm leading-relaxed text-ink-muted">
-                        {step.d}
-                      </span>
-                    </span>
-                  </li>
-                ))}
-              </ol>
-            </Band>
-          </div>
+          <Group title="What this sets up" className="rise rise-1">
+            {[
+              {
+                t: "Missions attach to it",
+                d: "Every mission produces a deliverable for this product rather than an exercise.",
+              },
+              {
+                t: "Artifacts collect here",
+                d: "What you produce is kept, reviewed by your mentor, and kept again.",
+              },
+              {
+                t: "The build log writes itself",
+                d: "Submissions, reviews and completions are recorded as they happen.",
+              },
+            ].map((step, index) => (
+              <Row
+                key={step.t}
+                align="start"
+                leading={
+                  <span className="flex size-7 items-center justify-center rounded-full bg-ink/[0.06] font-mono text-caption tabular-nums text-ink-subtle">
+                    {index + 1}
+                  </span>
+                }
+                title={step.t}
+                detail={step.d}
+              />
+            ))}
+          </Group>
         </div>
-      </div>
+      </Screen>
     );
   }
 
@@ -109,86 +86,95 @@ export default async function WorkspacePage() {
     getProgressSnapshot(),
   ]);
 
+  const project = snapshot.project;
   const phaseLabel =
-    curriculum.find((entry) => entry.phase.key === snapshot.project?.current_phase)?.phase.label ??
-    null;
+    curriculum.find((entry) => entry.phase.key === project.current_phase)?.phase.label ?? null;
 
   return (
-    <div className="space-y-10">
-      <ProductHeader
-        project={snapshot.project}
-        phaseLabel={phaseLabel}
-        missionsDone={snapshot.completedCount}
-        missionsTotal={snapshot.totalCount}
-        artifactCount={artifacts.length}
-      />
-
-      <Band title="Current work">
-        {snapshot.current ? (
-          <CurrentWork current={snapshot.current} next={snapshot.next} />
-        ) : (
-          <EmptyState title="Nothing open">
-            <p>
-              Missions appear here as the curriculum is published. Each one
-              applies a lesson to this product and leaves an artifact behind.
-            </p>
-          </EmptyState>
-        )}
-      </Band>
-
-      <Band title="Your product">
-        <ProductFacts project={snapshot.project} />
-      </Band>
-
-      <Band title="Project work">
-        <div className="grid gap-3 sm:grid-cols-2">
-          <WorkEntry
-            href="/build/artifacts"
-            title="Artifacts"
-            count={artifacts.length}
-            unit={artifacts.length === 1 ? "produced" : "produced"}
-            detail="What each mission produced, and its review."
+    <Screen
+      title={project.name}
+      eyebrow={
+        <span className="flex flex-wrap items-center gap-x-2.5">
+          <span>My SaaS</span>
+          {phaseLabel ? (
+            <>
+              <span aria-hidden className="text-ink-subtle/50">·</span>
+              <span>{phaseLabel}</span>
+            </>
+          ) : null}
+        </span>
+      }
+      width="content"
+      lede={project.description || project.problem_statement || undefined}
+    >
+      <div className="space-y-10 sm:space-y-12">
+        {/* ── How far the product has come ─────────────────────────────── */}
+        <div className="flex flex-wrap items-center gap-x-8 gap-y-4">
+          <Meter
+            done={snapshot.completedCount}
+            total={snapshot.totalCount}
+            label="Missions complete"
+            className="w-full max-w-56"
           />
-          <WorkEntry
-            href="/build/log"
-            title="Build log"
-            count={log.length}
-            unit={log.length === 1 ? "entry" : "entries"}
-            detail="What you decided, when, and why."
-          />
+          <p className="flex flex-wrap items-center gap-x-5 gap-y-1 text-footnote text-ink-subtle">
+            <span>
+              <span className="font-mono tabular-nums text-ink">{artifacts.length}</span>{" "}
+              {artifacts.length === 1 ? "artifact" : "artifacts"}
+            </span>
+            {progress.overall?.percent != null ? (
+              <span>
+                <span className="font-mono tabular-nums text-ink">
+                  {progress.overall.percent}%
+                </span>{" "}
+                of the programme
+              </span>
+            ) : null}
+          </p>
         </div>
 
-        {/*
-         * Three recent lines, as orientation. Not the log — the log is one
-         * click away and this page is not it.
-         */}
-        {log.length > 0 ? (
-          <ul className="mt-4 divide-y divide-border border-t border-border">
-            {log.slice(0, 3).map((entry) => (
-              <li key={entry.id} className="flex flex-wrap items-baseline gap-x-4 gap-y-1 py-2.5">
-                <span className="label shrink-0 tabular-nums text-ink-subtle">
-                  {new Date(entry.occurred_at).toLocaleDateString("en-GB", {
-                    day: "numeric",
-                    month: "short",
-                    timeZone: "UTC",
-                  })}
-                </span>
-                <span className="min-w-0 text-sm text-ink-muted">{entry.title}</span>
-              </li>
-            ))}
-          </ul>
-        ) : null}
-      </Band>
+        {/* ── What to do now ───────────────────────────────────────────── */}
+        <Group title="Current work" className="rise">
+          {snapshot.current ? (
+            <div className="px-4 py-4">
+              <CurrentWork current={snapshot.current} next={snapshot.next} />
+            </div>
+          ) : (
+            <EmptyState title="Nothing open">
+              Missions appear here as the curriculum is published. Each one applies
+              a lesson to this product and leaves an artifact behind.
+            </EmptyState>
+          )}
+        </Group>
 
-      <Band title="Product journey" action={<BandLink href="/progress">Full progress</BandLink>}>
-        <Card className="p-5">
-          <ProductJourney
-            percent={progress.overall?.percent ?? null}
-            missionsDone={snapshot.completedCount}
-            missionsTotal={snapshot.totalCount}
+        {/* ── Where the work lives ─────────────────────────────────────── */}
+        <Group title="Your work" className="rise rise-1">
+          <LinkRow
+            href="/build/artifacts"
+            leading={<Icon name="note" className="size-[1.15rem] text-ink-subtle" />}
+            title="Artifacts"
+            detail="What each mission produced, and its review."
+            trailing={<RowValue>{artifacts.length}</RowValue>}
           />
-        </Card>
-      </Band>
-    </div>
+          <LinkRow
+            href="/build/log"
+            leading={<Icon name="list" className="size-[1.15rem] text-ink-subtle" />}
+            title="Build log"
+            detail="What you decided, when, and why."
+            trailing={<RowValue>{log.length}</RowValue>}
+          />
+        </Group>
+
+        {/* ── What it is ───────────────────────────────────────────────── */}
+        <Group
+          title="Your product"
+          className="rise rise-2"
+          footnote="These fill in as the early missions decide what this is."
+        >
+          <div className="px-4 py-4">
+            <ProductFacts project={project} />
+          </div>
+        </Group>
+      </div>
+    </Screen>
   );
 }

@@ -1,14 +1,14 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { PageHeader, HeaderMeta } from "@/components/ui/page-header";
+import { Screen } from "@/components/ui/screen";
 import { Card, Label, Badge } from "@/components/ui/surface";
 import { Forbidden } from "@/components/states/forbidden";
 import { ReviewForm } from "@/components/mentor/review-form";
 import { FeedbackHistory } from "@/components/mentor/feedback";
 import { checkAccess, requireSection } from "@/lib/lock/access";
 import { getReviewSubject } from "@/lib/mentor/queries";
-import { ARTIFACT_STATUS_LABEL, EVIDENCE_KIND_LABEL } from "@/lib/workspace/labels";
+import { EVIDENCE_KIND_LABEL } from "@/lib/workspace/labels";
 
 export const metadata: Metadata = { title: "Review artifact" };
 
@@ -46,24 +46,14 @@ export default async function ReviewArtifactPage({
   const own = subject.artifact.profile_id === profile.id;
 
   return (
-    <div className="space-y-8">
-      <PageHeader
-        eyebrow="Review"
-        title={subject.artifact.title}
-        description={subject.mission?.objective ?? ""}
-        meta={
-          <>
-            <HeaderMeta label="Learner">
-              {subject.learner?.display_name ?? "Learner"}
-            </HeaderMeta>
-            <HeaderMeta label="Project">{subject.project?.name ?? "—"}</HeaderMeta>
-            <HeaderMeta label="Status">
-              {ARTIFACT_STATUS_LABEL[subject.artifact.status]}
-            </HeaderMeta>
-            <HeaderMeta label="Reviews">{subject.history.length}</HeaderMeta>
-          </>
-        }
-      />
+    <Screen
+      title={subject.artifact.title}
+      eyebrow="Review"
+      lede={subject.mission?.objective ?? ""}
+      back={{ href: "/review", label: "Review" }}
+      width="content"
+    >
+      <div className="space-y-8">
 
       <div className="grid gap-6 lg:grid-cols-[1.3fr_1fr]">
         {/* The work. */}
@@ -175,6 +165,7 @@ export default async function ReviewArtifactPage({
           <FeedbackHistory history={subject.history} />
         </div>
       </div>
-    </div>
+      </div>
+    </Screen>
   );
 }

@@ -3,6 +3,7 @@
 import { useActionState, useState, type ReactNode } from "react";
 import { useFormStatus } from "react-dom";
 import { Button } from "@/components/ui/button";
+import { Icon } from "@/components/ui/icon";
 import { Spinner } from "@/components/ui/spinner";
 import { cn } from "@/lib/utils/cn";
 import { submitBlockResponse } from "@/lib/learning/actions";
@@ -45,11 +46,16 @@ interface Shared {
 /**
  * The moment the reading stops.
  *
- * A full border made these look like every other block on the page, which is
- * the opposite of the job: an active-learning prompt has to read as an
- * *interruption*. So it loses the box and gains a heavy accent rule down the
- * left, sits on a tinted ground, and is set wider than the prose it breaks
- * into — the eye registers the change of shape before it reads the label.
+ * Everything else in a lesson is prose on the canvas. This is the one thing
+ * that is a *surface*: a raised card with a tinted ground, breaking out of the
+ * reading column by a hair on wide screens. The eye registers the change of
+ * material before it reads the label, which is exactly what an active-learning
+ * prompt has to do — a learner should not be able to scroll past one by
+ * accident.
+ *
+ * The icon is part of that: a target, in the accent, the same mark a mission
+ * carries. It is the product saying "this is you doing something" in the same
+ * voice at every scale.
  */
 function Prompt({
   label,
@@ -59,18 +65,31 @@ function Prompt({
   children: ReactNode;
 }) {
   return (
-    <div className="border-l-[3px] border-accent bg-accent-quiet/30 py-5 pr-5 pl-6">
-      <p className="label mb-3 text-accent">{label}</p>
+    <div className="rounded-card bg-accent-quiet/70 p-5 shadow-[var(--shadow-control)] sm:-mx-4 sm:p-6">
+      <p className="mb-4 flex items-center gap-2 text-footnote font-semibold tracking-[0.01em] text-accent uppercase">
+        <Icon name="target" className="size-[1.05rem]" />
+        {label}
+      </p>
       {children}
     </div>
   );
 }
 
+/**
+ * What you get for committing.
+ *
+ * It arrives rather than appears — the fade is the only animation in a lesson,
+ * and it is here because the reveal is a consequence of an action the learner
+ * just took. Anything else on this screen animating would make this one mean
+ * nothing.
+ */
 function Reveal({ label = "What LOCK would look for", children }: { label?: string; children: ReactNode }) {
   return (
-    <div className="mt-5 border-t border-accent/30 pt-4">
-      <p className="label mb-2 text-ink-subtle">{label}</p>
-      <p className="text-[0.9375rem] leading-relaxed text-ink-muted">{children}</p>
+    <div className="fade-in mt-5 rounded-control bg-surface/70 px-4 py-3.5">
+      <p className="text-footnote font-semibold tracking-[0.01em] text-ink-subtle uppercase">
+        {label}
+      </p>
+      <p className="mt-1.5 text-subhead leading-relaxed text-ink-muted">{children}</p>
     </div>
   );
 }
@@ -78,7 +97,14 @@ function Reveal({ label = "What LOCK would look for", children }: { label?: stri
 function Submit({ label, className }: { label: string; className?: string }) {
   const { pending } = useFormStatus();
   return (
-    <Button type="submit" size="sm" disabled={pending} aria-busy={pending || undefined} className={className}>
+    <Button
+      type="submit"
+      variant="accent"
+      size="sm"
+      disabled={pending}
+      aria-busy={pending || undefined}
+      className={className}
+    >
       {pending ? <Spinner /> : null}
       {pending ? "Saving…" : label}
     </Button>
@@ -99,8 +125,16 @@ function Verdict({ correct }: { correct: boolean }) {
   return (
     <p
       role="status"
-      className={cn("label mt-3", correct ? "text-success" : "text-danger")}
+      className={cn(
+        "fade-in mt-3 flex items-center gap-1.5 text-footnote font-semibold",
+        correct ? "text-success" : "text-danger",
+      )}
     >
+      <Icon
+        name={correct ? "check" : "close"}
+        className="size-3.5"
+        strokeWidth="2.6"
+      />
       {correct ? "Correct" : "Not quite — read the explanation and try again"}
     </p>
   );
@@ -186,7 +220,7 @@ export function BooleanBlock({
             {(["true", "false"] as const).map((value) => (
               <label
                 key={value}
-                className="flex min-h-11 cursor-pointer items-center gap-2 rounded-control border border-border px-4 text-[0.9375rem] text-ink-muted transition-colors hover:bg-surface-sunken has-checked:border-accent has-checked:text-ink"
+                className="tactile flex min-h-11 cursor-pointer items-center gap-2 rounded-pill bg-surface px-4 text-subhead text-ink-muted shadow-[var(--shadow-control)] hover:bg-surface has-checked:bg-ink has-checked:text-ink-inverse"
               >
                 <input
                   type="radio"
@@ -244,7 +278,7 @@ export function OrderingBlock({
                 id={`${blockId}-${item.id}`}
                 name="value"
                 defaultValue={item.id}
-                className="h-11 rounded-control border border-border bg-surface px-2 text-sm text-ink"
+                className="tactile h-11 rounded-control bg-surface px-2 text-subhead text-ink shadow-[var(--shadow-control)]"
               >
                 {items.map((_, position) => (
                   <option key={position} value={item.id}>
@@ -302,7 +336,7 @@ export function DecisionBlock({
             {options.map((option) => (
               <label
                 key={option.id}
-                className="flex cursor-pointer gap-3 rounded-control border border-border p-3 transition-colors hover:bg-surface-sunken has-checked:border-accent"
+                className="tactile flex cursor-pointer gap-3 rounded-control bg-surface p-3.5 shadow-[var(--shadow-control)] has-checked:ring-2 has-checked:ring-accent"
               >
                 <input
                   type="radio"

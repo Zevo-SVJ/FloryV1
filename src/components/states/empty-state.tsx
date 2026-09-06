@@ -1,5 +1,4 @@
 import type { ReactNode } from "react";
-import { Card } from "@/components/ui/surface";
 
 /**
  * What an area says before it has anything in it.
@@ -10,8 +9,10 @@ import { Card } from "@/components/ui/surface";
  * say what the area is for, what will appear in it, and — where there is one —
  * what to do now.
  *
- * A dashed border rather than a solid card: it reads as a space reserved for
- * something rather than as a thing that is finished.
+ * Centred text on the surface it is empty *of*, with no box around it. The
+ * dashed rectangle it replaced drew a hard edge around an absence, which made
+ * "nothing here yet" look like a component that had failed to load. An empty
+ * list should look like a list with nothing in it.
  */
 export function EmptyState({
   title,
@@ -26,14 +27,10 @@ export function EmptyState({
   className?: string;
 }) {
   return (
-    <Card
-      className={`border-dashed bg-transparent p-6 ${className ?? ""}`}
-    >
-      <div className="space-y-2">
-        <p className="text-sm font-medium text-ink">{title}</p>
-        <div className="max-w-measure text-sm text-ink-muted">{children}</div>
-      </div>
-      {action ? <div className="pt-4">{action}</div> : null}
-    </Card>
+    <div className={`px-4 py-10 text-center ${className ?? ""}`}>
+      <p className="text-title3">{title}</p>
+      <div className="mx-auto mt-2 max-w-read text-subhead text-ink-muted">{children}</div>
+      {action ? <div className="mt-5 flex justify-center">{action}</div> : null}
+    </div>
   );
 }

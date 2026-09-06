@@ -7,9 +7,10 @@ import { cn } from "@/lib/utils/cn";
  * `src` it is never given is a component with an untested branch in it. When
  * profile pictures arrive, this is where they go.
  *
- * A square with the same radius as a control, not a circle: LOCK's shapes are
- * rectangular, and one circle in an interface of rectangles reads as borrowed
- * from somewhere else.
+ * A circle. It was a square with a control's radius, which was right when every
+ * shape in the product was a bordered rectangle; in a system built from pills,
+ * rails and grouped lists, a person is the one thing that should read as a
+ * person, and a circle is how every interface says so.
  */
 export function Avatar({
   name,
@@ -27,8 +28,8 @@ export function Avatar({
       aria-hidden
       className={cn(
         "inline-flex size-8 shrink-0 select-none items-center justify-center",
-        "rounded-control bg-surface-sunken text-[0.6875rem] font-semibold",
-        "text-ink-muted ring-1 ring-border",
+        "rounded-full bg-ink/[0.06] text-[0.6875rem] font-semibold",
+        "text-ink-muted",
         className,
       )}
     >

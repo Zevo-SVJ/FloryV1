@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { PageHeader, HeaderMeta } from "@/components/ui/page-header";
+import { Screen } from "@/components/ui/screen";
 import { EmptyState } from "@/components/states/empty-state";
 import { Badge } from "@/components/ui/surface";
 import { BuildLogForm } from "@/components/workspace/build-log-form";
@@ -24,18 +24,22 @@ export default async function BuildLogPage() {
   const automatic = entries.filter((entry) => entry.is_automatic).length;
 
   return (
-    <div className="space-y-8">
-      <PageHeader
-        eyebrow="My SaaS"
-        title="Build log"
-        description="What you decided, when, and why. You will not remember your own reasoning in a month."
-        meta={
-          <>
-            <HeaderMeta label="Entries">{entries.length}</HeaderMeta>
-            <HeaderMeta label="Recorded automatically">{automatic}</HeaderMeta>
-          </>
-        }
-      />
+    <Screen
+      title="Build log"
+      eyebrow="My SaaS"
+      lede="What you decided, when, and why. You will not remember your own reasoning in a month."
+      back={{ href: "/build", label: "My SaaS" }}
+      width="content"
+    >
+      <div className="space-y-8">
+        <p className="flex flex-wrap items-center gap-x-5 gap-y-1 text-footnote text-ink-subtle">
+          <span>
+            <span className="font-mono tabular-nums text-ink">{entries.length}</span> entries
+          </span>
+          <span>
+            <span className="font-mono tabular-nums text-ink">{automatic}</span> recorded automatically
+          </span>
+        </p>
 
       {!project ? (
         <EmptyState title="No project yet">
@@ -86,6 +90,7 @@ export default async function BuildLogPage() {
           )}
         </>
       )}
-    </div>
+      </div>
+    </Screen>
   );
 }

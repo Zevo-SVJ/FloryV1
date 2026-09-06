@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { PageHeader, HeaderMeta } from "@/components/ui/page-header";
+import { Screen } from "@/components/ui/screen";
 import { Card, Label, Badge } from "@/components/ui/surface";
 import { Forbidden } from "@/components/states/forbidden";
 import { checkAccess, requireSection } from "@/lib/lock/access";
@@ -51,10 +51,9 @@ export default async function AdminPage() {
 
   const supabase = await createClient();
 
-  const [profiles, relationships, lessons, missions, toolbox, learners, skills, milestones, xpRules] =
+  const [profiles, lessons, missions, toolbox, learners, skills, milestones, xpRules] =
     await Promise.all([
       supabase.from("profiles").select("*").order("created_at"),
-      supabase.from("learner_mentor_relationships").select("*"),
       supabase.from("lessons").select("id,status"),
       supabase.from("missions").select("id,status"),
       supabase.from("toolbox_items").select("id,status"),
@@ -80,19 +79,13 @@ export default async function AdminPage() {
   };
 
   return (
-    <div className="space-y-8">
-      <PageHeader
-        eyebrow="Staff"
-        title="Admin"
-        description="Who has access, who reviews whom, and what is published. Content itself is authored with SQL — see below."
-        meta={
-          <>
-            <HeaderMeta label="Accounts">{accounts.length}</HeaderMeta>
-            <HeaderMeta label="Learners">{learners.length}</HeaderMeta>
-            <HeaderMeta label="Pairings">{(relationships.data ?? []).length}</HeaderMeta>
-          </>
-        }
-      />
+    <Screen
+      title="Admin"
+      eyebrow="Staff"
+      lede="Who has access, who reviews whom, and what is published. Content itself is authored with SQL — see below."
+      width="content"
+    >
+      <div className="space-y-8">
 
       <section className="space-y-3">
         <Label as="h2">Accounts</Label>
@@ -156,7 +149,7 @@ export default async function AdminPage() {
             );
           })}
         </div>
-        <p className="max-w-measure text-sm text-ink-subtle">
+        <p className="max-w-read text-sm text-ink-subtle">
           A row&rsquo;s status is the authoritative column and its published
           flag is generated from it, so the two cannot disagree. Set the status;
           the visibility follows.
@@ -230,7 +223,7 @@ export default async function AdminPage() {
         </Card>
       </section>
 
-      <section className="max-w-measure space-y-3">
+      <section className="max-w-read space-y-3">
         <Label as="h2">Operations</Label>
         <Card className="space-y-4 p-5">
           <div className="space-y-2">
@@ -254,6 +247,7 @@ where id = (select id from auth.users where email = 'you@example.com');`}
           </div>
         </Card>
       </section>
-    </div>
+      </div>
+    </Screen>
   );
 }

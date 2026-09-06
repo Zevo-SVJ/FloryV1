@@ -36,14 +36,14 @@ export function ProductHeader({
         <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
           {/* `text-balance` so a long product name breaks sensibly rather than
               leaving one orphaned word on the second line. */}
-          <h1 className="text-title text-balance">{project.name}</h1>
+          <h1 className="text-title1 text-balance">{project.name}</h1>
           <Badge tone={project.status === "live" ? "accent" : "quiet"}>
             {PROJECT_STATUS_LABEL[project.status]}
           </Badge>
         </div>
 
         {project.description ? (
-          <p className="max-w-measure text-[0.9375rem] leading-relaxed text-ink-muted">
+          <p className="max-w-read text-[0.9375rem] leading-relaxed text-ink-muted">
             {project.description}
           </p>
         ) : null}

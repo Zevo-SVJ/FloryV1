@@ -66,7 +66,13 @@ export function CompletionControl({
 function Finish({ disabled }: { disabled: boolean }) {
   const { pending } = useFormStatus();
   return (
-    <Button type="submit" size="sm" disabled={pending || disabled} aria-busy={pending || undefined}>
+    <Button
+      type="submit"
+      variant="accent"
+      size="sm"
+      disabled={pending || disabled}
+      aria-busy={pending || undefined}
+    >
       {pending ? <Spinner /> : null}
       {pending ? "Saving…" : "Mark lesson complete"}
     </Button>

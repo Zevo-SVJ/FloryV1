@@ -1,7 +1,8 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
-import { PageHeader, HeaderMeta } from "@/components/ui/page-header";
-import { Label, Badge } from "@/components/ui/surface";
+import { Screen } from "@/components/ui/screen";
+import { Group } from "@/components/ui/list";
+import { Badge } from "@/components/ui/surface";
 import { StateBlock } from "@/components/states/state-block";
 import { ToolboxItemBody } from "@/components/toolbox/item-body";
 import { ToolboxItemCard } from "@/components/toolbox/item-card";
@@ -40,28 +41,26 @@ export default async function ToolboxItemPage({
   const path = `/toolbox/item/${slug}`;
 
   return (
-    <div className="space-y-8">
+    <Screen
+      title={item.row.title}
+      eyebrow={KIND_LABEL[item.row.kind]}
+      lede={item.row.summary}
+      back={{ href: "/toolbox", label: "Toolbox" }}
+      width="read"
+      actions={<SaveButton itemId={item.row.id} saved={item.saved} path={path} />}
+    >
+      <div className="space-y-8">
       <RecordView itemId={item.row.id} />
 
-      <PageHeader
-        eyebrow={KIND_LABEL[item.row.kind]}
-        title={item.row.title}
-        description={item.row.summary}
-        meta={
-          <>
-            {item.row.phase_key ? (
-              <HeaderMeta label="Phase">{item.row.phase_key}</HeaderMeta>
-            ) : null}
-            {item.row.tags.length > 0 ? (
-              <HeaderMeta label="Tags">{item.row.tags.join(" · ")}</HeaderMeta>
-            ) : null}
-          </>
-        }
-        action={<SaveButton itemId={item.row.id} saved={item.saved} path={path} />}
-      />
+      {item.row.tags.length > 0 || item.row.phase_key ? (
+        <p className="flex flex-wrap items-center gap-x-4 gap-y-1 text-footnote text-ink-subtle">
+          {item.row.phase_key ? <span>{item.row.phase_key}</span> : null}
+          {item.row.tags.length > 0 ? <span>{item.row.tags.join(" · ")}</span> : null}
+        </p>
+      ) : null}
 
       {item.row.is_demo ? (
-        <p className="border-l-2 border-border py-1 pl-4 text-sm text-ink-subtle">
+        <p className="text-footnote text-ink-subtle">
           Demo content, replaced when the curriculum is written.
         </p>
       ) : null}
@@ -89,16 +88,11 @@ export default async function ToolboxItemPage({
       )}
 
       {item.related.length > 0 ? (
-        <section className="max-w-measure space-y-3">
-          <Label as="h2">Use it with</Label>
-          <ul className="divide-y divide-border border-y border-border">
-            {item.related.map((related) => (
-              <li key={related.id}>
-                <ToolboxItemCard item={related} />
-              </li>
-            ))}
-          </ul>
-        </section>
+        <Group title="Use it with">
+          {item.related.map((related) => (
+            <ToolboxItemCard key={related.id} item={related} />
+          ))}
+        </Group>
       ) : null}
 
       {item.saved ? (
@@ -106,6 +100,7 @@ export default async function ToolboxItemPage({
           <Badge tone="accent">Saved to your library</Badge>
         </p>
       ) : null}
-    </div>
+      </div>
+    </Screen>
   );
 }

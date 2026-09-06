@@ -1,6 +1,7 @@
 import Link from "next/link";
-import { PageHeader, HeaderMeta } from "@/components/ui/page-header";
+import { Screen } from "@/components/ui/screen";
 import { EmptyState } from "@/components/states/empty-state";
+import { Group } from "@/components/ui/list";
 import { ButtonLink } from "@/components/ui/button";
 import { ToolboxItemCard } from "@/components/toolbox/item-card";
 import { getToolboxItems } from "@/lib/toolbox/queries";
@@ -59,23 +60,29 @@ export async function ToolboxCategory({
   const saved = items.filter((item) => item.saved).length;
 
   return (
-    <div className="space-y-8">
-      <PageHeader
-        eyebrow={eyebrow}
-        title={title}
-        description={description}
-        meta={
-          <>
-            <HeaderMeta label="Items">{items.length}</HeaderMeta>
-            <HeaderMeta label="Saved">{saved}</HeaderMeta>
-          </>
-        }
-        action={
-          <ButtonLink href="/toolbox" variant="secondary" size="sm">
+    <Screen
+      title={title}
+      eyebrow={eyebrow}
+      lede={description}
+      back={{ href: "/toolbox", label: "Toolbox" }}
+      width="content"
+      actions={<ButtonLink href="/toolbox" variant="secondary" size="sm">
             Search everything
-          </ButtonLink>
-        }
-      />
+          </ButtonLink>}
+    >
+      <div className="space-y-8">
+        <p className="flex flex-wrap items-center gap-x-5 gap-y-1 text-footnote text-ink-subtle">
+          <span>
+            <span className="font-mono tabular-nums text-ink">{items.length}</span>{" "}
+            {items.length === 1 ? "item" : "items"}
+          </span>
+          {saved > 0 ? (
+            <span>
+              <span className="font-mono tabular-nums text-ink">{saved}</span> saved
+            </span>
+          ) : null}
+        </p>
+
 
       {views && views.length > 0 ? (
         <nav aria-label="Views" className="flex flex-wrap gap-2">
@@ -88,8 +95,8 @@ export async function ToolboxCategory({
                 aria-current={active ? "page" : undefined}
                 className={
                   active
-                    ? "label rounded-control bg-accent-quiet px-3 py-2 text-accent"
-                    : "label rounded-control px-3 py-2 text-ink-subtle transition-colors hover:bg-surface-sunken hover:text-ink"
+                    ? "tactile inline-flex min-h-9 items-center rounded-pill bg-ink px-3.5 text-footnote font-medium text-ink-inverse"
+                    : "tactile inline-flex min-h-9 items-center rounded-pill bg-ink/[0.06] px-3.5 text-footnote font-medium text-ink-muted hover:bg-ink/[0.1] hover:text-ink"
                 }
               >
                 {view.label}
@@ -99,23 +106,20 @@ export async function ToolboxCategory({
         </nav>
       ) : null}
 
-      {items.length === 0 ? (
-        <EmptyState title="Nothing here yet">
-          <p>
-            Items appear as the curriculum is published. Each one will say what
-            it is for, when to reach for it, and what you should produce with it.
-          </p>
-        </EmptyState>
-      ) : (
-        <ul className="divide-y divide-border border-y border-border">
-          {items.map((item) => (
-            <li key={item.row.id}>
-              <ToolboxItemCard item={item.row} showKind={false} />
-            </li>
-          ))}
-        </ul>
-      )}
-    </div>
+      <Group>
+        {items.length === 0 ? (
+          <EmptyState title="Nothing here yet">
+            Items appear as the curriculum is published. Each one will say what it
+            is for, when to reach for it, and what you should produce with it.
+          </EmptyState>
+        ) : (
+          items.map((item) => (
+            <ToolboxItemCard key={item.row.id} item={item.row} showKind={false} />
+          ))
+        )}
+      </Group>
+      </div>
+    </Screen>
   );
 }
 

@@ -11,7 +11,7 @@ import { LockMark } from "@/components/layout/lock-mark";
  */
 export default function NotFound() {
   return (
-    <main className="mx-auto w-full max-w-measure px-6">
+    <main className="mx-auto w-full max-w-read px-6">
       <div className="py-8">
         <LockMark href="/" />
       </div>

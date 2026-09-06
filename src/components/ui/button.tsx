@@ -5,23 +5,34 @@ import { cn } from "@/lib/utils/cn";
 /**
  * The button, and the link that looks like one.
  *
- * Three variants, two sizes, nothing decorative. `primary` is inverted ink
+ * Four variants, two sizes, nothing decorative. `primary` is inverted ink
  * rather than a coloured fill — see the note at the top of `globals.css` — and
  * the signal colour stays reserved for state.
+ *
+ * Every one of them is `.tactile`: it takes a 2% scale under a press, for 90ms.
+ * That is the entire microinteraction budget and it is not optional. A control
+ * that does not move under a finger reads as a picture of a control, which is
+ * most of why a web application feels unlike an application.
+ *
+ * Fully rounded rather than a 10px radius. A pill reads as pressable at any
+ * size, which a rounded rectangle in a system full of rounded rectangles does
+ * not.
  */
 
-type Variant = "primary" | "secondary" | "ghost";
+type Variant = "primary" | "secondary" | "ghost" | "accent";
 type Size = "sm" | "md";
 
 const base =
-  "inline-flex select-none items-center justify-center gap-2 rounded-control font-medium " +
-  "transition-colors disabled:pointer-events-none disabled:opacity-50";
+  "tactile inline-flex select-none items-center justify-center gap-2 rounded-pill font-medium " +
+  "disabled:pointer-events-none disabled:opacity-45";
 
 const variants: Record<Variant, string> = {
-  primary: "bg-ink text-ink-inverse shadow-control hover:opacity-90",
-  secondary:
-    "bg-surface text-ink ring-1 ring-border-strong shadow-control hover:bg-surface-sunken",
-  ghost: "text-ink-muted hover:bg-surface-sunken hover:text-ink",
+  primary: "bg-ink text-ink-inverse shadow-[var(--shadow-control)] hover:opacity-88",
+  /* The one filled-accent control in the product, for the single action a
+     screen is asking for. Rationed to roughly one per screen. */
+  accent: "bg-accent text-accent-ink shadow-[var(--shadow-control)] hover:bg-accent-hover",
+  secondary: "bg-ink/[0.06] text-ink hover:bg-ink/[0.1]",
+  ghost: "text-ink-muted hover:bg-ink/[0.06] hover:text-ink",
 };
 
 /*
@@ -31,8 +42,8 @@ const variants: Record<Variant, string> = {
  * unchanged: from `md` up the height is the 36px it always was.
  */
 const sizes: Record<Size, string> = {
-  sm: "min-h-11 px-3.5 text-sm md:h-9 md:min-h-0",
-  md: "h-11 px-5 text-[0.9375rem]",
+  sm: "min-h-11 px-4 text-subhead md:h-9 md:min-h-0",
+  md: "h-12 px-6 text-[1.0625rem] md:h-11",
 };
 
 const classesFor = (variant: Variant, size: Size, className?: string) =>

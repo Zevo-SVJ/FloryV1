@@ -1,6 +1,9 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { ButtonLink } from "@/components/ui/button";
+import { Screen } from "@/components/ui/screen";
+import { Group, LinkRow, Row } from "@/components/ui/list";
+import { Icon } from "@/components/ui/icon";
 import { getLearningOverview } from "@/lib/learning/overview";
 
 export const metadata: Metadata = { title: "Start here" };
@@ -31,87 +34,65 @@ export default async function StartHerePage() {
       : "/learn";
 
   return (
-    <div className="space-y-14">
-      <header className="space-y-4">
-        <p className="label text-accent">Start here</p>
-        <h1 className="text-display max-w-measure text-balance">Welcome to LOCK</h1>
-        <p className="max-w-measure text-lede text-ink-muted">
-          You are not here to watch a course. You are here to build a real SaaS —
-          one that a real person can use and pay for — and to learn the judgement
-          that makes it worth building.
-        </p>
-      </header>
+    <Screen
+      title="Welcome to LOCK"
+      eyebrow={<span className="text-accent">Start here</span>}
+      back={{ href: "/learn", label: "Learn" }}
+      width="read"
+      lede="You are not here to watch a course. You are here to build a real SaaS — one that a real person can use and pay for — and to learn the judgement that makes it worth building."
+    >
+      <div className="space-y-12">
 
       {/* ── The loop ─────────────────────────────────────────────────────── */}
-      <section className="space-y-5">
-        <h2 className="label border-b border-border pb-2 text-ink-subtle">
-          How the programme runs
-        </h2>
-
-        <ol className="grid gap-px overflow-hidden rounded-card bg-border sm:grid-cols-5">
-          {LOOP.map((step, index) => (
-            <li key={step.word} className="bg-canvas p-4">
-              <p className="label tabular-nums text-ink-subtle">
-                {String(index + 1).padStart(2, "0")}
-              </p>
-              <p className="mt-1.5 text-[0.9375rem] font-medium tracking-tight text-ink">
-                {step.word}
-              </p>
-              <p className="mt-1 text-sm leading-relaxed text-ink-muted">{step.line}</p>
-            </li>
-          ))}
-        </ol>
-
-        <p className="max-w-measure text-sm leading-relaxed text-ink-muted">
-          That loop runs once per module, and it runs again inside every phase.
-          Nothing here rewards reading quickly.
-        </p>
-      </section>
+      <Group
+        title="How the programme runs"
+        className="rise"
+        footnote="That loop runs once per module, and again inside every phase. Nothing here rewards reading quickly."
+      >
+        {LOOP.map((step, index) => (
+          <Row
+            key={step.word}
+            align="start"
+            leading={
+              <span className="flex size-7 items-center justify-center rounded-full bg-accent/10 font-mono text-caption tabular-nums text-accent">
+                {index + 1}
+              </span>
+            }
+            title={step.word}
+            detail={step.line}
+          />
+        ))}
+      </Group>
 
       {/* ── The vocabulary, stated once ──────────────────────────────────── */}
-      <section className="space-y-5">
-        <h2 className="label border-b border-border pb-2 text-ink-subtle">
-          Four words, and then you can forget them
-        </h2>
-
-        <dl className="divide-y divide-border">
-          {VOCABULARY.map((item) => (
-            <div key={item.term} className="grid gap-1 py-4 sm:grid-cols-[9rem_minmax(0,1fr)] sm:gap-6">
-              <dt className="text-[0.9375rem] font-medium tracking-tight text-ink">
-                {item.term}
-              </dt>
-              <dd className="max-w-measure text-sm leading-relaxed text-ink-muted">
-                {item.line}
-              </dd>
-            </div>
-          ))}
-        </dl>
-
-        <p className="max-w-measure text-sm leading-relaxed text-ink-muted">
-          You never have to navigate those four levels yourself. The programme
-          opens the next one for you, and every lesson ends by naming what comes
-          after it.
-        </p>
-      </section>
+      <Group
+        title="Four words, and then you can forget them"
+        className="rise rise-1"
+        footnote="You never have to navigate those four levels yourself. The programme opens the next one for you, and every lesson ends by naming what comes after it."
+      >
+        {VOCABULARY.map((item) => (
+          <Row key={item.term} align="start" title={item.term} detail={item.line} />
+        ))}
+      </Group>
 
       {/* ── What you will build ──────────────────────────────────────────── */}
-      <section className="space-y-5">
-        <h2 className="label border-b border-border pb-2 text-ink-subtle">
+      <section className="rise rise-2">
+        <h2 className="mb-3 px-1 text-footnote font-semibold tracking-[0.01em] text-ink-subtle uppercase">
           What you produce is the product
         </h2>
 
         <ol className="space-y-3">
           {PRODUCTION.map((step, index) => (
-            <li key={step} className="flex gap-4 text-[0.9375rem] leading-relaxed text-ink-muted">
-              <span className="label w-5 shrink-0 pt-1 tabular-nums text-ink-subtle">
-                {String(index + 1).padStart(2, "0")}
+            <li key={step} className="flex gap-3.5 text-body text-ink-muted">
+              <span className="mt-0.5 flex size-6 shrink-0 items-center justify-center rounded-full bg-ink/[0.06] font-mono text-caption tabular-nums text-ink-subtle">
+                {index + 1}
               </span>
-              <span className="max-w-measure">{step}</span>
+              <span>{step}</span>
             </li>
           ))}
         </ol>
 
-        <p className="max-w-measure border-l-2 border-accent py-1 pl-4 text-sm leading-relaxed text-ink-muted">
+        <p className="mt-5 rounded-card bg-accent-quiet/70 px-4 py-3.5 text-subhead text-ink-muted">
           This is the part that makes LOCK different from a course. There is no
           separate portfolio exercise at the end. The work you do inside the
           programme <em>is</em> the product.
@@ -119,62 +100,42 @@ export default async function StartHerePage() {
       </section>
 
       {/* ── The journey ──────────────────────────────────────────────────── */}
-      <section className="space-y-5">
-        <h2 className="label border-b border-border pb-2 text-ink-subtle">
-          The ten phases
-        </h2>
-
-        <ol className="divide-y divide-border">
-          {phases.map((phase) => (
-            <li
-              key={phase.key}
-              className="grid gap-x-4 gap-y-0.5 py-3 sm:grid-cols-[3rem_10rem_minmax(0,1fr)]"
-            >
-              <span className="label pt-1 tabular-nums text-ink-subtle">
+      <Group title="The ten phases" className="rise rise-3">
+        {phases.map((phase) => (
+          <Row
+            key={phase.key}
+            align="start"
+            leading={
+              <span className="flex size-7 items-center justify-center font-mono text-footnote tabular-nums text-ink-subtle">
                 {String(phase.number).padStart(2, "0")}
               </span>
-              <span className="text-[0.9375rem] font-medium tracking-tight text-ink">
-                {phase.label}
-              </span>
-              <span className="max-w-measure text-sm leading-relaxed text-ink-muted">
-                {phase.summary}
-              </span>
-            </li>
-          ))}
-        </ol>
-      </section>
+            }
+            title={phase.label}
+            detail={phase.summary}
+          />
+        ))}
+      </Group>
 
       {/* ── The rest of the room ─────────────────────────────────────────── */}
-      <section className="space-y-5">
-        <h2 className="label border-b border-border pb-2 text-ink-subtle">
-          What else is here
-        </h2>
-
-        <dl className="divide-y divide-border">
-          {ROOM.map((item) => (
-            <div key={item.term} className="grid gap-1 py-4 sm:grid-cols-[9rem_minmax(0,1fr)] sm:gap-6">
-              <dt className="text-[0.9375rem] font-medium tracking-tight text-ink">
-                <Link
-                  href={item.href}
-                  className="underline decoration-border-strong underline-offset-4 hover:decoration-ink"
-                >
-                  {item.term}
-                </Link>
-              </dt>
-              <dd className="max-w-measure text-sm leading-relaxed text-ink-muted">
-                {item.line}
-              </dd>
-            </div>
-          ))}
-        </dl>
-      </section>
+      <Group title="What else is here">
+        {ROOM.map((item) => (
+          <LinkRow
+            key={item.term}
+            href={item.href}
+            align="start"
+            leading={<Icon name={item.icon} className="size-[1.15rem] text-ink-subtle" />}
+            title={item.term}
+            detail={item.line}
+          />
+        ))}
+      </Group>
 
       {/* ── What done means ──────────────────────────────────────────────── */}
-      <section className="space-y-3">
-        <h2 className="label border-b border-border pb-2 text-ink-subtle">
+      <section>
+        <h2 className="mb-3 px-1 text-footnote font-semibold tracking-[0.01em] text-ink-subtle uppercase">
           What completion means here
         </h2>
-        <p className="max-w-measure text-[0.9375rem] leading-relaxed text-ink-muted">
+        <p className="text-body text-ink-muted">
           Finishing a lesson marks a lesson finished. It does not claim you can do
           the thing. Skills move when there is evidence — a mission completed,
           work submitted, work approved by your mentor — which is why nothing
@@ -184,28 +145,32 @@ export default async function StartHerePage() {
       </section>
 
       {/* ── Begin ────────────────────────────────────────────────────────── */}
-      <section className="rounded-card border border-accent/35 bg-accent-quiet/40 p-6 sm:p-8">
-        <p className="label text-accent">You are ready</p>
-        <h2 className="mt-2 max-w-measure text-title text-balance">
+      <section className="rounded-card bg-accent-quiet/70 p-6 sm:p-8">
+        <p className="text-footnote font-semibold tracking-[0.01em] text-accent uppercase">
+          You are ready
+        </p>
+        <h2 className="mt-3 text-title2">
           {nextModule ? nextModule.module.title : "Open the programme"}
         </h2>
-        <p className="mt-2 max-w-measure text-[0.9375rem] leading-relaxed text-ink-muted">
+        <p className="mt-2 text-body text-ink-muted">
           {nextModule?.module.summary ||
             "The first module opens as soon as it is published."}
         </p>
         <div className="mt-6 flex flex-wrap items-center gap-x-5 gap-y-3">
-          <ButtonLink href={beginHref}>
+          <ButtonLink href={beginHref} variant="accent">
             {nextModule ? "Start the first module" : "Back to Learn"}
+            <Icon name="forward" className="size-[1.05rem]" strokeWidth="2.2" />
           </ButtonLink>
           <Link
             href="/learn"
-            className="text-sm text-ink-muted underline decoration-border-strong underline-offset-4 hover:text-ink"
+            className="tactile text-subhead text-ink-muted underline decoration-ink/20 underline-offset-4 hover:text-ink"
           >
             See the whole journey
           </Link>
         </div>
       </section>
-    </div>
+      </div>
+    </Screen>
   );
 }
 
@@ -248,21 +213,25 @@ const ROOM = [
   {
     term: "My SaaS",
     href: "/build",
+    icon: "build" as const,
     line: "The product you are building: what it is, every artifact you have produced, and the log of what you decided and why.",
   },
   {
     term: "Toolbox",
-    href: "/toolbox/prompts",
+    href: "/toolbox",
+    icon: "toolbox" as const,
     line: "Prompts, templates, frameworks and checklists, plus the tools you build with. Each lesson names the ones it needs, so you never have to go looking.",
   },
   {
     term: "Progress",
     href: "/progress",
+    icon: "progress" as const,
     line: "How far you are, which skills have evidence behind them, and the milestones you have actually reached.",
   },
   {
     term: "Mentor",
     href: "/mentor",
+    icon: "mentor" as const,
     line: "Zevo reads what you submit, tells you what is not yet true, and answers questions you raise.",
   },
 ] as const;

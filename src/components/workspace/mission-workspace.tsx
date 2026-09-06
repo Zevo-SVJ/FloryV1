@@ -48,7 +48,7 @@ export function MissionWorkspace({
   const submitted = artifact !== null && artifact.status !== "draft";
 
   return (
-    <div className="max-w-measure space-y-6">
+    <div className="max-w-read space-y-6">
       <DeliverableForm mission={mission} projectId={projectId} artifact={artifact} />
 
       {artifact ? (

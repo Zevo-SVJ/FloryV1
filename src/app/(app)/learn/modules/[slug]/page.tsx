@@ -1,12 +1,14 @@
 import type { Metadata } from "next";
-import Link from "next/link";
 import { notFound } from "next/navigation";
+import { Screen } from "@/components/ui/screen";
+import { Group, LinkRow } from "@/components/ui/list";
 import { ButtonLink } from "@/components/ui/button";
 import { StateBlock } from "@/components/states/state-block";
-import { LessonRow } from "@/components/learning/hierarchy";
-import { CourseProgress, MissionCallout, NextUp } from "@/components/learning/course";
+import { Icon, StatusMark } from "@/components/ui/icon";
+import { Meter, MissionCallout, NextUp } from "@/components/learning/course";
 import { getModuleBySlug } from "@/lib/learning/overview";
 import { getLearningState } from "@/lib/learning/queries";
+import { lessonTypeLabel } from "@/lib/learning/labels";
 
 export async function generateMetadata({
   params,
@@ -22,9 +24,9 @@ export async function generateMetadata({
  * A module: the unit a learner opens, works through and finishes.
  *
  * Phases are too big to be a unit of work and lessons are too small, so this is
- * the page a learner spends their time choosing between and coming back to. It
- * answers, in order: where am I, what will I be able to do, how far am I, what
- * are the lessons, what do I produce, and what is after this.
+ * the screen a learner comes back to. It answers, in order: where am I, what
+ * will I be able to do, how far am I, what are the lessons, what do I produce,
+ * and what is after this.
  *
  * "What you will learn" is gathered from the lessons rather than stored on the
  * module. The claim belongs to the lesson that makes it; a second copy on the
@@ -42,12 +44,14 @@ export default async function ModulePage({
   // The module exists but is not published for this reader.
   if (!found.module || !found.phase) {
     return (
-      <StateBlock
-        eyebrow="Not published"
-        title="This module is still being written"
-        description="It exists, but it is not open yet. Learn shows everything that is available now."
-        actions={<ButtonLink href="/learn" size="sm">Back to Learn</ButtonLink>}
-      />
+      <Screen title="Module" back={{ href: "/learn", label: "Learn" }} width="read" hideTitle>
+        <StateBlock
+          eyebrow="Being written"
+          title="This module is not open yet"
+          description="It exists, and it opens when its lessons are written. Learn shows everything that is available now."
+          actions={<ButtonLink href="/learn" size="sm">Back to Learn</ButtonLink>}
+        />
+      </Screen>
     );
   }
 
@@ -59,131 +63,152 @@ export default async function ModulePage({
   const mission = entry.missions[0] ?? null;
 
   return (
-    <div className="space-y-12">
-      {/* ── Where this sits ──────────────────────────────────────────────── */}
-      <header className="space-y-5">
-        <nav aria-label="Breadcrumb" className="flex flex-wrap items-center gap-x-2 gap-y-1">
-          <Link href="/learn" className="label text-ink-subtle transition-colors hover:text-ink">
-            Learn
-          </Link>
-          <span aria-hidden className="label text-border-strong">/</span>
-          <span className="label text-ink-subtle">
-            {String(phase.number).padStart(2, "0")} {phase.label}
+    <Screen
+      title={entry.module.title}
+      back={{ href: "/learn", label: "Learn" }}
+      width="content"
+      eyebrow={
+        <span className="flex flex-wrap items-center gap-x-2">
+          <span className="font-mono tabular-nums">
+            {String(phase.number).padStart(2, "0")}
           </span>
-          <span aria-hidden className="label text-border-strong">/</span>
-          <span className="label text-ink-muted">
-            Module {String(entry.number).padStart(2, "0")}
-          </span>
-        </nav>
-
-        <div className="space-y-2">
-          <h1 className="text-display max-w-measure text-balance">{entry.module.title}</h1>
-          {entry.module.summary ? (
-            <p className="max-w-measure text-lede text-ink-muted">{entry.module.summary}</p>
-          ) : null}
-        </div>
-
-        <div className="flex flex-col gap-4 border-y border-border py-4 sm:flex-row sm:items-center sm:justify-between">
+          <span>{phase.label}</span>
+          <span aria-hidden className="text-ink-subtle/50">·</span>
+          <span>Module {String(entry.number).padStart(2, "0")}</span>
+        </span>
+      }
+      lede={entry.module.summary || undefined}
+    >
+      <div className="space-y-10 sm:space-y-12">
+        {/* ── How far ─────────────────────────────────────────────────────── */}
+        <div className="flex flex-wrap items-center gap-x-6 gap-y-3">
           {entry.lessons.length > 0 ? (
-            <CourseProgress
+            <Meter
               done={entry.lessonsDone}
               total={entry.lessons.length}
               label={`Progress in ${entry.module.title}`}
-              className="w-full sm:max-w-xs"
+              className="w-full max-w-56"
             />
-          ) : (
-            <p className="label text-ink-subtle">Being written</p>
-          )}
-
-          <p className="label flex flex-wrap items-center gap-x-4 gap-y-1 text-ink-subtle">
-            {mission ? <span>1 mission</span> : null}
+          ) : null}
+          <p className="flex flex-wrap items-center gap-x-4 gap-y-1 text-footnote text-ink-subtle">
             {entry.minutes > 0 ? (
-              <span className="tabular-nums">~{entry.minutes} min</span>
+              <span className="flex items-center gap-1.5">
+                <Icon name="clock" className="size-3.5" />
+                <span className="font-mono tabular-nums">~{entry.minutes} min</span>
+              </span>
             ) : null}
-            <span className="text-ink-muted">
+            <span>
               {complete ? "Complete" : entry.lessonsDone > 0 ? "In progress" : "Not started"}
             </span>
           </p>
         </div>
-      </header>
 
-      {/* ── What you get out of it ───────────────────────────────────────── */}
-      {entry.objectives.length > 0 ? (
-        <section className="space-y-3">
-          <h2 className="label text-ink-subtle">What you will be able to do</h2>
-          <ul className="space-y-2">
-            {entry.objectives.slice(0, 6).map((objective) => (
-              <li
-                key={objective}
-                className="flex max-w-measure gap-3 text-[0.9375rem] leading-relaxed text-ink-muted"
-              >
-                <span aria-hidden className="mt-2.5 size-1 shrink-0 rounded-full bg-accent" />
-                <span>{objective}</span>
-              </li>
-            ))}
-          </ul>
-        </section>
-      ) : null}
+        {/* ── What you get out of it ──────────────────────────────────────── */}
+        {entry.objectives.length > 0 ? (
+          <section className="rise">
+            <h2 className="text-footnote font-semibold tracking-[0.01em] text-ink-subtle uppercase">
+              What you will be able to do
+            </h2>
+            <ul className="mt-3 space-y-2.5">
+              {entry.objectives.slice(0, 6).map((objective) => (
+                <li key={objective} className="flex max-w-read gap-3 text-body text-ink-muted">
+                  <Icon name="check" className="mt-1.5 size-4 shrink-0 text-accent" strokeWidth="2.4" />
+                  <span>{objective}</span>
+                </li>
+              ))}
+            </ul>
+          </section>
+        ) : null}
 
-      {/* ── The lessons ──────────────────────────────────────────────────── */}
-      <section className="space-y-1">
-        <div className="flex flex-wrap items-baseline justify-between gap-3 border-b border-border pb-2">
-          <h2 className="label text-ink-subtle">Lessons</h2>
-          {entry.nextLesson ? (
-            <ButtonLink href={`/learn/lessons/${entry.nextLesson.slug}`} size="sm">
-              {entry.lessonsDone > 0 ? "Continue" : "Start"}
-            </ButtonLink>
-          ) : null}
-        </div>
+        {/* ── The lessons ─────────────────────────────────────────────────── */}
+        <Group
+          title="Lessons"
+          className="rise rise-1"
+          action={
+            entry.nextLesson ? (
+              <ButtonLink href={`/learn/lessons/${entry.nextLesson.slug}`} variant="accent" size="sm">
+                {entry.lessonsDone > 0 ? "Continue" : "Start"}
+              </ButtonLink>
+            ) : null
+          }
+        >
+          {entry.lessons.length === 0 ? (
+            <p className="px-4 py-6 text-subhead text-ink-subtle">
+              The lessons for this module are being written.
+            </p>
+          ) : (
+            entry.lessons.map((lesson, i) => {
+              const done = state.completedLessonIds.has(lesson.id);
+              const next = entry.nextLesson?.id === lesson.id;
+              return (
+                <LinkRow
+                  key={lesson.id}
+                  href={`/learn/lessons/${lesson.slug}`}
+                  align="start"
+                  leading={
+                    <StatusMark
+                      state={done ? "done" : next ? "current" : "todo"}
+                      index={done || next ? undefined : i + 1}
+                    />
+                  }
+                  title={
+                    <span className="flex flex-wrap items-baseline gap-x-2.5">
+                      <span className={done ? "font-normal text-ink-muted" : undefined}>
+                        {lesson.title}
+                      </span>
+                      {next ? (
+                        <span className="text-caption font-semibold text-accent uppercase">
+                          Next
+                        </span>
+                      ) : null}
+                      {state.revisitLessonIds.has(lesson.id) ? (
+                        <span className="text-caption text-ink-subtle uppercase">Revisit</span>
+                      ) : null}
+                    </span>
+                  }
+                  detail={lesson.summary}
+                  trailing={
+                    <span className="hidden text-right sm:block">
+                      <span className="block">{lessonTypeLabel(lesson.type)}</span>
+                      <span className="mt-0.5 block font-mono tabular-nums">
+                        {lesson.estimatedMinutes} min
+                      </span>
+                    </span>
+                  }
+                />
+              );
+            })
+          )}
+        </Group>
 
-        {entry.lessons.length === 0 ? (
-          <p className="py-6 text-sm text-ink-subtle">
-            The lessons for this module are being written.
-          </p>
-        ) : (
-          <ol className="divide-y divide-border">
-            {entry.lessons.map((lesson, i) => (
-              <LessonRow
-                key={lesson.id}
-                lesson={lesson}
-                index={i + 1}
-                done={state.completedLessonIds.has(lesson.id)}
-                revisit={state.revisitLessonIds.has(lesson.id)}
-                next={entry.nextLesson?.id === lesson.id}
-              />
-            ))}
-          </ol>
-        )}
-      </section>
-
-      {/* ── What it produces ─────────────────────────────────────────────── */}
-      {mission ? <MissionCallout entry={mission} /> : null}
-
-      {/* ── What comes after ─────────────────────────────────────────────── */}
-      {nextModule ? (
-        <NextUp
-          eyebrow={`Next in ${phase.label}`}
-          title={nextModule.module.title}
-          description={nextModule.module.summary}
-          href={`/learn/modules/${nextModule.module.slug}`}
-          action="Open the next module"
-          emphasis={mission ? "secondary" : "primary"}
-        />
-      ) : (
-        <section className="border-t-2 border-border-strong pt-6">
-          <p className="label text-ink-subtle">
-            Last module in {String(phase.number).padStart(2, "0")} {phase.label}
-          </p>
-          <p className="mt-2 max-w-measure text-sm leading-relaxed text-ink-muted">
-            Finishing this one closes the phase. Learn shows what opens next.
-          </p>
-          <div className="mt-5">
-            <ButtonLink href="/learn" variant="secondary" size="sm">
-              Back to Learn
-            </ButtonLink>
+        {/* ── What it produces ────────────────────────────────────────────── */}
+        {mission ? (
+          <div className="rise rise-2">
+            <MissionCallout entry={mission} />
           </div>
-        </section>
-      )}
-    </div>
+        ) : null}
+
+        {/* ── What comes after ────────────────────────────────────────────── */}
+        {nextModule ? (
+          <NextUp
+            eyebrow={`Next in ${phase.label}`}
+            title={nextModule.module.title}
+            description={nextModule.module.summary}
+            href={`/learn/modules/${nextModule.module.slug}`}
+            action="Open"
+            emphasis={mission ? "secondary" : "primary"}
+          />
+        ) : (
+          <NextUp
+            eyebrow={`Last module in ${phase.label}`}
+            title="Finishing this one closes the phase"
+            description="Learn shows what opens next, and everything you have produced so far."
+            href="/learn"
+            action="Back to Learn"
+            emphasis="secondary"
+          />
+        )}
+      </div>
+    </Screen>
   );
 }

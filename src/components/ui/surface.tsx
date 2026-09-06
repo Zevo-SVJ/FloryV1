@@ -4,9 +4,11 @@ import { cn } from "@/lib/utils/cn";
 /**
  * A card, and the label that titles one.
  *
- * A border rather than a shadow. Cards are the most repeated shape in an
- * interface like this, and a page of floating panels reads as a template;
- * shadows are kept for things that genuinely float.
+ * A surface and a hairline shadow, not a border. The border version made every
+ * group on a page an equal-weight rectangle; an elevation step reads as "this
+ * is one thing" without drawing a line around it. Most places that used to
+ * reach for a card should now reach for `Group` in `ui/list` — a card is for a
+ * single object, a group is for a list of them.
  */
 
 export function Card({
@@ -17,7 +19,7 @@ export function Card({
   children: ReactNode;
 }) {
   return (
-    <div className={cn("rounded-card border border-border bg-surface", className)}>
+    <div className={cn("rounded-card bg-surface shadow-[var(--shadow-control)]", className)}>
       {children}
     </div>
   );
@@ -59,16 +61,16 @@ export function Badge({
   tone = "quiet",
   children,
 }: {
-  tone?: "quiet" | "accent";
+  tone?: "quiet" | "accent" | "success";
   children: ReactNode;
 }) {
   return (
     <span
       className={cn(
-        "label inline-flex items-center rounded-full px-2 py-1",
-        tone === "accent"
-          ? "bg-accent-quiet text-accent"
-          : "bg-surface-sunken text-ink-subtle",
+        "inline-flex items-center rounded-pill px-2.5 py-1 text-caption font-medium",
+        tone === "accent" && "bg-accent/12 text-accent",
+        tone === "success" && "bg-success/12 text-success",
+        tone === "quiet" && "bg-ink/[0.06] text-ink-muted",
       )}
     >
       {children}

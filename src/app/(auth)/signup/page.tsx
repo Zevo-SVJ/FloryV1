@@ -30,7 +30,7 @@ export default function SignUpPage() {
     <div className="space-y-8">
       <header className="space-y-2">
         <p className="label text-ink-subtle">Create account</p>
-        <h1 className="text-title">Start building.</h1>
+        <h1 className="text-title1">Start building.</h1>
         <p className="text-sm text-ink-muted">
           Every new account starts as a learner.
         </p>

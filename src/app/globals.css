@@ -3,138 +3,205 @@
 /* ───────────────────────────────────────────────────────────────────────────
    LOCK — design foundation
 
-   A restrained system, and small enough to hold in your head. Nothing in the
-   application hard-codes a colour, a radius or a type size: components refer to
-   `--color-surface` and `text-title`, never to a grey or a pixel value, which
-   is what makes a change of palette a change to this file rather than a
-   rewrite.
+   The system, small enough to hold in your head. Nothing in the application
+   hard-codes a colour, a radius, a duration or a type size: components refer to
+   `--color-surface` and `text-body`, never to a grey or a pixel value.
 
-   The three decisions behind it:
+   ── The five decisions ──────────────────────────────────────────────────────
 
-   1. NEARLY MONOCHROME. Primary actions are ink on canvas or canvas on ink,
-      inverted rather than coloured. This is what separates a builder's tool
-      from a course platform: the interface recedes and the work does not.
+   1. TWO LAYERS. Navigation is a material that floats; content is opaque and
+      calm. Glass belongs to the sidebar, the tab bar and the toolbar, and
+      nowhere else. Nested glass, glass on a card, glass behind prose — all of
+      it is how an interface starts competing with the thing it is showing.
 
-   2. ONE SIGNAL COLOUR, used sparingly. Amber, for focus rings, the active
-      section, and progress. It is warm against the neutral scale, it carries
-      the product's own semantics, and it is not the blue every SaaS reaches
-      for. It is never the background of a primary button.
+   2. NEARLY MONOCHROME. Primary actions are ink on canvas or canvas on ink.
+      Amber is the one signal, and it means exactly four things: where you are,
+      what to do next, what is progressing, what needs attention. A tint on
+      every surface is a tint on none.
 
-   3. MONOSPACE AS A TEXTURE, not a gimmick. Phase numbers, labels, statuses and
-      anything countable are set in Geist Mono at small sizes with open
-      tracking. This is the "technical detail" of the brief, and it costs one
-      font variable.
+   3. HIERARCHY FROM TYPE AND SPACE, not from borders. The previous system drew
+      a rule under every heading and a box around every group, which produced a
+      page of equal-weight rectangles. Size, weight and distance do that work
+      here; a border is for a boundary that genuinely exists.
 
-   Light and dark are both defined here as semantic tokens, so the dark variant
-   is a token swap. The visitor's own preference decides, evaluated by CSS
-   before the first paint rather than by a class applied in JavaScript, so there
-   is no flash. A manual toggle can be layered on later by writing these same
-   tokens under a `[data-theme]` selector.
+   4. THE SYSTEM FACE. `-apple-system` first, so LOCK renders in SF on Apple
+      hardware, Segoe UI Variable on Windows and Roboto on Android — the face
+      the reader already reads everything else in. Monospace is reserved for
+      things that are literally code or literally a count.
+
+   5. MOTION AS INFORMATION. Short, precise, and only where it says something:
+      a press responds, a sheet arrives from where it was summoned, content
+      settles into place once. Nothing loops, nothing decorates, and everything
+      stops under `prefers-reduced-motion`.
    ─────────────────────────────────────────────────────────────────────────── */
 
 @theme {
   /* ── Surfaces ───────────────────────────────────────────────────────────── */
-  --color-canvas: #fbfbfa;
+  /* Four steps, and they nest in one order: canvas < surface < raised.
+     `sunken` is for wells — a code block, an input, a filled track. */
+  --color-canvas: #f6f6f4;
   --color-surface: #ffffff;
-  --color-surface-sunken: #f2f2f0;
-  --color-border: #e5e4e0;
-  --color-border-strong: #d3d2cd;
+  --color-surface-raised: #ffffff;
+  --color-surface-sunken: #eeeeeb;
+  --color-border: #e3e2de;
+  --color-border-strong: #cfcec9;
+  /* A hairline for separators inside a grouped list. Lighter than `border`,
+     because a list of ten rows drawn in `border` is a page of stripes. */
+  --color-separator: #e9e8e4;
 
   /* ── Ink ────────────────────────────────────────────────────────────────── */
-  --color-ink: #14140f;
-  --color-ink-muted: #55554d;
-  --color-ink-subtle: #83837a;
-  /* What sits on top of `--color-ink` when it is used as a fill. */
-  --color-ink-inverse: #fbfbfa;
+  --color-ink: #16160f;
+  --color-ink-muted: #56564d;
+  --color-ink-subtle: #86867c;
+  --color-ink-inverse: #ffffff;
 
   /* ── Signal ─────────────────────────────────────────────────────────────── */
-  --color-accent: #a06a08;
-  --color-accent-hover: #7f5406;
+  --color-accent: #9a6407;
+  --color-accent-hover: #7d5106;
   --color-accent-ink: #ffffff;
-  /* A tint for the active section and for progress fills. */
-  --color-accent-quiet: #f6ecd9;
+  --color-accent-quiet: #f7edda;
 
   --color-danger: #b3261e;
   --color-success: #1a6b48;
 
+  /* ── Navigation material ────────────────────────────────────────────────── */
+  /* The one place blur is allowed. Set as tokens so the rail, the tab bar and
+     the toolbar cannot drift apart. */
+  --color-material: rgba(255, 255, 255, 0.72);
+  --color-material-border: rgba(20, 20, 15, 0.08);
+  --shadow-material: 0 0 0 0.5px rgba(20, 20, 15, 0.04),
+    0 8px 24px -8px rgba(20, 20, 15, 0.12);
+
   /* ── Type ───────────────────────────────────────────────────────────────── */
-  --font-sans: var(--font-geist-sans), ui-sans-serif, system-ui, -apple-system,
-    "Segoe UI", Helvetica, Arial, sans-serif;
-  --font-mono: var(--font-geist-mono), ui-monospace, SFMono-Regular, "SF Mono",
-    Menlo, Consolas, monospace;
+  /* The reader's own system face. No web font is downloaded: the interface
+     renders in the face the rest of the device is set in, which is both the
+     fastest possible first paint and the reason it feels native. */
+  --font-sans: -apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Pro Display",
+    "Segoe UI Variable Text", "Segoe UI", Roboto, system-ui, "Helvetica Neue",
+    Arial, sans-serif;
+  --font-mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas,
+    "Liberation Mono", monospace;
 
-  --text-display: clamp(2rem, 4.5vw, 3rem);
-  --text-display--line-height: 1.05;
-  --text-display--letter-spacing: -0.032em;
+  /* A scale with Apple's proportions: 17px body, and titles that step rather
+     than glide. Only `large-title` is fluid — everything else is a fixed step,
+     because a scale that all moves at once has no steps. */
+  --text-large: clamp(1.75rem, 1.1rem + 2.6vw, 2.5rem);
+  --text-large--line-height: 1.08;
+  --text-large--letter-spacing: -0.022em;
+  --text-large--font-weight: 700;
 
-  --text-title: clamp(1.25rem, 2.2vw, 1.5rem);
-  --text-title--line-height: 1.2;
-  --text-title--letter-spacing: -0.02em;
+  --text-title1: 1.5rem;
+  --text-title1--line-height: 1.2;
+  --text-title1--letter-spacing: -0.019em;
+  --text-title1--font-weight: 650;
 
-  --text-lede: 1.0625rem;
-  --text-lede--line-height: 1.6;
+  --text-title2: 1.25rem;
+  --text-title2--line-height: 1.25;
+  --text-title2--letter-spacing: -0.016em;
+  --text-title2--font-weight: 640;
 
-  /* The mono texture. One size, one tracking, used everywhere a label is a
-     label rather than a sentence. */
+  --text-title3: 1.0625rem;
+  --text-title3--line-height: 1.35;
+  --text-title3--letter-spacing: -0.01em;
+  --text-title3--font-weight: 620;
+
+  --text-body: 1.0625rem;
+  --text-body--line-height: 1.6;
+  --text-body--letter-spacing: -0.005em;
+
+  --text-callout: 1rem;
+  --text-callout--line-height: 1.55;
+
+  --text-subhead: 0.9375rem;
+  --text-subhead--line-height: 1.5;
+
+  --text-footnote: 0.8125rem;
+  --text-footnote--line-height: 1.45;
+
+  --text-caption: 0.75rem;
+  --text-caption--line-height: 1.35;
+
+  /* The mono texture, now rationed: counts, codes and states only. */
   --text-label: 0.6875rem;
   --text-label--line-height: 1.1;
-  --text-label--letter-spacing: 0.08em;
+  --text-label--letter-spacing: 0.06em;
 
   /* ── Shape ──────────────────────────────────────────────────────────────── */
-  /* Two radii. A third is a decision nobody can remember making. */
-  --radius-control: 8px;
-  --radius-card: 12px;
+  --radius-control: 10px;
+  --radius-card: 16px;
+  --radius-sheet: 22px;
+  --radius-pill: 999px;
 
-  /* Shadows are for things that genuinely float — a menu, a dialog. Cards use
-     a border. A page of drop shadows reads as a template. */
-  --shadow-control: 0 1px 2px rgba(20, 20, 15, 0.06);
-  --shadow-raised: 0 4px 12px -2px rgba(20, 20, 15, 0.1),
-    0 12px 32px -12px rgba(20, 20, 15, 0.16);
+  --shadow-control: 0 1px 2px rgba(20, 20, 15, 0.05);
+  --shadow-raised: 0 1px 2px rgba(20, 20, 15, 0.04),
+    0 12px 32px -12px rgba(20, 20, 15, 0.18);
+
+  /* ── Motion ─────────────────────────────────────────────────────────────── */
+  /* One easing for entrances and one for exits, both borrowed from the feel of
+     a system animation: fast out of the gate, long settle. */
+  --ease-out: cubic-bezier(0.32, 0.72, 0, 1);
+  --ease-in-out: cubic-bezier(0.65, 0, 0.35, 1);
+  --duration-tap: 90ms;
+  --duration-fast: 160ms;
+  --duration-base: 260ms;
+  --duration-slow: 400ms;
 
   /* ── Layout ─────────────────────────────────────────────────────────────── */
-  /* The width a column of prose stops growing at, and the shell's sidebar. */
-  --spacing-measure: 44rem;
-  --spacing-sidebar: 15rem;
+  /* Width is chosen by the task, not by the page. Prose stops at `read`; an
+     overview may use `content`; a workspace may use `wide`. */
+  --spacing-read: 40rem;
+  --spacing-content: 58rem;
+  --spacing-wide: 74rem;
+  --spacing-rail: 15rem;
+  --spacing-rail-compact: 4.5rem;
+  --spacing-tabbar: 4.25rem;
+
+  /* Kept so anything still asking for the old prose measure resolves. */
+  --spacing-measure: 40rem;
 }
 
 /* The dark palette.
  *
- * Plain custom properties on `:root`, not a second `@theme` block — and that is
- * a correctness fix, not a style preference. Tailwind v4 hoists every `@theme`
- * to `:root` regardless of the at-rule wrapping it, so a `@theme` inside this
- * media query was emitted unconditionally and, being second, won everywhere.
- * The result was a product that was dark in both modes and a light palette that
- * had never once rendered.
+ * Designed, not inverted. The canvas is near-black so an OLED phone actually
+ * goes dark; surfaces step *up* toward the reader rather than down; the accent
+ * is lifted to stay legible on a dark ground, and the material is a dark
+ * translucency rather than a lightened one.
  *
- * Utilities reference `var(--color-*)`, so redefining the variables here is all
- * that is needed. A manual toggle can be layered on later by repeating these
- * same declarations under `:root[data-theme="dark"]`, without touching a
- * component.
+ * Plain custom properties on `:root`, not a second `@theme`: Tailwind v4 hoists
+ * every `@theme` to `:root` regardless of the at-rule around it, so a `@theme`
+ * inside this media query would be emitted unconditionally and win everywhere.
  */
 @media (prefers-color-scheme: dark) {
   :root {
-    --color-canvas: #0c0c0b;
-    --color-surface: #141413;
-    --color-surface-sunken: #1a1a18;
-    --color-border: #26261f;
-    --color-border-strong: #383830;
+    --color-canvas: #0b0b0a;
+    --color-surface: #151513;
+    --color-surface-raised: #1c1c19;
+    --color-surface-sunken: #100f0e;
+    --color-border: #29281f;
+    --color-border-strong: #3d3c33;
+    --color-separator: #232219;
 
-    --color-ink: #f4f4f0;
-    --color-ink-muted: #a8a89d;
-    --color-ink-subtle: #7a7a71;
-    --color-ink-inverse: #0c0c0b;
+    --color-ink: #f5f5f1;
+    --color-ink-muted: #a9a99e;
+    --color-ink-subtle: #7b7b72;
+    --color-ink-inverse: #0b0b0a;
 
-    --color-accent: #d9a441;
-    --color-accent-hover: #e8b962;
-    --color-accent-ink: #0c0c0b;
-    --color-accent-quiet: #2a2113;
+    --color-accent: #e0aa4a;
+    --color-accent-hover: #eec06d;
+    --color-accent-ink: #0b0b0a;
+    --color-accent-quiet: #2b2214;
 
-    --color-danger: #ef8078;
-    --color-success: #4fbc8b;
+    --color-danger: #f08b83;
+    --color-success: #58c795;
 
-    --shadow-control: 0 1px 2px rgba(0, 0, 0, 0.5);
-    --shadow-raised:
-      0 4px 12px -2px rgba(0, 0, 0, 0.5), 0 12px 32px -12px rgba(0, 0, 0, 0.7);
+    --color-material: rgba(28, 28, 25, 0.72);
+    --color-material-border: rgba(255, 255, 255, 0.08);
+    --shadow-material: 0 0 0 0.5px rgba(255, 255, 255, 0.06),
+      0 8px 24px -8px rgba(0, 0, 0, 0.6);
+
+    --shadow-control: 0 1px 2px rgba(0, 0, 0, 0.4);
+    --shadow-raised: 0 1px 2px rgba(0, 0, 0, 0.4),
+      0 12px 32px -12px rgba(0, 0, 0, 0.8);
   }
 }
 
@@ -142,20 +209,27 @@
   html {
     color-scheme: light dark;
     -webkit-text-size-adjust: 100%;
+    /* An in-page anchor must not land under the floating toolbar. */
+    scroll-padding-top: 5rem;
   }
 
   body {
     background-color: var(--color-canvas);
     color: var(--color-ink);
     font-family: var(--font-sans);
+    font-size: var(--text-body);
+    line-height: var(--text-body--line-height);
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
+    /* iOS bounces the document past its ends; with a floating tab bar over the
+       content that reads as the bar detaching. */
+    overscroll-behavior-y: none;
   }
 
   h1,
   h2,
-  h3 {
-    font-weight: 600;
+  h3,
+  h4 {
     text-wrap: balance;
   }
 
@@ -163,16 +237,22 @@
     text-wrap: pretty;
   }
 
-  /* The signal colour's most frequent job. Visible on every surface in both
-     themes, and never removed — a keyboard is how half the work here is done. */
+  /* Visible on every surface in both themes, and never removed — a keyboard is
+     how half the work here is done. */
   :focus-visible {
     outline: 2px solid var(--color-accent);
     outline-offset: 2px;
-    border-radius: 4px;
+    border-radius: 6px;
   }
 
-  /* Nothing in LOCK animates for effect. What does animate — a pulse on a
-     skeleton, a colour on hover — stops when asked. */
+  /* Touch devices get no hover; without this, a tapped row keeps its hover tint
+     until something else is tapped, which reads as a stuck selection. */
+  @media (hover: none) {
+    * {
+      -webkit-tap-highlight-color: transparent;
+    }
+  }
+
   @media (prefers-reduced-motion: reduce) {
     *,
     *::before,
@@ -180,17 +260,119 @@
       animation-duration: 0.01ms !important;
       animation-iteration-count: 1 !important;
       transition-duration: 0.01ms !important;
+      scroll-behavior: auto !important;
     }
   }
 }
 
 @layer components {
-  /* The mono label, used often enough to earn a name. */
+  /* ── The navigation material ──────────────────────────────────────────────
+     One class, three users: the sidebar, the tab bar and the toolbar. Falls
+     back to an opaque surface where `backdrop-filter` is unsupported, so the
+     navigation is never unreadable text over content. */
+  .material {
+    background-color: var(--color-surface);
+    border: 0.5px solid var(--color-material-border);
+  }
+
+  @supports (backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px)) {
+    .material {
+      background-color: var(--color-material);
+      -webkit-backdrop-filter: saturate(180%) blur(24px);
+      backdrop-filter: saturate(180%) blur(24px);
+    }
+  }
+
+  /* The mono label. Rationed now: a count, a code, a state — not every heading. */
   .label {
     font-family: var(--font-mono);
     font-size: var(--text-label);
     line-height: var(--text-label--line-height);
     letter-spacing: var(--text-label--letter-spacing);
     text-transform: uppercase;
+  }
+
+  /* ── Tactility ────────────────────────────────────────────────────────────
+     A control that does not move under a finger feels broken on a phone and
+     dead on a trackpad. This is the whole microinteraction budget: 90ms, a 2%
+     scale, and it is over. */
+  .tactile {
+    transition:
+      transform var(--duration-tap) var(--ease-out),
+      background-color var(--duration-fast) var(--ease-out),
+      color var(--duration-fast) var(--ease-out),
+      border-color var(--duration-fast) var(--ease-out),
+      opacity var(--duration-fast) var(--ease-out);
+  }
+
+  .tactile:active {
+    transform: scale(0.98);
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .tactile:active {
+      transform: none;
+    }
+  }
+
+  /* ── Entrance ─────────────────────────────────────────────────────────────
+     Content settles in once, on arrival. Not a page-load flourish: it is the
+     continuity cue that says this screen replaced the last one. Applied to a
+     handful of regions per page, never to every element. */
+  @keyframes lock-rise {
+    from {
+      opacity: 0;
+      transform: translate3d(0, 8px, 0);
+    }
+    to {
+      opacity: 1;
+      transform: none;
+    }
+  }
+
+  .rise {
+    animation: lock-rise var(--duration-base) var(--ease-out) both;
+  }
+
+  /* Four steps is enough to read as a sequence and short enough that nobody
+     waits for the last one. */
+  .rise-1 { animation-delay: 40ms; }
+  .rise-2 { animation-delay: 80ms; }
+  .rise-3 { animation-delay: 120ms; }
+
+  @keyframes lock-sheet-in {
+    from { transform: translate3d(0, 100%, 0); }
+    to { transform: none; }
+  }
+
+  @keyframes lock-fade-in {
+    from { opacity: 0; }
+    to { opacity: 1; }
+  }
+
+  .sheet-in { animation: lock-sheet-in var(--duration-base) var(--ease-out) both; }
+  .fade-in { animation: lock-fade-in var(--duration-fast) var(--ease-out) both; }
+
+  @media (prefers-reduced-motion: reduce) {
+    .rise,
+    .sheet-in,
+    .fade-in {
+      animation: none;
+    }
+  }
+
+  /* ── Safe areas ───────────────────────────────────────────────────────────
+     The home indicator and the floating tab bar both eat the bottom of a phone
+     screen. Content that scrolls under the bar must be able to clear it. */
+  .pb-safe {
+    padding-bottom: max(env(safe-area-inset-bottom), 0px);
+  }
+
+  .pb-tabbar {
+    padding-bottom: calc(var(--spacing-tabbar) + env(safe-area-inset-bottom) + 2.5rem);
+  }
+
+  .bottom-safe {
+    bottom: max(env(safe-area-inset-bottom), 0.75rem);
   }
 }

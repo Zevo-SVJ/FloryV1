@@ -1,6 +1,7 @@
 import { Card, Badge } from "@/components/ui/surface";
 import { cn } from "@/lib/utils/cn";
 import type { LearnerMilestoneRow, MilestoneRow } from "@/types/database";
+import { Row } from "@/components/ui/list";
 
 /**
  * A milestone or an achievement, earned or not.
@@ -84,17 +85,15 @@ export function AwardLine({
   earnedAt: string;
 }) {
   return (
-    <li className="flex gap-3 py-2">
-      <span aria-hidden className="text-sm text-accent">
-        {award.icon}
-      </span>
-      <span className="min-w-0 flex-1">
-        <span className="text-sm text-ink">{award.title}</span>
-        <span className="label ml-3 text-ink-subtle tabular-nums">
-          {formatDate(earnedAt)}
+    <Row
+      leading={
+        <span aria-hidden className="text-subhead text-accent">
+          {award.icon}
         </span>
-      </span>
-    </li>
+      }
+      title={award.title}
+      trailing={<span className="font-mono tabular-nums">{formatDate(earnedAt)}</span>}
+    />
   );
 }
 

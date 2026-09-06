@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { PageHeader, HeaderMeta } from "@/components/ui/page-header";
+import { Screen } from "@/components/ui/screen";
 import { Label } from "@/components/ui/surface";
 import { EmptyState } from "@/components/states/empty-state";
 import { ButtonLink } from "@/components/ui/button";
@@ -59,19 +59,23 @@ export default async function SkillsPage() {
   const moving = skills.filter((skill) => skill.state !== "not_started").length;
 
   return (
-    <div className="space-y-10">
-      <PageHeader
-        eyebrow="Progress"
-        title="Skills"
-        description="What you can do now that you could not do before, counted from work you produced rather than from lessons you opened. Reading a lesson gets a skill to Introduced. Only work your mentor approved takes it past Practising."
-        meta={
-          <>
-            <HeaderMeta label="Tracked">{skills.length}</HeaderMeta>
-            <HeaderMeta label="In motion">{moving}</HeaderMeta>
-            <HeaderMeta label="Demonstrated">{demonstrated}</HeaderMeta>
-          </>
-        }
-      />
+    <Screen
+      title="Skills"
+      eyebrow="Progress"
+      lede="What you can do now that you could not do before, counted from work you produced rather than from lessons you opened. Reading a lesson gets a skill to Introduced. Only work your mentor approved takes it past Practising."
+      back={{ href: "/progress", label: "Progress" }}
+      width="content"
+    >
+      <div className="space-y-10">
+        <p className="flex flex-wrap items-center gap-x-5 gap-y-1 text-footnote text-ink-subtle">
+          <span>
+            <span className="font-mono tabular-nums text-ink">{demonstrated}</span> demonstrated
+          </span>
+          <span>
+            <span className="font-mono tabular-nums text-ink">{skills.length}</span> tracked
+          </span>
+        </p>
+
 
       {moving === 0 ? (
         <EmptyState title="Start building to develop your first skills">
@@ -108,7 +112,8 @@ export default async function SkillsPage() {
           </section>
         );
       })}
-    </div>
+      </div>
+    </Screen>
   );
 }
 

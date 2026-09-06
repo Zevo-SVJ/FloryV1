@@ -1,8 +1,8 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { PageHeader, HeaderMeta } from "@/components/ui/page-header";
+import { Screen } from "@/components/ui/screen";
 import { EmptyState } from "@/components/states/empty-state";
-import { Label } from "@/components/ui/surface";
+import { Group } from "@/components/ui/list";
 import { ToolboxItemCard } from "@/components/toolbox/item-card";
 import { searchToolbox, getToolboxFacets, getSavedItems, getRecentItems } from "@/lib/toolbox/queries";
 import { KIND_PLURAL, TOOLBOX_KINDS, type ToolboxKind } from "@/lib/toolbox/schemas";
@@ -42,18 +42,13 @@ export default async function ToolboxPage({
   const searching = Boolean(params.q?.trim() || kind || params.phase || params.tag);
 
   return (
-    <div className="space-y-8">
-      <PageHeader
-        eyebrow="Toolbox"
-        title="Your operating library"
-        description="Prompts, frameworks, templates, checklists, resources and the stack. Everything here answers what it is, when to use it, and what you should produce with it."
-        meta={
-          <>
-            <HeaderMeta label="Items">{results.length}</HeaderMeta>
-            <HeaderMeta label="Saved">{saved.length}</HeaderMeta>
-          </>
-        }
-      />
+    <Screen
+      title="Your operating library"
+      eyebrow="Toolbox"
+      lede="Prompts, frameworks, templates, checklists, resources and the stack. Everything here answers what it is, when to use it, and what you should produce with it."
+      width="content"
+    >
+      <div className="space-y-8">
 
       {/* A GET form: the query is the URL. */}
       <form method="get" action="/toolbox" className="space-y-4">
@@ -109,55 +104,38 @@ export default async function ToolboxPage({
       </form>
 
       {results.length === 0 ? (
-        <EmptyState title={searching ? "Nothing matched" : "The library is empty"}>
-          {searching ? (
-            <p>
-              Try a broader word, or clear the filters. Search covers titles,
-              summaries and the contents of every item.
-            </p>
-          ) : (
-            <p>Items appear here as the curriculum is published.</p>
-          )}
-        </EmptyState>
+        <Group>
+          <EmptyState title={searching ? "Nothing matched" : "The library is empty"}>
+            {searching
+              ? "Try a broader word, or clear the filters. Search covers titles, summaries and the contents of every item."
+              : "Items appear here as the curriculum is published."}
+          </EmptyState>
+        </Group>
       ) : (
-        <section className="space-y-3">
-          <Label as="h2">{searching ? "Results" : "Everything"}</Label>
-          <ul className="divide-y divide-border border-y border-border">
-            {results.map((item) => (
-              <li key={item.row.id}>
-                <ToolboxItemCard item={item.row} />
-              </li>
-            ))}
-          </ul>
-        </section>
+        <Group title={searching ? "Results" : "Everything"}>
+          {results.map((item) => (
+            <ToolboxItemCard key={item.row.id} item={item.row} />
+          ))}
+        </Group>
       )}
 
       {!searching && saved.length > 0 ? (
-        <section className="space-y-3">
-          <Label as="h2">Saved</Label>
-          <ul className="divide-y divide-border border-y border-border">
-            {saved.map((item) => (
-              <li key={item.row.id}>
-                <ToolboxItemCard item={item.row} />
-              </li>
-            ))}
-          </ul>
-        </section>
+        <Group title="Saved">
+          {saved.map((item) => (
+            <ToolboxItemCard key={item.row.id} item={item.row} />
+          ))}
+        </Group>
       ) : null}
 
       {!searching && recent.length > 0 ? (
-        <section className="space-y-3">
-          <Label as="h2">Recently used</Label>
-          <ul className="divide-y divide-border border-y border-border">
-            {recent.map((item) => (
-              <li key={item.id}>
-                <ToolboxItemCard item={item} />
-              </li>
-            ))}
-          </ul>
-        </section>
+        <Group title="Recently used">
+          {recent.map((item) => (
+            <ToolboxItemCard key={item.id} item={item} />
+          ))}
+        </Group>
       ) : null}
-    </div>
+      </div>
+    </Screen>
   );
 }
 
@@ -167,10 +145,10 @@ function FilterLink({ label, href, active }: { label: string; href: string; acti
       href={href}
       aria-current={active ? "true" : undefined}
       className={cn(
-        "label inline-flex min-h-11 items-center rounded-control border px-3 transition-colors",
+        "tactile inline-flex min-h-9 items-center rounded-pill px-3.5 text-footnote font-medium",
         active
-          ? "border-accent bg-accent-quiet text-ink"
-          : "border-border text-ink-muted hover:bg-surface-sunken hover:text-ink",
+          ? "bg-ink text-ink-inverse"
+          : "bg-ink/[0.06] text-ink-muted hover:bg-ink/[0.1] hover:text-ink",
       )}
     >
       {label}

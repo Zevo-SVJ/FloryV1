@@ -98,7 +98,7 @@ export function CurrentPhase({ phase }: { phase: LearnerPhaseProgressRow }) {
           </span>
           <h3 className="text-[1.0625rem] font-medium text-ink">{phase.label}</h3>
         </div>
-        <p className="max-w-measure text-sm text-ink-muted">{phase.summary}</p>
+        <p className="max-w-read text-sm text-ink-muted">{phase.summary}</p>
       </div>
 
       <div className="space-y-2">

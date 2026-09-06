@@ -33,7 +33,7 @@ export default function AuthLayout({ children }: { children: ReactNode }) {
         <LockMark />
 
         <div className="max-w-[34ch] space-y-10">
-          <p className="text-title">
+          <p className="text-title1">
             You are the founder. The tools are the execution layer.
           </p>
 

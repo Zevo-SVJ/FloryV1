@@ -1,8 +1,10 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { PageHeader, HeaderMeta } from "@/components/ui/page-header";
-import { Card, Label, Badge } from "@/components/ui/surface";
+import { Screen } from "@/components/ui/screen";
+import { Group, LinkRow, Row } from "@/components/ui/list";
+import { Icon } from "@/components/ui/icon";
+import { Badge } from "@/components/ui/surface";
 import { ButtonLink } from "@/components/ui/button";
 import { StateBlock } from "@/components/states/state-block";
 import { ContentRenderer } from "@/components/learning/content-renderer";
@@ -77,67 +79,43 @@ export default async function MissionPage({
   const status = progress?.status ?? "not_started";
 
   return (
-    <div className="space-y-10">
-      {/* Where this sits. A mission is the end of a module, and saying so is
-          what stops it reading as a task from a separate system. */}
-      <nav aria-label="Breadcrumb" className="flex flex-wrap items-center gap-x-2 gap-y-1">
-        <Link href="/learn" className="label text-ink-subtle transition-colors hover:text-ink">
-          Learn
-        </Link>
-        {context ? (
-          <>
-            <span aria-hidden className="label text-border-strong">/</span>
-            <span className="label text-ink-subtle">
-              {String(context.phase.number).padStart(2, "0")} {context.phase.label}
-            </span>
-          </>
-        ) : null}
-        {context?.module ? (
-          <>
-            <span aria-hidden className="label text-border-strong">/</span>
-            <Link
-              href={`/learn/modules/${context.module.module.slug}`}
-              className="label text-ink-muted transition-colors hover:text-ink"
-            >
-              {context.module.module.title}
-            </Link>
-          </>
-        ) : null}
-        <span aria-hidden className="label text-border-strong">/</span>
-        <span className="label text-ink-muted">Mission</span>
-      </nav>
-
-      <PageHeader
-        eyebrow={`Mission · ${MISSION_TYPE_LABEL[mission.type]}`}
-        title={mission.title}
-        description={mission.summary}
-        meta={
-          <>
-            <HeaderMeta label="Time">{mission.estimated_minutes} min</HeaderMeta>
-            <HeaderMeta label="Level">{mission.difficulty}</HeaderMeta>
-            <HeaderMeta label="Status">{MISSION_STATUS_LABEL[status]}</HeaderMeta>
-            <HeaderMeta label="Produces">{mission.deliverable_title}</HeaderMeta>
-          </>
-        }
-        action={
-          context?.module ? (
-            <ButtonLink
-              href={`/learn/modules/${context.module.module.slug}`}
-              variant="secondary"
-              size="sm"
-            >
-              Back to the module
-            </ButtonLink>
-          ) : (
-            <ButtonLink href="/learn" variant="secondary" size="sm">
-              Back to Learn
-            </ButtonLink>
-          )
-        }
-      />
+    <Screen
+      title={mission.title}
+      width="content"
+      back={
+        context?.module
+          ? { href: `/learn/modules/${context.module.module.slug}`, label: context.module.module.title }
+          : { href: "/learn", label: "Learn" }
+      }
+      eyebrow={
+        <span className="flex flex-wrap items-center gap-x-2.5 gap-y-1">
+          <span className="flex items-center gap-1.5 text-accent">
+            <Icon name="target" className="size-[1rem]" />
+            Mission
+          </span>
+          {context ? <span>{context.phase.label}</span> : null}
+          <span aria-hidden className="text-ink-subtle/50">·</span>
+          <span>{MISSION_TYPE_LABEL[mission.type]}</span>
+        </span>
+      }
+      lede={mission.summary || undefined}
+    >
+      <div className="space-y-10">
+        <p className="flex flex-wrap items-center gap-x-4 gap-y-1 text-footnote text-ink-subtle">
+          <span className="flex items-center gap-1.5">
+            <Icon name="clock" className="size-3.5" />
+            <span className="font-mono tabular-nums">{mission.estimated_minutes} min</span>
+          </span>
+          <span>{mission.difficulty}</span>
+          <span>{MISSION_STATUS_LABEL[status]}</span>
+          <span className="flex items-center gap-1.5">
+            <Icon name="note" className="size-3.5" />
+            {mission.deliverable_title}
+          </span>
+        </p>
 
       {mission.is_demo ? (
-        <p className="border-l-2 border-border py-1 pl-4 text-sm text-ink-subtle">
+        <p className="text-footnote text-ink-subtle">
           Demo mission. It exists to prove the work layer runs end to end.
         </p>
       ) : null}
@@ -149,47 +127,44 @@ export default async function MissionPage({
           title="Finish the groundwork first"
           description="This mission applies something you have not covered yet. The lock is not there to slow you down — doing the work without the ground under it produces an artifact you cannot defend."
         >
-          <ul className="space-y-2 pt-2">
-            {requiredLesson && !requiredLesson.met ? (
-              <li>
-                <Link
+          <div className="w-full pt-2">
+            <Group>
+              {requiredLesson && !requiredLesson.met ? (
+                <LinkRow
                   href={`/learn/lessons/${requiredLesson.slug}`}
-                  className="text-sm text-ink underline decoration-border-strong underline-offset-4 hover:decoration-ink"
-                >
-                  {requiredLesson.title}
-                </Link>
-                <span className="label ml-3 text-ink-subtle">Lesson · not done</span>
-              </li>
-            ) : null}
-            {prerequisites
-              .filter((entry) => !entry.met)
-              .map((entry) => (
-                <li key={entry.mission.id}>
-                  <Link
+                  title={requiredLesson.title}
+                  trailing="Lesson"
+                />
+              ) : null}
+              {prerequisites
+                .filter((entry) => !entry.met)
+                .map((entry) => (
+                  <LinkRow
+                    key={entry.mission.id}
                     href={`/learn/missions/${entry.mission.slug}`}
-                    className="text-sm text-ink underline decoration-border-strong underline-offset-4 hover:decoration-ink"
-                  >
-                    {entry.mission.title}
-                  </Link>
-                  <span className="label ml-3 text-ink-subtle">Mission · not done</span>
-                </li>
-              ))}
-          </ul>
+                    title={entry.mission.title}
+                    trailing="Mission"
+                  />
+                ))}
+            </Group>
+          </div>
         </StateBlock>
       ) : (
         <>
-          <section className="max-w-measure space-y-6">
-            <div className="space-y-2">
-              <Label>Objective</Label>
-              <p className="text-[1.0625rem] leading-relaxed text-ink">{mission.objective}</p>
+          <section className="max-w-read space-y-6">
+            <div>
+              <h2 className="text-footnote font-semibold tracking-[0.01em] text-ink-subtle uppercase">
+                Objective
+              </h2>
+              <p className="mt-2 text-body text-ink">{mission.objective}</p>
             </div>
 
             {mission.why_it_matters ? (
-              <aside className="rounded-card border-l-2 border-accent bg-accent-quiet/40 py-4 pr-4 pl-5">
-                <p className="label mb-2 text-accent">Why this matters</p>
-                <p className="text-[0.9375rem] leading-relaxed text-ink-muted">
-                  {mission.why_it_matters}
+              <aside className="rounded-card bg-accent-quiet/70 px-5 py-4">
+                <p className="text-footnote font-semibold tracking-[0.01em] text-accent uppercase">
+                  Why this matters
                 </p>
+                <p className="mt-2 text-subhead text-ink-muted">{mission.why_it_matters}</p>
               </aside>
             ) : null}
 
@@ -202,12 +177,14 @@ export default async function MissionPage({
             ) : null}
 
             {mission.objectives.length > 0 ? (
-              <div className="space-y-3">
-                <Label>You will leave with</Label>
-                <ul className="space-y-1.5">
+              <div>
+                <h2 className="text-footnote font-semibold tracking-[0.01em] text-ink-subtle uppercase">
+                  You will leave with
+                </h2>
+                <ul className="mt-3 space-y-2">
                   {mission.objectives.map((objective) => (
-                    <li key={objective} className="flex gap-3 text-[0.9375rem] text-ink-muted">
-                      <span aria-hidden className="mt-2 size-1 shrink-0 rounded-full bg-border-strong" />
+                    <li key={objective} className="flex gap-3 text-body text-ink-muted">
+                      <Icon name="check" className="mt-1.5 size-4 shrink-0 text-accent" strokeWidth="2.4" />
                       <span>{objective}</span>
                     </li>
                   ))}
@@ -216,11 +193,11 @@ export default async function MissionPage({
             ) : null}
 
             {requiredLesson ? (
-              <p className="text-sm text-ink-subtle">
-                <span className="label mr-2">Applies</span>
+              <p className="text-footnote text-ink-subtle">
+                Applies{" "}
                 <Link
                   href={`/learn/lessons/${requiredLesson.slug}`}
-                  className="text-ink underline decoration-border-strong underline-offset-4 hover:decoration-ink"
+                  className="font-medium text-accent underline decoration-accent/40 underline-offset-4"
                 >
                   {requiredLesson.title}
                 </Link>
@@ -237,23 +214,28 @@ export default async function MissionPage({
 
           <ContextualTools items={tools} heading="Tools for this mission" />
 
-          <section className="max-w-measure space-y-3">
-            <Label as="h2">Deliverable</Label>
-            <Card className="space-y-2 p-5">
-              <p className="text-[0.9375rem] font-medium text-ink">{mission.deliverable_title}</p>
-              <p className="text-sm text-ink-muted">{mission.deliverable_description}</p>
-              {mission.required_evidence.length > 0 ? (
-                <p className="flex flex-wrap items-center gap-2 pt-2">
-                  <span className="label text-ink-subtle">Proof required</span>
-                  {mission.required_evidence.map((kind) => (
-                    <Badge key={kind} tone="accent">
-                      {EVIDENCE_KIND_LABEL[kind]}
-                    </Badge>
-                  ))}
-                </p>
-              ) : null}
-            </Card>
-          </section>
+          <Group title="Deliverable" className="max-w-read">
+            <Row
+              align="start"
+              leading={<Icon name="note" className="size-[1.15rem] text-ink-subtle" />}
+              title={mission.deliverable_title}
+              detail={
+                <>
+                  {mission.deliverable_description}
+                  {mission.required_evidence.length > 0 ? (
+                    <span className="mt-3 flex flex-wrap items-center gap-2">
+                      <span className="text-footnote text-ink-subtle">Proof required</span>
+                      {mission.required_evidence.map((kind) => (
+                        <Badge key={kind} tone="accent">
+                          {EVIDENCE_KIND_LABEL[kind]}
+                        </Badge>
+                      ))}
+                    </span>
+                  ) : null}
+                </>
+              }
+            />
+          </Group>
 
           <FeedbackHistory history={feedback} />
 
@@ -280,7 +262,7 @@ export default async function MissionPage({
               question with its context behind it can be answered by somebody
               looking at the same thing. */}
           {project ? (
-            <section className="max-w-measure">
+            <section className="max-w-read">
               <AskMentorForm
                 projectId={project.id}
                 missionId={mission.id}
@@ -310,6 +292,7 @@ export default async function MissionPage({
           )}
         </>
       )}
-    </div>
+      </div>
+    </Screen>
   );
 }

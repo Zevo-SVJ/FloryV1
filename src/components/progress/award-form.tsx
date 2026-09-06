@@ -34,7 +34,7 @@ export function AwardMilestoneForm({
   if (options.length === 0) return null;
 
   return (
-    <section className="max-w-measure space-y-3">
+    <section className="max-w-read space-y-3">
       <Label as="h2">Confirm a milestone</Label>
       <Card className="p-5">
         <form action={action} className="space-y-4">

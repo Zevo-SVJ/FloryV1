@@ -195,7 +195,7 @@ export function ContentRenderer({
   responses: Map<string, LearnerBlockResponseRow>;
 }) {
   return (
-    <div className="max-w-measure space-y-6">
+    <div className="max-w-read space-y-6">
       {blocks.map((block) => (
         <ContentBlock
           key={block.id}

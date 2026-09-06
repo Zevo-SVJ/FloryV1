@@ -1,15 +1,21 @@
 import Image from "next/image";
 import { cn } from "@/lib/utils/cn";
+import { Icon, type IconName } from "@/components/ui/icon";
 import type { Block } from "@/lib/learning/blocks";
 
 /**
  * The blocks that only present.
  *
- * All of them share one constraint: a lesson is read, so the measure stays at
- * `max-w-measure` (44rem, roughly 75 characters) and nothing widens it. The
- * exceptions are deliberate and each one scrolls inside itself rather than
- * pushing the page — code, tables and comparisons are the three that genuinely
- * cannot be reflowed.
+ * The rule that governs all of them: **a block should look like the thing it
+ * is**. Text looks like text. A quote looks like a quote. A warning feels like
+ * a warning. Code sits in a well. Nothing gets a rectangle drawn around it for
+ * being a block — that was the previous system's failure, and it made a lesson
+ * read as a stack of identical containers with no idea which of them mattered.
+ *
+ * The second constraint: a lesson is read, so the column stays at the reading
+ * measure and nothing widens it. The exceptions are deliberate and each one
+ * scrolls inside itself rather than pushing the page — code, tables and
+ * comparisons are the three that genuinely cannot be reflowed.
  */
 
 type Of<K extends Block["kind"]> = Extract<Block, { kind: K }>;
@@ -22,8 +28,8 @@ export function HeadingBlock({ block }: { block: Of<"heading"> }) {
     <Tag
       id={block.id}
       className={cn(
-        "scroll-mt-24 font-semibold text-ink",
-        block.level === 2 ? "pt-4 text-[1.375rem] tracking-[-0.02em]" : "pt-2 text-[1.0625rem]",
+        "scroll-mt-24 text-ink",
+        block.level === 2 ? "pt-5 text-title2" : "pt-3 text-title3",
       )}
     >
       {block.text}
@@ -31,8 +37,9 @@ export function HeadingBlock({ block }: { block: Of<"heading"> }) {
   );
 }
 
+/** Text, looking like text. No container, no rule, no tint. */
 export function TextBlock({ block }: { block: Of<"text"> }) {
-  return <p className="text-[1.0625rem] leading-[1.7] text-ink-muted">{block.text}</p>;
+  return <p className="text-body leading-[1.7] text-ink-muted">{block.text}</p>;
 }
 
 const CALLOUT_LABEL: Record<Of<"callout">["tone"], string> = {
@@ -41,6 +48,14 @@ const CALLOUT_LABEL: Record<Of<"callout">["tone"], string> = {
   warning: "Careful",
   why: "Why this matters",
   real_world: "Real world",
+};
+
+const CALLOUT_ICON: Record<Of<"callout">["tone"], IconName> = {
+  note: "note",
+  tip: "sparkle",
+  warning: "lock",
+  why: "target",
+  real_world: "build",
 };
 
 /**
@@ -52,30 +67,60 @@ const CALLOUT_LABEL: Record<Of<"callout">["tone"], string> = {
  */
 export function CalloutBlock({ block }: { block: Of<"callout"> }) {
   const emphasised = block.tone === "why" || block.tone === "real_world";
+  const warning = block.tone === "warning";
 
   return (
     <aside
       className={cn(
-        "rounded-card border-l-2 py-4 pr-4 pl-5",
-        emphasised ? "border-accent bg-accent-quiet/40" : "border-border-strong bg-surface-sunken",
+        "flex gap-3.5 rounded-card px-4 py-3.5",
+        warning
+          ? "bg-danger/[0.07]"
+          : emphasised
+            ? "bg-accent-quiet/70"
+            : "bg-ink/[0.035]",
       )}
     >
-      <p className={cn("label mb-2", emphasised ? "text-accent" : "text-ink-subtle")}>
-        {block.title ?? CALLOUT_LABEL[block.tone]}
-      </p>
-      <p className="text-[0.9375rem] leading-relaxed text-ink-muted">{block.text}</p>
+      <Icon
+        name={CALLOUT_ICON[block.tone]}
+        className={cn(
+          "mt-0.5 size-[1.15rem] shrink-0",
+          warning ? "text-danger" : emphasised ? "text-accent" : "text-ink-subtle",
+        )}
+      />
+      <div className="min-w-0">
+        <p
+          className={cn(
+            "text-footnote font-semibold tracking-[0.01em] uppercase",
+            warning ? "text-danger" : emphasised ? "text-accent" : "text-ink-subtle",
+          )}
+        >
+          {block.title ?? CALLOUT_LABEL[block.tone]}
+        </p>
+        <p className="mt-1.5 text-subhead leading-relaxed text-ink-muted">{block.text}</p>
+      </div>
     </aside>
   );
 }
 
+/**
+ * A quote, looking like a quote.
+ *
+ * Set larger than the surrounding prose rather than indented behind a rule.
+ * Somebody said this and it is worth stopping for; size is how a page says that,
+ * and a left border is how a page says "here is another container".
+ */
 export function QuoteBlock({ block }: { block: Of<"quote"> }) {
   return (
-    <figure className="border-l-2 border-border-strong pl-5">
-      <blockquote className="text-[1.0625rem] leading-relaxed text-ink italic">
+    <figure className="py-2">
+      <blockquote className="text-title3 leading-relaxed font-normal text-ink">
+        <span aria-hidden className="text-ink-subtle">&ldquo;</span>
         {block.text}
+        <span aria-hidden className="text-ink-subtle">&rdquo;</span>
       </blockquote>
       {block.attribution ? (
-        <figcaption className="label mt-2 text-ink-subtle">{block.attribution}</figcaption>
+        <figcaption className="mt-2.5 text-footnote text-ink-subtle">
+          {block.attribution}
+        </figcaption>
       ) : null}
     </figure>
   );
@@ -104,7 +149,7 @@ export function ImageBlock({ block }: { block: Of<"image"> }) {
       <div
         className={cn(
           "overflow-hidden rounded-card",
-          block.variant === "screenshot" && "border border-border bg-surface-sunken",
+          block.variant === "screenshot" && "bg-surface-sunken ring-1 ring-ink/[0.06]",
         )}
       >
         <Image
@@ -117,7 +162,7 @@ export function ImageBlock({ block }: { block: Of<"image"> }) {
         />
       </div>
       {block.caption ? (
-        <figcaption className="text-sm text-ink-subtle">{block.caption}</figcaption>
+        <figcaption className="text-footnote text-ink-subtle">{block.caption}</figcaption>
       ) : null}
     </figure>
   );
@@ -126,11 +171,11 @@ export function ImageBlock({ block }: { block: Of<"image"> }) {
 export function CodeBlock({ block }: { block: Of<"code"> }) {
   return (
     <div className="overflow-hidden rounded-card bg-surface-sunken">
-      <div className="flex items-center justify-between gap-3 border-b border-border px-4 py-2">
-        <span className="label truncate text-ink-subtle">{block.filename ?? block.language}</span>
-      </div>
+      <p className="truncate px-4 pt-3 font-mono text-caption text-ink-subtle">
+        {block.filename ?? block.language}
+      </p>
       {/* Scrolls inside itself. A long line must never widen the page. */}
-      <pre className="overflow-x-auto p-4">
+      <pre className="overflow-x-auto px-4 pt-2 pb-4">
         <code className="font-mono text-[0.8125rem] leading-relaxed text-ink">{block.code}</code>
       </pre>
     </div>
@@ -155,15 +200,19 @@ export function TerminalBlock({ block }: { block: Of<"terminal"> }) {
 export function PromptBlock({ block }: { block: Of<"prompt"> }) {
   return (
     <div className="overflow-hidden rounded-card bg-surface-sunken">
-      <div className="px-4 pt-3.5">
-        <p className="label text-ink-subtle">Prompt</p>
-        <p className="mt-1 text-sm font-medium text-ink">{block.title}</p>
+      <div className="flex items-baseline gap-2.5 px-4 pt-3.5">
+        <span className="text-caption font-semibold tracking-[0.01em] text-ink-subtle uppercase">
+          Prompt
+        </span>
+        <span className="min-w-0 flex-1 truncate text-subhead font-medium text-ink">
+          {block.title}
+        </span>
       </div>
-      <pre className="overflow-x-auto px-4 py-4 font-mono text-[0.8125rem] leading-relaxed whitespace-pre-wrap text-ink-muted">
+      <pre className="overflow-x-auto px-4 py-3.5 font-mono text-[0.8125rem] leading-relaxed whitespace-pre-wrap text-ink-muted">
         {block.prompt}
       </pre>
       {block.why ? (
-        <p className="border-t border-border px-4 py-3 text-sm text-ink-subtle">{block.why}</p>
+        <p className="px-4 pb-3.5 text-footnote text-ink-subtle">{block.why}</p>
       ) : null}
     </div>
   );
@@ -171,14 +220,21 @@ export function PromptBlock({ block }: { block: Of<"prompt"> }) {
 
 export function ChecklistBlock({ block }: { block: Of<"checklist"> }) {
   return (
-    <div className="space-y-3 border-l border-border py-1 pl-5">
-      {block.title ? <p className="label text-ink-subtle">{block.title}</p> : null}
-      <ul className="space-y-2">
+    <div className="space-y-3 rounded-card bg-ink/[0.035] px-4 py-4">
+      {block.title ? (
+        <p className="text-footnote font-semibold tracking-[0.01em] text-ink-subtle uppercase">
+          {block.title}
+        </p>
+      ) : null}
+      <ul className="space-y-2.5">
         {block.items.map((item, index) => (
-          <li key={index} className="flex items-baseline gap-3 text-[0.9375rem] text-ink-muted">
-            {/* A square, not an interactive checkbox: this is reference
+          <li key={index} className="flex items-start gap-3 text-subhead text-ink-muted">
+            {/* An empty square, not an interactive checkbox: this is reference
                 material, and a control that saves nothing is a broken promise. */}
-            <span aria-hidden className="mt-1 size-3 shrink-0 rounded-[3px] border border-border-strong" />
+            <span
+              aria-hidden
+              className="mt-1 size-[0.95rem] shrink-0 rounded-[5px] ring-1.5 ring-ink/20"
+            />
             <span>{item}</span>
           </li>
         ))}
@@ -190,12 +246,16 @@ export function ChecklistBlock({ block }: { block: Of<"checklist"> }) {
 export function StepsBlock({ block }: { block: Of<"steps"> }) {
   return (
     <div className="space-y-3">
-      {block.title ? <p className="label text-ink-subtle">{block.title}</p> : null}
+      {block.title ? (
+        <p className="text-footnote font-semibold tracking-[0.01em] text-ink-subtle uppercase">
+          {block.title}
+        </p>
+      ) : null}
       <ol className="space-y-3">
         {block.items.map((item, index) => (
-          <li key={index} className="flex gap-4 text-[0.9375rem] leading-relaxed text-ink-muted">
-            <span className="label w-5 shrink-0 pt-1 text-ink-subtle tabular-nums">
-              {String(index + 1).padStart(2, "0")}
+          <li key={index} className="flex gap-3.5 text-body leading-relaxed text-ink-muted">
+            <span className="mt-0.5 flex size-6 shrink-0 items-center justify-center rounded-full bg-ink/[0.06] font-mono text-caption tabular-nums text-ink-subtle">
+              {index + 1}
             </span>
             <span>{item}</span>
           </li>
@@ -208,17 +268,22 @@ export function StepsBlock({ block }: { block: Of<"steps"> }) {
 export function ComparisonBlock({ block }: { block: Of<"comparison"> }) {
   return (
     <div className="space-y-3">
-      {block.title ? <p className="label text-ink-subtle">{block.title}</p> : null}
+      {block.title ? (
+        <p className="text-footnote font-semibold tracking-[0.01em] text-ink-subtle uppercase">
+          {block.title}
+        </p>
+      ) : null}
       {/* One column on a phone. Two columns of three words each is not a
           comparison, it is two columns. */}
       <div className="grid gap-3 sm:grid-cols-2">
         {[block.left, block.right].map((side, index) => (
-          <div key={index} className="space-y-2 border-t-2 border-border pt-3">
-            <p className="text-sm font-medium text-ink">{side.label}</p>
-            <ul className="space-y-1.5">
+          <div key={index} className="rounded-card bg-ink/[0.035] px-4 py-3.5">
+            <p className="text-subhead font-semibold text-ink">{side.label}</p>
+            <ul className="mt-2.5 space-y-2">
               {side.points.map((point, i) => (
-                <li key={i} className="text-sm text-ink-muted">
-                  {point}
+                <li key={i} className="flex gap-2.5 text-subhead text-ink-muted">
+                  <span aria-hidden className="mt-2 size-1 shrink-0 rounded-full bg-ink/25" />
+                  <span>{point}</span>
                 </li>
               ))}
             </ul>
@@ -232,11 +297,15 @@ export function ComparisonBlock({ block }: { block: Of<"comparison"> }) {
 export function TableBlock({ block }: { block: Of<"table"> }) {
   return (
     <div className="overflow-x-auto">
-      <table className="w-full border-collapse text-left text-sm">
+      <table className="w-full border-collapse text-left">
         <thead>
-          <tr className="border-y-2 border-border-strong">
+          <tr className="border-b border-ink/15">
             {block.columns.map((column) => (
-              <th key={column} scope="col" className="label py-3 pr-4 text-ink-subtle">
+              <th
+                key={column}
+                scope="col"
+                className="py-2.5 pr-4 text-footnote font-semibold text-ink-subtle"
+              >
                 {column}
               </th>
             ))}
@@ -244,9 +313,9 @@ export function TableBlock({ block }: { block: Of<"table"> }) {
         </thead>
         <tbody>
           {block.rows.map((row, index) => (
-            <tr key={index} className="border-b border-border last:border-0">
+            <tr key={index} className="border-b border-separator last:border-0">
               {row.map((cell, i) => (
-                <td key={i} className="py-3 pr-4 text-ink-muted">
+                <td key={i} className="py-3 pr-4 text-subhead text-ink-muted">
                   {cell}
                 </td>
               ))}
@@ -261,15 +330,15 @@ export function TableBlock({ block }: { block: Of<"table"> }) {
 /** Native `<details>`: keyboard operable and searchable without any JavaScript. */
 export function ExpandableBlock({ block }: { block: Of<"expandable"> }) {
   return (
-    <details className="group border-y border-border">
-      <summary className="cursor-pointer list-none py-3 text-[0.9375rem] font-medium text-ink marker:hidden">
-        <span className="label mr-2 text-ink-subtle group-open:hidden">Show</span>
-        <span className="label mr-2 hidden text-ink-subtle group-open:inline">Hide</span>
-        {block.summary}
+    <details className="group overflow-hidden rounded-card bg-ink/[0.035]">
+      <summary className="tactile flex cursor-pointer list-none items-center gap-3 px-4 py-3.5 text-subhead font-medium text-ink marker:hidden hover:bg-ink/[0.03]">
+        <Icon
+          name="forward"
+          className="size-4 shrink-0 text-ink-subtle transition-transform duration-[--duration-fast] group-open:rotate-90 motion-reduce:transition-none"
+        />
+        <span className="min-w-0 flex-1">{block.summary}</span>
       </summary>
-      <p className="border-t border-border py-4 text-[0.9375rem] leading-relaxed text-ink-muted">
-        {block.text}
-      </p>
+      <p className="px-4 pb-4 pl-11 text-subhead leading-relaxed text-ink-muted">{block.text}</p>
     </details>
   );
 }
@@ -289,24 +358,24 @@ export function VideoBlock({ block }: { block: Of<"video"> }) {
       href={block.url}
       target="_blank"
       rel="noopener noreferrer"
-      className="-mx-3 block rounded-control border-y border-border px-3 py-4 transition-colors hover:bg-surface-sunken"
+      className="tactile flex gap-4 rounded-card bg-ink/[0.035] px-4 py-3.5 hover:bg-ink/[0.055]"
     >
-      <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
-        <span className="label text-ink-subtle">Video</span>
-        {block.source ? <span className="label text-ink-subtle">{block.source}</span> : null}
-        {block.durationSeconds ? (
-          <span className="label text-ink-subtle tabular-nums">
-            {Math.round(block.durationSeconds / 60)} min
-          </span>
-        ) : null}
-      </div>
-      <p className="mt-2 text-[0.9375rem] font-medium text-ink underline decoration-border-strong underline-offset-4">
-        {block.title}
-      </p>
-      <p className="mt-2 text-sm text-ink-muted">
-        <span className="label mr-2 text-ink-subtle">Why watch this</span>
-        {block.why}
-      </p>
+      <span className="mt-0.5 flex size-9 shrink-0 items-center justify-center rounded-full bg-ink text-ink-inverse">
+        <Icon name="play" className="size-4 translate-x-px" fill="currentColor" />
+      </span>
+      <span className="min-w-0">
+        <span className="block text-subhead font-medium text-ink">{block.title}</span>
+        <span className="mt-1 block text-subhead text-ink-muted">{block.why}</span>
+        <span className="mt-1.5 flex flex-wrap items-center gap-x-3 text-footnote text-ink-subtle">
+          <span>Video</span>
+          {block.source ? <span>{block.source}</span> : null}
+          {block.durationSeconds ? (
+            <span className="font-mono tabular-nums">
+              {Math.round(block.durationSeconds / 60)} min
+            </span>
+          ) : null}
+        </span>
+      </span>
     </a>
   );
 }

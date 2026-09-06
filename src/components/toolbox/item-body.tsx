@@ -29,7 +29,7 @@ export function ToolboxItemBody({
     case "prompt": {
       const body = parsed.body;
       return (
-        <div className="max-w-measure space-y-6">
+        <div className="max-w-read space-y-6">
           <Section label="What it does">{body.whatItDoes}</Section>
           <Section label="When to use it">{body.whenToUse}</Section>
 
@@ -81,7 +81,7 @@ export function ToolboxItemBody({
     case "framework": {
       const body = parsed.body;
       return (
-        <div className="max-w-measure space-y-6">
+        <div className="max-w-read space-y-6">
           <Section label="Purpose">{body.purpose}</Section>
           {body.flow.length > 0 ? <FlowDiagram steps={body.flow} /> : null}
           <Section label="How it works">{body.explanation}</Section>
@@ -113,7 +113,7 @@ export function ToolboxItemBody({
     case "template": {
       const body = parsed.body;
       return (
-        <div className="max-w-measure space-y-6">
+        <div className="max-w-read space-y-6">
           <Section label="How to use it">{body.instructions}</Section>
 
           <div className="space-y-3">
@@ -151,7 +151,7 @@ export function ToolboxItemBody({
     case "checklist": {
       const body = parsed.body;
       return (
-        <div className="max-w-measure space-y-6">
+        <div className="max-w-read space-y-6">
           <Section label="Before you start">{body.intro}</Section>
           <ChecklistControl itemId={itemId} body={body} checkedIds={checkedIds} path={path} />
         </div>
@@ -166,7 +166,7 @@ export function ToolboxItemBody({
           : null;
 
       return (
-        <div className="max-w-measure space-y-6">
+        <div className="max-w-read space-y-6">
           <div className="flex flex-wrap items-baseline gap-x-4 gap-y-2">
             <span className="label text-ink-subtle">{body.resourceKind}</span>
             {body.source ? <span className="label text-ink-subtle">{body.source}</span> : null}
@@ -202,7 +202,7 @@ export function ToolboxItemBody({
     case "stack_tool": {
       const body = parsed.body;
       return (
-        <div className="max-w-measure space-y-6">
+        <div className="max-w-read space-y-6">
           <Section label="What it is">{body.what}</Section>
           <Section label="Why LOCK uses it">{body.why}</Section>
           <Section label="When to use it">{body.whenToUse}</Section>

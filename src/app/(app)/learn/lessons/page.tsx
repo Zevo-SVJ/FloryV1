@@ -1,203 +1,110 @@
 import type { Metadata } from "next";
-import Link from "next/link";
+import { Screen } from "@/components/ui/screen";
+import { Group, LinkRow } from "@/components/ui/list";
+import { StatusMark } from "@/components/ui/icon";
+import { EmptyState } from "@/components/states/empty-state";
 import { ButtonLink } from "@/components/ui/button";
-import { LessonRow } from "@/components/learning/hierarchy";
 import { getLearningOverview } from "@/lib/learning/overview";
 import { getLearningState } from "@/lib/learning/queries";
-import { cn } from "@/lib/utils/cn";
+import { lessonTypeLabel } from "@/lib/learning/labels";
 
-export const metadata: Metadata = { title: "Lessons" };
+export const metadata: Metadata = { title: "Every lesson" };
 
 /**
  * Every lesson, for when you are looking for one specific thing.
  *
- * A secondary index, and it says so at the top. It used to be one of three
- * learning destinations in the sidebar, which made a learner choose between the
- * roadmap, the lessons and the missions before they could start — three routes
- * into one curriculum, none of them the obvious one. Learn is that route now.
+ * A secondary index, and it says so. It used to be one of three learning
+ * destinations in the sidebar, which made a learner choose between the roadmap,
+ * the lessons and the missions before they could start. Learn is that route now.
  *
  * This still exists and is still linked from Learn, because "where was that
  * lesson about interviews" is a real question and hunting through modules is a
- * poor answer to it. It is a reference, not a place to begin.
+ * poor answer to it. It is a reference, not a place to begin — which is why it
+ * is a flat list grouped by module, with no progress device of its own.
  */
 export default async function LessonsPage() {
   const [overview, state] = await Promise.all([getLearningOverview(), getLearningState()]);
-  const { phases, activeKey, nextLesson, completedLessons, totalLessons } = overview;
-
-  const open = phases.find((p) => p.key === activeKey) ?? phases.find((p) => p.published) ?? null;
-  const rest = phases.filter((p) => p.key !== open?.key);
-  const anyPublished = phases.some((p) => p.published);
+  const { phases, nextLesson, completedLessons, totalLessons } = overview;
+  const published = phases.filter((phase) => phase.published);
 
   return (
-    <div className="space-y-12">
-      <header className="space-y-3">
-        <nav aria-label="Breadcrumb" className="flex flex-wrap items-center gap-x-2 gap-y-1">
-          <Link href="/learn" className="label text-ink-subtle transition-colors hover:text-ink">
-            Learn
-          </Link>
-          <span aria-hidden className="label text-border-strong">/</span>
-          <span className="label text-ink-muted">Index</span>
-        </nav>
-        <h1 className="text-display max-w-measure text-balance">Every lesson</h1>
-        <p className="max-w-measure text-lede text-ink-muted">
-          The complete index, for finding one specific thing. To work through
-          the programme in order,{" "}
-          <Link
-            href="/learn"
-            className="text-ink underline decoration-border-strong underline-offset-4 hover:decoration-ink"
-          >
-            go to Learn
-          </Link>
-          .
-        </p>
+    <Screen
+      title="Every lesson"
+      eyebrow="Index"
+      back={{ href: "/learn", label: "Learn" }}
+      width="content"
+      lede="The complete index, for finding one specific thing. To work through the programme in order, go to Learn."
+    >
+      <div className="space-y-8">
+        {published.length === 0 ? (
+          <Group>
+            <EmptyState
+              title="No lessons are open yet"
+              action={<ButtonLink href="/learn" size="sm">Go to Learn</ButtonLink>}
+            >
+              Learn shows the ten phases the curriculum is being written into.
+            </EmptyState>
+          </Group>
+        ) : null}
+
+        {published.map((phase) =>
+          phase.modules
+            .filter((entry) => entry.lessons.length > 0)
+            .map((entry) => (
+              <Group
+                key={entry.module.id}
+                title={
+                  <span className="flex flex-wrap items-baseline gap-x-2">
+                    <span className="font-mono tabular-nums">
+                      {String(phase.number).padStart(2, "0")}
+                    </span>
+                    <span>{phase.label}</span>
+                    <span aria-hidden className="opacity-40">·</span>
+                    <span className="normal-case">{entry.module.title}</span>
+                  </span>
+                }
+              >
+                {entry.lessons.map((lesson, index) => {
+                  const done = state.completedLessonIds.has(lesson.id);
+                  const next = nextLesson?.lesson.id === lesson.id;
+                  return (
+                    <LinkRow
+                      key={lesson.id}
+                      href={`/learn/lessons/${lesson.slug}`}
+                      align="start"
+                      leading={
+                        <StatusMark
+                          state={done ? "done" : next ? "current" : "todo"}
+                          index={done || next ? undefined : index + 1}
+                        />
+                      }
+                      title={lesson.title}
+                      detail={lesson.summary}
+                      trailing={
+                        <span className="hidden text-right sm:block">
+                          <span className="block">{lessonTypeLabel(lesson.type)}</span>
+                          <span className="mt-0.5 block font-mono tabular-nums">
+                            {lesson.estimatedMinutes} min
+                          </span>
+                        </span>
+                      }
+                    />
+                  );
+                })}
+              </Group>
+            )),
+        )}
 
         {totalLessons > 0 ? (
-          <p className="flex flex-wrap items-baseline gap-x-4 gap-y-1 pt-1">
-            <span className="label tabular-nums text-ink-subtle">
-              {completedLessons}/{totalLessons} complete
-            </span>
-            {state.revisitLessonIds.size > 0 ? (
-              <span className="label tabular-nums text-ink-subtle">
-                {state.revisitLessonIds.size} to revisit
-              </span>
-            ) : null}
+          <p className="px-1 text-footnote text-ink-subtle">
+            <span className="font-mono tabular-nums">
+              {completedLessons} of {totalLessons}
+            </span>{" "}
+            complete. Lessons marked demo exist to prove the learning engine runs
+            end to end; the curriculum itself is written in a later phase.
           </p>
         ) : null}
-      </header>
-
-      {!anyPublished ? (
-        <section className="border-y border-border py-8">
-          <p className="label text-ink-subtle">In preparation</p>
-          <p className="mt-2 max-w-measure text-lede text-ink-muted">
-            No lessons are open yet. Learn shows the ten phases the curriculum
-            is being written into.
-          </p>
-          <p className="mt-4">
-            <ButtonLink href="/learn" size="sm">Go to Learn</ButtonLink>
-          </p>
-        </section>
-      ) : null}
-
-      {/* ── The phase you are in, in full ────────────────────────────────── */}
-      {open && open.published ? (
-        <section className="space-y-8">
-          <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-2 border-b border-border pb-2">
-            <h2 className="flex flex-wrap items-baseline gap-x-3">
-              <span className="label tabular-nums text-ink-subtle">
-                {String(open.number).padStart(2, "0")}
-              </span>
-              <span className="text-title">{open.label}</span>
-              <span className="label text-accent">You are here</span>
-            </h2>
-            <span className="label tabular-nums text-ink-subtle">
-              {open.lessonsDone}/{open.lessonCount} lessons
-            </span>
-          </div>
-
-          {open.modules.map((entry, index) => (
-            <div key={entry.module.id} className="space-y-1">
-              <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
-                <h3 className="flex flex-wrap items-baseline gap-x-3">
-                  <span className="label tabular-nums text-ink-subtle">
-                    Module {String(index + 1).padStart(2, "0")}
-                  </span>
-                  <Link
-                    href={`/learn/modules/${entry.module.slug}`}
-                    className="text-[1.0625rem] font-medium tracking-tight text-ink underline decoration-transparent underline-offset-4 transition-colors hover:decoration-border-strong"
-                  >
-                    {entry.module.title}
-                  </Link>
-                </h3>
-                <span className="label tabular-nums text-ink-subtle">
-                  {entry.lessonsDone}/{entry.lessons.length} · ~{entry.minutes} min
-                </span>
-              </div>
-
-              {entry.module.summary ? (
-                <p className="max-w-measure pb-1 text-sm leading-relaxed text-ink-muted">
-                  {entry.module.summary}
-                </p>
-              ) : null}
-
-              <ol className="divide-y divide-border border-t border-border">
-                {entry.lessons.map((lesson, i) => (
-                  <LessonRow
-                    key={lesson.id}
-                    lesson={lesson}
-                    index={i + 1}
-                    done={state.completedLessonIds.has(lesson.id)}
-                    revisit={state.revisitLessonIds.has(lesson.id)}
-                    next={nextLesson?.lesson.id === lesson.id}
-                  />
-                ))}
-              </ol>
-            </div>
-          ))}
-        </section>
-      ) : null}
-
-      {/* ── Everything else, as an index ─────────────────────────────────── */}
-      <section className="space-y-1">
-        <h2 className="label border-b border-border pb-2 text-ink-subtle">
-          The rest of the journey
-        </h2>
-
-        <ol className="divide-y divide-border">
-          {rest.map((phase) => (
-            <li key={phase.key}>
-              {phase.published ? (
-                <Link
-                  href={
-                    phase.modules[0]
-                      ? `/learn/modules/${phase.modules[0].module.slug}`
-                      : "/learn"
-                  }
-                  className="-mx-3 flex flex-wrap items-baseline gap-x-4 gap-y-1 rounded-control px-3 py-3 transition-colors hover:bg-surface-sunken"
-                >
-                  <PhaseIndexRow phase={phase} />
-                </Link>
-              ) : (
-                <div className="flex flex-wrap items-baseline gap-x-4 gap-y-1 px-3 py-3">
-                  <PhaseIndexRow phase={phase} />
-                </div>
-              )}
-            </li>
-          ))}
-        </ol>
-      </section>
-
-      <p className="max-w-measure border-l-2 border-border py-1 pl-4 text-sm text-ink-subtle">
-        Lessons marked <span className="text-ink-muted">Demo</span> exist to prove
-        the learning engine runs end to end. The curriculum itself is written in a
-        later phase.
-      </p>
-    </div>
-  );
-}
-
-/** One phase, as an index line. Compact enough that ten of them are a map. */
-function PhaseIndexRow({
-  phase,
-}: {
-  phase: Awaited<ReturnType<typeof getLearningOverview>>["phases"][number];
-}) {
-  return (
-    <>
-      <span className="label w-6 shrink-0 tabular-nums text-ink-subtle">
-        {String(phase.number).padStart(2, "0")}
-      </span>
-      <span
-        className={cn(
-          "text-[0.9375rem] font-medium",
-          phase.published ? "text-ink" : "text-ink-muted",
-        )}
-      >
-        {phase.label}
-      </span>
-      <span className="min-w-0 flex-1 text-sm text-ink-subtle">{phase.summary}</span>
-      <span className="label shrink-0 tabular-nums text-ink-subtle">
-        {phase.published ? `${phase.lessonsDone}/${phase.lessonCount}` : "In preparation"}
-      </span>
-    </>
+      </div>
+    </Screen>
   );
 }

@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { PageHeader, HeaderMeta } from "@/components/ui/page-header";
+import { Screen } from "@/components/ui/screen";
 import { Card, Label, Badge } from "@/components/ui/surface";
 import { EmptyState } from "@/components/states/empty-state";
 import { Forbidden } from "@/components/states/forbidden";
@@ -37,19 +37,22 @@ export default async function ReviewPage() {
   );
 
   return (
-    <div className="space-y-8">
-      <PageHeader
-        eyebrow="Staff"
-        title="Review"
-        description="Work waiting on a verdict. Your job is to improve their judgement and stop them building the wrong thing — not to do it for them."
-        meta={
-          <>
-            <HeaderMeta label="Waiting">{queue.length}</HeaderMeta>
-            <HeaderMeta label="Learners">{learners.length}</HeaderMeta>
-            <HeaderMeta label="Need attention">{attention.length}</HeaderMeta>
-          </>
-        }
-      />
+    <Screen
+      title="Review"
+      eyebrow="Staff"
+      lede="Work waiting on a verdict. Your job is to improve their judgement and stop them building the wrong thing — not to do it for them."
+      width="content"
+    >
+      <div className="space-y-8">
+        <p className="flex flex-wrap items-center gap-x-5 gap-y-1 text-footnote text-ink-subtle">
+          <span>
+            <span className="font-mono tabular-nums text-ink">{queue.length}</span> waiting
+          </span>
+          <span>
+            <span className="font-mono tabular-nums text-ink">{attention.length}</span> need attention
+          </span>
+        </p>
+
 
       <section className="space-y-3">
         <Label as="h2">Pending reviews</Label>
@@ -166,6 +169,7 @@ export default async function ReviewPage() {
           </ul>
         </section>
       ) : null}
-    </div>
+      </div>
+    </Screen>
   );
 }

@@ -36,7 +36,7 @@ export default async function LoginPage({
     <div className="space-y-8">
       <header className="space-y-2">
         <p className="label text-ink-subtle">Sign in</p>
-        <h1 className="text-title">Welcome back.</h1>
+        <h1 className="text-title1">Welcome back.</h1>
       </header>
 
       {message ? <Notice tone="error">{message}</Notice> : null}

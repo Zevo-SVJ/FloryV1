@@ -70,7 +70,7 @@ export function FeedbackHistory({ history }: { history: ArtifactFeedbackRow[] })
   if (history.length === 0) return null;
 
   return (
-    <section className="max-w-measure space-y-3">
+    <section className="max-w-read space-y-3">
       <div className="flex flex-wrap items-baseline justify-between gap-3">
         <Label>Review history</Label>
         {history.length > 1 ? (

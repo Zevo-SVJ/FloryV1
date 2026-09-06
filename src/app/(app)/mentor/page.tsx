@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { PageHeader, HeaderMeta } from "@/components/ui/page-header";
+import { Screen } from "@/components/ui/screen";
 import { Card, Label, Badge } from "@/components/ui/surface";
 import { EmptyState } from "@/components/states/empty-state";
 import { Avatar } from "@/components/ui/avatar";
@@ -36,19 +36,13 @@ export default async function YourMentorPage() {
   const unread = notifications.filter((row) => row.read_at === null);
 
   return (
-    <div className="space-y-8">
-      <PageHeader
-        eyebrow="Your Mentor"
-        title={view.mentor?.display_name ?? "Zevo"}
-        description="Your work is read by somebody who has built products and will tell you when yours is not ready. That is the point of the review."
-        meta={
-          <>
-            <HeaderMeta label="Awaiting review">{view.awaitingReview.length}</HeaderMeta>
-            <HeaderMeta label="Needs work">{view.needsWork.length}</HeaderMeta>
-            <HeaderMeta label="Reviews received">{view.feedback.length}</HeaderMeta>
-          </>
-        }
-      />
+    <Screen
+      title={view.mentor?.display_name ?? "Zevo"}
+      eyebrow="Your Mentor"
+      lede="Your work is read by somebody who has built products and will tell you when yours is not ready. That is the point of the review."
+      width="content"
+    >
+      <div className="space-y-8">
 
       {!view.mentor ? (
         <EmptyState title="No mentor assigned yet">
@@ -126,7 +120,7 @@ export default async function YourMentorPage() {
         </section>
       ) : null}
 
-      <section className="max-w-measure space-y-3">
+      <section className="max-w-read space-y-3">
         <Label as="h2">Latest feedback</Label>
         {latest ? (
           <div className="space-y-3">
@@ -151,7 +145,7 @@ export default async function YourMentorPage() {
         )}
       </section>
 
-      <section className="max-w-measure space-y-3">
+      <section className="max-w-read space-y-3">
         <AskMentorForm projectId={project?.id ?? null} />
 
         {view.questions.length > 0 ? (
@@ -186,6 +180,7 @@ export default async function YourMentorPage() {
           </ul>
         ) : null}
       </section>
-    </div>
+      </div>
+    </Screen>
   );
 }

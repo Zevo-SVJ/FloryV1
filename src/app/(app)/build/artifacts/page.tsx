@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { PageHeader, HeaderMeta } from "@/components/ui/page-header";
+import { Screen } from "@/components/ui/screen";
 import { EmptyState } from "@/components/states/empty-state";
 import { Badge, Card } from "@/components/ui/surface";
 import { ButtonLink } from "@/components/ui/button";
@@ -21,18 +21,22 @@ export default async function ArtifactsPage() {
   const submitted = artifacts.filter(({ artifact }) => artifact.status !== "draft").length;
 
   return (
-    <div className="space-y-8">
-      <PageHeader
-        eyebrow="My SaaS"
-        title="Artifacts"
-        description="Everything you have produced, in the order you produced it. This is the evidence your product exists."
-        meta={
-          <>
-            <HeaderMeta label="Total">{artifacts.length}</HeaderMeta>
-            <HeaderMeta label="Submitted">{submitted}</HeaderMeta>
-          </>
-        }
-      />
+    <Screen
+      title="Artifacts"
+      eyebrow="My SaaS"
+      lede="Everything you have produced, in the order you produced it. This is the evidence your product exists."
+      back={{ href: "/build", label: "My SaaS" }}
+      width="content"
+    >
+      <div className="space-y-8">
+        <p className="flex flex-wrap items-center gap-x-5 gap-y-1 text-footnote text-ink-subtle">
+          <span>
+            <span className="font-mono tabular-nums text-ink">{artifacts.length}</span> total
+          </span>
+          <span>
+            <span className="font-mono tabular-nums text-ink">{submitted}</span> submitted
+          </span>
+        </p>
 
       {artifacts.length === 0 ? (
         <EmptyState title="Nothing produced yet">
@@ -116,6 +120,7 @@ export default async function ArtifactsPage() {
           ))}
         </ol>
       )}
-    </div>
+      </div>
+    </Screen>
   );
 }

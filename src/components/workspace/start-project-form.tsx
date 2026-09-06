@@ -30,7 +30,7 @@ export function StartProjectForm() {
       {state.error ? (
         <p
           role="alert"
-          className="max-w-measure rounded-card border border-danger/40 bg-danger/5 px-4 py-3 text-sm whitespace-pre-line text-danger"
+          className="max-w-read rounded-card border border-danger/40 bg-danger/5 px-4 py-3 text-sm whitespace-pre-line text-danger"
         >
           {state.error}
         </p>

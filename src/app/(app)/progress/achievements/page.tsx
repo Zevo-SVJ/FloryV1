@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { PageHeader, HeaderMeta } from "@/components/ui/page-header";
+import { Screen } from "@/components/ui/screen";
 import { Label } from "@/components/ui/surface";
 import { EmptyState } from "@/components/states/empty-state";
 import { ButtonLink } from "@/components/ui/button";
@@ -33,20 +33,22 @@ export default async function AchievementsPage() {
   const manual = awards.definitions.filter((award) => award.requirement === "manual").length;
 
   return (
-    <div className="space-y-10">
-      <PageHeader
-        eyebrow="Progress"
-        title="Milestones"
-        description="Ground you have actually covered. Every one of these is earned by something that happened — a project named, work approved, a build deployed — and none of them by opening a page."
-        meta={
-          <>
-            <HeaderMeta label="Earned">{earnedCount}</HeaderMeta>
-            <HeaderMeta label="Total">{awards.definitions.length}</HeaderMeta>
-            <HeaderMeta label="Milestones">{milestones.length}</HeaderMeta>
-            <HeaderMeta label="Achievements">{achievements.length}</HeaderMeta>
-          </>
-        }
-      />
+    <Screen
+      title="Milestones"
+      eyebrow="Progress"
+      lede="Ground you have actually covered. Every one of these is earned by something that happened — a project named, work approved, a build deployed — and none of them by opening a page."
+      back={{ href: "/progress", label: "Progress" }}
+      width="content"
+    >
+      <div className="space-y-10">
+        <p className="flex flex-wrap items-center gap-x-5 gap-y-1 text-footnote text-ink-subtle">
+          <span>
+            <span className="font-mono tabular-nums text-ink">{earnedCount}</span> earned
+          </span>
+          <span>
+            <span className="font-mono tabular-nums text-ink">{awards.definitions.length}</span> in total
+          </span>
+        </p>
 
       {earnedCount === 0 ? (
         <EmptyState title="Your first milestone is waiting">
@@ -81,12 +83,13 @@ export default async function AchievementsPage() {
         </div>
       </section>
 
-      <p className="max-w-measure text-sm text-ink-subtle">
+      <p className="max-w-read text-sm text-ink-subtle">
         {manual} of these say &ldquo;mentor confirms&rdquo;. LOCK has no analytics
         and no billing integration, so it genuinely cannot see a real user or a
         real payment — and a checkbox you tick yourself would not be evidence of
         either. Your mentor looks and says so, and the record shows who did.
       </p>
-    </div>
+      </div>
+    </Screen>
   );
 }
