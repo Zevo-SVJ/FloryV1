@@ -72,7 +72,7 @@ export async function ToolboxCategory({
           </p>
         </EmptyState>
       ) : (
-        <ul className="space-y-2">
+        <ul className="divide-y divide-border border-y border-border">
           {items.map((item) => (
             <li key={item.row.id}>
               <ToolboxItemCard item={item.row} showKind={false} />

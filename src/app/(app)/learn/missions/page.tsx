@@ -1,116 +1,149 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { PageHeader, HeaderMeta } from "@/components/ui/page-header";
-import { EmptyState } from "@/components/states/empty-state";
-import { Badge, Card } from "@/components/ui/surface";
 import { ButtonLink } from "@/components/ui/button";
-import { getMissions, getProject } from "@/lib/workspace/queries";
+import { getLearningOverview } from "@/lib/learning/overview";
+import { getProject } from "@/lib/workspace/queries";
 import { MISSION_STATUS_LABEL, MISSION_TYPE_LABEL } from "@/lib/workspace/labels";
 import { cn } from "@/lib/utils/cn";
 
 export const metadata: Metadata = { title: "Missions" };
 
 /**
- * Every mission, and what you have done about it.
+ * Where learning turns into something that exists.
  *
- * A mission is not a lesson with homework attached — it is a piece of founder
- * work that produces something, and the list says so by leading with the
- * deliverable rather than with a lesson reference.
+ * Missions were a list of bordered rows with three small badges each, which
+ * made the most consequential thing in LOCK look like a settings table. They
+ * are numbered now — `01.02` reads as position in a programme rather than as a
+ * row in a list — grouped under their phase, and each one leads with what it
+ * produces, because the deliverable is the point.
  */
 export default async function MissionsPage() {
-  const [missions, project] = await Promise.all([getMissions(), getProject()]);
-  const done = missions.filter((entry) => entry.progress?.status === "completed").length;
+  const [overview, project] = await Promise.all([getLearningOverview(), getProject()]);
+  const phasesWithMissions = overview.phases.filter((p) => p.missions.length > 0);
+  const total = overview.phases.reduce((t, p) => t + p.missions.length, 0);
+  const done = overview.phases.reduce((t, p) => t + p.missionsDone, 0);
 
   return (
-    <div className="space-y-8">
-      <PageHeader
-        eyebrow="Learn"
-        title="Missions"
-        description="The work that turns a lesson into something you have actually built. Each one produces an artifact for your SaaS."
-        meta={
-          <>
-            <HeaderMeta label="Published">{missions.length}</HeaderMeta>
-            <HeaderMeta label="Completed">{done}</HeaderMeta>
-          </>
-        }
-        action={
-          project ? undefined : (
-            <ButtonLink href="/build" size="sm">
-              Start your SaaS
-            </ButtonLink>
-          )
-        }
-      />
+    <div className="space-y-12">
+      <header className="space-y-3">
+        <p className="label text-ink-subtle">Learn</p>
+        <h1 className="text-display max-w-measure text-balance">Missions</h1>
+        <p className="max-w-measure text-lede text-ink-muted">
+          Learn, then do. Each mission is a piece of founder work that produces
+          an artifact for your product and goes to your mentor for review.
+        </p>
+        {total > 0 ? (
+          <p className="label pt-1 tabular-nums text-ink-subtle">{done}/{total} complete</p>
+        ) : null}
+      </header>
 
       {!project ? (
-        <p className="max-w-measure border-l-2 border-accent py-1 pl-4 text-sm text-ink-muted">
-          Missions apply to a product. Name yours in My SaaS first — everything
-          you produce here attaches to it.
+        <p className="max-w-measure border-l-2 border-accent py-1 pl-4 text-sm leading-relaxed text-ink-muted">
+          Missions produce artifacts, and an artifact belongs to a product.{" "}
+          <Link href="/build" className="text-ink underline decoration-border-strong underline-offset-4 hover:decoration-ink">
+            Name yours first
+          </Link>
+          .
         </p>
       ) : null}
 
-      {missions.length === 0 ? (
-        <EmptyState title="No missions published yet">
-          <p>
-            The engine is built; the missions themselves are written with the
-            curriculum so the work is designed rather than improvised around the
-            software.
+      {total === 0 ? (
+        <section className="border-y border-border py-8">
+          <p className="label text-ink-subtle">In preparation</p>
+          <p className="mt-2 max-w-measure text-lede text-ink-muted">
+            No missions are open yet. They are written with the curriculum, so
+            the work is designed rather than improvised around the software.
           </p>
-        </EmptyState>
-      ) : (
-        <ul className="space-y-3">
-          {missions.map(({ mission, progress, artifact }) => {
-            const status = progress?.status ?? "not_started";
-            const complete = status === "completed";
+          <p className="mt-4">
+            <ButtonLink href="/learn" size="sm">See the roadmap</ButtonLink>
+          </p>
+        </section>
+      ) : null}
 
-            return (
-              <li key={mission.id}>
-                <Link
-                  href={`/learn/missions/${mission.slug}`}
-                  className="block rounded-card border border-border p-5 transition-colors hover:border-border-strong hover:bg-surface-sunken"
-                >
-                  <div className="flex flex-wrap items-baseline gap-x-3 gap-y-2">
+      {phasesWithMissions.map((phase) => (
+        <section key={phase.key} className="space-y-1">
+          <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1 border-b border-border pb-2">
+            <h2 className="flex flex-wrap items-baseline gap-x-3">
+              <span className="label tabular-nums text-ink-subtle">
+                {String(phase.number).padStart(2, "0")}
+              </span>
+              <span className="text-title">{phase.label}</span>
+              {phase.state === "current" ? (
+                <span className="label text-accent">You are here</span>
+              ) : null}
+            </h2>
+            <span className="label tabular-nums text-ink-subtle">
+              {phase.missionsDone}/{phase.missions.length}
+            </span>
+          </div>
+
+          <ol className="divide-y divide-border">
+            {phase.missions.map(({ mission, progress, artifact }, index) => {
+              const status = progress?.status ?? "not_started";
+              const complete = status === "completed";
+              const started = artifact !== null || progress !== null;
+
+              return (
+                <li key={mission.id}>
+                  <Link
+                    href={`/learn/missions/${mission.slug}`}
+                    className="-mx-3 flex gap-4 rounded-control px-3 py-5 transition-colors hover:bg-surface-sunken sm:gap-6"
+                  >
+                    {/* The mission's address in the programme. */}
                     <span
-                      aria-hidden
                       className={cn(
-                        "mt-1.5 size-2 shrink-0 rounded-full",
-                        complete ? "bg-success" : "bg-border-strong",
+                        "label shrink-0 pt-1 tabular-nums",
+                        complete ? "text-ink-subtle" : "text-accent",
                       )}
-                    />
-                    <span className="text-[0.9375rem] font-medium text-ink">{mission.title}</span>
-                    <span className="label text-ink-subtle">
-                      {MISSION_TYPE_LABEL[mission.type]}
+                    >
+                      {String(phase.number).padStart(2, "0")}.{String(index + 1).padStart(2, "0")}
                     </span>
-                    <span className="label text-ink-subtle tabular-nums">
-                      {mission.estimated_minutes} min
+
+                    <span className="min-w-0 flex-1 space-y-1.5">
+                      <span className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
+                        <span
+                          className={cn(
+                            "text-[1.0625rem] leading-snug font-medium tracking-tight",
+                            complete ? "text-ink-muted" : "text-ink",
+                          )}
+                        >
+                          {mission.title}
+                        </span>
+                        <span className="label text-ink-subtle">
+                          {MISSION_STATUS_LABEL[status]}
+                        </span>
+                        {mission.is_demo ? (
+                          <span className="label text-ink-subtle">Demo</span>
+                        ) : null}
+                      </span>
+
+                      <span className="block max-w-measure text-sm leading-relaxed text-ink-muted">
+                        {mission.objective}
+                      </span>
+
+                      <span className="flex flex-wrap items-baseline gap-x-4 gap-y-1 pt-1">
+                        <span className="label text-ink-subtle">
+                          Produces{" "}
+                          <span className="text-ink-muted">{mission.deliverable_title}</span>
+                        </span>
+                        <span className="label text-ink-subtle">
+                          {MISSION_TYPE_LABEL[mission.type]}
+                        </span>
+                        <span className="label tabular-nums text-ink-subtle">
+                          {mission.estimated_minutes} min
+                        </span>
+                        {started && !complete ? (
+                          <span className="label text-accent">Started</span>
+                        ) : null}
+                      </span>
                     </span>
-                    <Badge tone={complete ? "accent" : "quiet"}>
-                      {MISSION_STATUS_LABEL[status]}
-                    </Badge>
-                    {mission.is_demo ? <Badge>Demo</Badge> : null}
-                  </div>
-
-                  <p className="mt-2 max-w-measure text-sm text-ink-muted">{mission.objective}</p>
-
-                  <p className="mt-3 text-sm text-ink-subtle">
-                    <span className="label mr-2">Produces</span>
-                    {mission.deliverable_title}
-                    {artifact ? " · started" : ""}
-                  </p>
-                </Link>
-              </li>
-            );
-          })}
-        </ul>
-      )}
-
-      <Card className="border-dashed bg-transparent p-4">
-        <p className="text-sm text-ink-subtle">
-          Missions marked <span className="text-ink">Demo</span> exist to prove
-          the work layer runs end to end, and are removed when the curriculum
-          lands.
-        </p>
-      </Card>
+                  </Link>
+                </li>
+              );
+            })}
+          </ol>
+        </section>
+      ))}
     </div>
   );
 }

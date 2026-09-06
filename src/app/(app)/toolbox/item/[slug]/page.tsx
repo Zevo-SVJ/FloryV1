@@ -91,7 +91,7 @@ export default async function ToolboxItemPage({
       {item.related.length > 0 ? (
         <section className="max-w-measure space-y-3">
           <Label as="h2">Use it with</Label>
-          <ul className="space-y-2">
+          <ul className="divide-y divide-border border-y border-border">
             {item.related.map((related) => (
               <li key={related.id}>
                 <ToolboxItemCard item={related} />

@@ -122,7 +122,7 @@ export default async function ToolboxPage({
       ) : (
         <section className="space-y-3">
           <Label as="h2">{searching ? "Results" : "Everything"}</Label>
-          <ul className="space-y-2">
+          <ul className="divide-y divide-border border-y border-border">
             {results.map((item) => (
               <li key={item.row.id}>
                 <ToolboxItemCard item={item.row} />
@@ -135,7 +135,7 @@ export default async function ToolboxPage({
       {!searching && saved.length > 0 ? (
         <section className="space-y-3">
           <Label as="h2">Saved</Label>
-          <ul className="space-y-2">
+          <ul className="divide-y divide-border border-y border-border">
             {saved.map((item) => (
               <li key={item.row.id}>
                 <ToolboxItemCard item={item.row} />
@@ -148,7 +148,7 @@ export default async function ToolboxPage({
       {!searching && recent.length > 0 ? (
         <section className="space-y-3">
           <Label as="h2">Recently used</Label>
-          <ul className="space-y-2">
+          <ul className="divide-y divide-border border-y border-border">
             {recent.map((item) => (
               <li key={item.id}>
                 <ToolboxItemCard item={item} />

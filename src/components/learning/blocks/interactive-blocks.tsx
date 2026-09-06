@@ -42,6 +42,15 @@ interface Shared {
 
 /* ── The frame every interactive block shares ────────────────────────────── */
 
+/**
+ * The moment the reading stops.
+ *
+ * A full border made these look like every other block on the page, which is
+ * the opposite of the job: an active-learning prompt has to read as an
+ * *interruption*. So it loses the box and gains a heavy accent rule down the
+ * left, sits on a tinted ground, and is set wider than the prose it breaks
+ * into — the eye registers the change of shape before it reads the label.
+ */
 function Prompt({
   label,
   children,
@@ -50,7 +59,7 @@ function Prompt({
   children: ReactNode;
 }) {
   return (
-    <div className="rounded-card border border-accent/40 bg-accent-quiet/25 p-5">
+    <div className="border-l-[3px] border-accent bg-accent-quiet/30 py-5 pr-5 pl-6">
       <p className="label mb-3 text-accent">{label}</p>
       {children}
     </div>

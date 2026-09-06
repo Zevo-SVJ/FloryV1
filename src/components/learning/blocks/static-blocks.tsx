@@ -125,7 +125,7 @@ export function ImageBlock({ block }: { block: Of<"image"> }) {
 
 export function CodeBlock({ block }: { block: Of<"code"> }) {
   return (
-    <div className="overflow-hidden rounded-card border border-border bg-surface-sunken">
+    <div className="overflow-hidden rounded-card bg-surface-sunken">
       <div className="flex items-center justify-between gap-3 border-b border-border px-4 py-2">
         <span className="label truncate text-ink-subtle">{block.filename ?? block.language}</span>
       </div>
@@ -139,7 +139,7 @@ export function CodeBlock({ block }: { block: Of<"code"> }) {
 
 export function TerminalBlock({ block }: { block: Of<"terminal"> }) {
   return (
-    <div className="overflow-hidden rounded-card border border-border bg-surface-sunken">
+    <div className="overflow-hidden rounded-card bg-surface-sunken">
       <pre className="overflow-x-auto p-4 font-mono text-[0.8125rem] leading-relaxed">
         <code>
           <span className="text-ink-subtle select-none">$ </span>
@@ -154,8 +154,8 @@ export function TerminalBlock({ block }: { block: Of<"terminal"> }) {
 /** A reusable prompt, with the reason it is shaped the way it is. */
 export function PromptBlock({ block }: { block: Of<"prompt"> }) {
   return (
-    <div className="rounded-card border border-border">
-      <div className="border-b border-border px-4 py-2.5">
+    <div className="overflow-hidden rounded-card bg-surface-sunken">
+      <div className="px-4 pt-3.5">
         <p className="label text-ink-subtle">Prompt</p>
         <p className="mt-1 text-sm font-medium text-ink">{block.title}</p>
       </div>
@@ -171,7 +171,7 @@ export function PromptBlock({ block }: { block: Of<"prompt"> }) {
 
 export function ChecklistBlock({ block }: { block: Of<"checklist"> }) {
   return (
-    <div className="space-y-3 rounded-card border border-border p-5">
+    <div className="space-y-3 border-l border-border py-1 pl-5">
       {block.title ? <p className="label text-ink-subtle">{block.title}</p> : null}
       <ul className="space-y-2">
         {block.items.map((item, index) => (
@@ -213,7 +213,7 @@ export function ComparisonBlock({ block }: { block: Of<"comparison"> }) {
           comparison, it is two columns. */}
       <div className="grid gap-3 sm:grid-cols-2">
         {[block.left, block.right].map((side, index) => (
-          <div key={index} className="space-y-2 rounded-card border border-border p-4">
+          <div key={index} className="space-y-2 border-t-2 border-border pt-3">
             <p className="text-sm font-medium text-ink">{side.label}</p>
             <ul className="space-y-1.5">
               {side.points.map((point, i) => (
@@ -231,12 +231,12 @@ export function ComparisonBlock({ block }: { block: Of<"comparison"> }) {
 
 export function TableBlock({ block }: { block: Of<"table"> }) {
   return (
-    <div className="overflow-x-auto rounded-card border border-border">
+    <div className="overflow-x-auto">
       <table className="w-full border-collapse text-left text-sm">
         <thead>
-          <tr className="border-b border-border">
+          <tr className="border-y-2 border-border-strong">
             {block.columns.map((column) => (
-              <th key={column} scope="col" className="label px-4 py-3 text-ink-subtle">
+              <th key={column} scope="col" className="label py-3 pr-4 text-ink-subtle">
                 {column}
               </th>
             ))}
@@ -246,7 +246,7 @@ export function TableBlock({ block }: { block: Of<"table"> }) {
           {block.rows.map((row, index) => (
             <tr key={index} className="border-b border-border last:border-0">
               {row.map((cell, i) => (
-                <td key={i} className="px-4 py-3 text-ink-muted">
+                <td key={i} className="py-3 pr-4 text-ink-muted">
                   {cell}
                 </td>
               ))}
@@ -261,13 +261,13 @@ export function TableBlock({ block }: { block: Of<"table"> }) {
 /** Native `<details>`: keyboard operable and searchable without any JavaScript. */
 export function ExpandableBlock({ block }: { block: Of<"expandable"> }) {
   return (
-    <details className="group rounded-card border border-border">
-      <summary className="cursor-pointer list-none px-4 py-3 text-[0.9375rem] font-medium text-ink marker:hidden">
+    <details className="group border-y border-border">
+      <summary className="cursor-pointer list-none py-3 text-[0.9375rem] font-medium text-ink marker:hidden">
         <span className="label mr-2 text-ink-subtle group-open:hidden">Show</span>
         <span className="label mr-2 hidden text-ink-subtle group-open:inline">Hide</span>
         {block.summary}
       </summary>
-      <p className="border-t border-border px-4 py-4 text-[0.9375rem] leading-relaxed text-ink-muted">
+      <p className="border-t border-border py-4 text-[0.9375rem] leading-relaxed text-ink-muted">
         {block.text}
       </p>
     </details>
@@ -289,7 +289,7 @@ export function VideoBlock({ block }: { block: Of<"video"> }) {
       href={block.url}
       target="_blank"
       rel="noopener noreferrer"
-      className="block rounded-card border border-border p-5 transition-colors hover:border-border-strong hover:bg-surface-sunken"
+      className="-mx-3 block rounded-control border-y border-border px-3 py-4 transition-colors hover:bg-surface-sunken"
     >
       <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
         <span className="label text-ink-subtle">Video</span>

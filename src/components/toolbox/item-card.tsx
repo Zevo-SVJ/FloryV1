@@ -21,7 +21,7 @@ export function ToolboxItemCard({
   return (
     <Link
       href={`/toolbox/item/${item.slug}`}
-      className="block rounded-card border border-border p-4 transition-colors hover:border-border-strong hover:bg-surface-sunken"
+      className="-mx-3 block rounded-control px-3 py-3.5 transition-colors hover:bg-surface-sunken"
     >
       <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
         {showKind ? <span className="label text-ink-subtle">{KIND_LABEL[item.kind]}</span> : null}
@@ -61,7 +61,7 @@ export function ContextualTools({
   return (
     <section className="max-w-measure space-y-3">
       <p className="label text-ink-subtle">{heading}</p>
-      <ul className="space-y-2">
+      <ul className="divide-y divide-border border-y border-border">
         {items.map((item) => (
           <li key={item.id}>
             <ToolboxItemCard item={item} />

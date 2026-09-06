@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { PageHeader, HeaderMeta } from "@/components/ui/page-header";
-import { Badge, Card, Label } from "@/components/ui/surface";
+import { Badge, Label } from "@/components/ui/surface";
 import { ButtonLink } from "@/components/ui/button";
 import { StateBlock } from "@/components/states/state-block";
 import { ContentRenderer } from "@/components/learning/content-renderer";
@@ -156,14 +156,14 @@ export default async function LessonPage({
           {resources.length > 0 ? (
             <section className="max-w-measure space-y-3">
               <Label as="h2">Going further</Label>
-              <ul className="space-y-3">
+              <ul className="divide-y divide-border border-y border-border">
                 {resources.map((resource) => (
                   <li key={resource.id}>
                     <a
                       href={resource.url}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="block rounded-card border border-border p-4 transition-colors hover:border-border-strong hover:bg-surface-sunken"
+                      className="-mx-3 block rounded-control px-3 py-3.5 transition-colors hover:bg-surface-sunken"
                     >
                       <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
                         <span className="label text-ink-subtle">{resource.kind}</span>
@@ -190,32 +190,37 @@ export default async function LessonPage({
             </section>
           ) : null}
 
-          {/* Closing the lesson: finish it, say how it landed, keep a note. */}
-          <div className="max-w-measure space-y-4 border-t border-border pt-8">
-            <div className="grid gap-4 md:grid-cols-2">
-              <Card className="p-5">
-                <Label className="mb-3">Finish</Label>
-                <CompletionControl
-                  lessonId={lesson.id}
-                  lessonSlug={lesson.slug}
-                  rule={lesson.completion_rule}
-                  completed={completed}
-                />
-              </Card>
+          {/*
+           * Closing the lesson. One band, not three cards: finishing, saying how
+           * it landed and keeping a note are one moment, and the page should read
+           * as arriving somewhere rather than sprouting more boxes at the end.
+           */}
+          <section className="max-w-measure border-t-2 border-border-strong pt-8">
+            <Label as="h2" className="text-ink">
+              Close this lesson
+            </Label>
 
-              <Card className="p-5">
+            <div className="mt-6 space-y-7">
+              <CompletionControl
+                lessonId={lesson.id}
+                lessonSlug={lesson.slug}
+                rule={lesson.completion_rule}
+                completed={completed}
+              />
+
+              <div className="border-t border-border pt-6">
                 <ConfidenceControl
                   lessonId={lesson.id}
                   lessonSlug={lesson.slug}
                   current={progress?.confidence ?? null}
                 />
-              </Card>
-            </div>
+              </div>
 
-            <Card className="p-5">
-              <NotePanel lessonId={lesson.id} lessonSlug={lesson.slug} note={detail.note} />
-            </Card>
-          </div>
+              <div className="border-t border-border pt-6">
+                <NotePanel lessonId={lesson.id} lessonSlug={lesson.slug} note={detail.note} />
+              </div>
+            </div>
+          </section>
         </>
       )}
 

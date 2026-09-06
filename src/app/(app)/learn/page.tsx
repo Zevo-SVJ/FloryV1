@@ -1,232 +1,188 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { PageHeader, HeaderMeta } from "@/components/ui/page-header";
-import { Roadmap, RoadmapLegend } from "@/components/lock/roadmap";
-import { EmptyState } from "@/components/states/empty-state";
-import { Card, Label, Badge } from "@/components/ui/surface";
 import { ButtonLink } from "@/components/ui/button";
-import { ProgressBar } from "@/components/ui/progress-bar";
-import { buildRoadmap } from "@/lib/lock/roadmap";
-import { PHASES } from "@/lib/lock/phases";
-import { getCurriculum, getLearningState } from "@/lib/learning/queries";
-import { remainingMinutes } from "@/lib/learning/progress";
-import { getProgressSnapshot } from "@/lib/progress/queries";
-import { getWorkspaceSnapshot } from "@/lib/workspace/queries";
-import { roadmapFromPhases, focusPhase } from "@/lib/progress/rules";
+import { JourneyStrip } from "@/components/learning/journey";
+import { PhaseBand, PhaseInPreparation, ModuleBlock } from "@/components/learning/hierarchy";
+import { getLearningOverview } from "@/lib/learning/overview";
 
 export const metadata: Metadata = { title: "Roadmap" };
 
 /**
- * The roadmap: a journey, with the five questions answered at the top.
+ * The journey, as the page rather than as a list on it.
  *
- * Where am I, what have I completed, what am I working on, what comes next,
- * why does it matter. Those five sit above the route because a person opening
- * this page is orienting, not browsing — and the ten-phase list underneath
- * answers "how far" rather than "where".
+ * What was here before: a stats row, two cards in a two-column grid that left
+ * the right half of the screen empty, a legend card explaining four dots, and
+ * ten identical rows nine of which said "NOT PUBLISHED YET". The structure of
+ * the programme was present and unreadable.
  *
- * Progress now comes from `learner_phase_progress` rather than from counting
- * lessons in TypeScript. That is the substantive change: the old derivation
- * knew about lessons only, so a phase of finished missions read as untouched.
- * One rule, in SQL, weighted, and the same rule the progress page and the
- * dashboard use.
+ * What replaced it: the strip at the top answers "where am I" in one shape, the
+ * current phase opens to show its modules, and every other phase stays one
+ * quiet line. A phase nobody has written yet says what it is *for* — the shape
+ * of the ten stays visible, which is the reason to show all ten at all.
+ *
+ * The legend is gone. Four states are named in words on the rows themselves, so
+ * a card teaching the reader to decode dots was explaining a problem rather
+ * than solving it.
  */
 export default async function RoadmapPage() {
-  const [curriculum, state, snapshot, workspace] = await Promise.all([
-    getCurriculum(),
-    getLearningState(),
-    getProgressSnapshot(),
-    getWorkspaceSnapshot(),
-  ]);
+  const overview = await getLearningOverview();
+  const { phases, current, activeKey, nextLesson, nextMission, revisit } = overview;
+  const active = phases.find((p) => p.key === activeKey) ?? current;
 
-  const progress = roadmapFromPhases(snapshot.phases);
-  const phases = buildRoadmap(progress);
-  const detail = new Map(snapshot.phases.map((row) => [row.phase_key, row]));
-  const focus = focusPhase(snapshot.phases);
-  const remaining = remainingMinutes(curriculum, state.completedLessonIds);
-
-  const allLessons = curriculum.flatMap(({ modules }) =>
-    modules.flatMap((module) => module.lessons),
-  );
-  const byId = new Map(allLessons.map((lesson) => [lesson.id, lesson]));
-
-  const continueLesson = state.continueLessonId ? byId.get(state.continueLessonId) : undefined;
-  const revisit = [...state.revisitLessonIds]
-    .map((id) => byId.get(id))
-    .filter((lesson): lesson is NonNullable<typeof lesson> => lesson !== undefined);
-  const recentlyCompleted = state.progress
-    .filter((row) => row.status === "completed")
-    .slice(0, 3)
-    .map((row) => byId.get(row.lesson_id))
-    .filter((lesson): lesson is NonNullable<typeof lesson> => lesson !== undefined);
+  /*
+   * The one module to open now: the one holding the "Next" lesson. Marking
+   * every unfinished module made the accent meaningless and made two untouched
+   * modules both claim to be in progress.
+   */
+  const nextModuleId =
+    active?.modules.find((entry) =>
+      nextLesson
+        ? entry.lessons.some((lesson) => lesson.id === nextLesson.lesson.id)
+        : entry.nextLesson !== null,
+    )?.module.id ?? null;
 
   return (
-    <div className="space-y-8">
-      <PageHeader
-        eyebrow="Learn"
-        title="The roadmap"
-        description="Ten phases, from an idea to a product people pay for. You do them in order, because each one is the input to the next."
-        meta={
-          <>
-            <HeaderMeta label="Phases">{PHASES.length}</HeaderMeta>
-            <HeaderMeta label="Complete">{progress.completed.length}</HeaderMeta>
-            <HeaderMeta label="Overall">
-              {snapshot.overall?.percent === null || snapshot.overall === null
-                ? "—"
-                : `${snapshot.overall.percent}%`}
-            </HeaderMeta>
-            <HeaderMeta label="Time left">
-              {remaining === null ? "Not published yet" : `${remaining} min`}
-            </HeaderMeta>
-          </>
-        }
-      />
+    <div className="space-y-12">
+      {/* ── Where you are ────────────────────────────────────────────────── */}
+      <header className="space-y-6">
+        <div className="space-y-2">
+          <p className="label text-ink-subtle">Learn</p>
+          <h1 className="text-display max-w-measure text-balance">Your build journey</h1>
+          <p className="max-w-measure text-lede text-ink-muted">
+            {active
+              ? `Ten phases, from an idea to a product people pay for. You are on ${String(active.number).padStart(2, "0")} — ${active.label.toLowerCase()}.`
+              : "Ten phases, from an idea to a product people pay for. Each one is the input to the next."}
+          </p>
+        </div>
 
-      <div className="grid gap-4 lg:grid-cols-[1.4fr_1fr]">
-        <section className="space-y-3">
-          <Label as="h2">Continue learning</Label>
-          {continueLesson ? (
-            <Card className="flex h-full flex-col justify-between gap-4 p-5">
-              <div className="space-y-2">
-                <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
-                  <span className="label text-ink-subtle">{continueLesson.type}</span>
-                  <span className="label text-ink-subtle tabular-nums">
-                    {continueLesson.estimatedMinutes} min
-                  </span>
-                </div>
-                <p className="text-[1.0625rem] font-medium text-ink">{continueLesson.title}</p>
-                <p className="text-sm text-ink-muted">{continueLesson.summary}</p>
-              </div>
-              <div>
-                <ButtonLink href={`/learn/lessons/${continueLesson.slug}`} size="sm">
-                  Pick up where you left off
-                </ButtonLink>
-              </div>
-            </Card>
-          ) : (
-            <EmptyState title="Nothing open" className="h-full">
-              <p>
-                When you leave a lesson part-way through, it waits here. Start
-                anywhere in the list and it will.
-              </p>
-              <p className="pt-3">
-                <ButtonLink href="/learn/lessons" variant="secondary" size="sm">
-                  Browse lessons
-                </ButtonLink>
-              </p>
-            </EmptyState>
-          )}
-        </section>
+        <JourneyStrip
+          phases={phases.map((p) => ({
+            key: p.key, number: p.number, label: p.label, state: p.state, percent: p.percent,
+          }))}
+          activeKey={activeKey}
+          href={null}
+        />
+      </header>
 
-        <section className="space-y-3">
-          <Label as="h2">Where you are</Label>
-          <Card className="flex h-full flex-col justify-between gap-6 p-5">
-            <div className="space-y-3">
-              <div className="flex items-baseline justify-between gap-3">
-                <span className="text-sm text-ink-muted">
-                  {focus ? focus.label : "Phases complete"}
-                </span>
-                <span className="font-mono text-sm tabular-nums text-ink">
-                  {progress.completed.length} / {PHASES.length}
-                </span>
-              </div>
-              <ProgressBar
-                value={progress.completed.length}
-                max={PHASES.length}
-                label="Phases complete"
-              />
+      {/* ── The one thing to do now ──────────────────────────────────────── */}
+      {nextLesson || nextMission ? (
+        <section className="border-y border-border py-6">
+          <div className="flex flex-col gap-5 sm:flex-row sm:items-end sm:justify-between">
+            <div className="min-w-0 space-y-1.5">
+              <p className="label text-accent">Next</p>
+              <p className="text-title text-balance">
+                {nextLesson ? nextLesson.lesson.title : nextMission!.mission.title}
+              </p>
+              <p className="max-w-measure text-sm leading-relaxed text-ink-muted">
+                {nextLesson ? nextLesson.lesson.summary : nextMission!.mission.objective}
+              </p>
             </div>
-
-            {/* Why it matters, in the phase's own words. The summary is
-                written for exactly this: what you walk out of the phase
-                holding. */}
-            <p className="text-sm text-ink-subtle">
-              {focus
-                ? focus.summary
-                : "A phase counts as complete when everything published in it is done. A phase with nothing published never counts."}
-            </p>
-          </Card>
-        </section>
-      </div>
-
-      {/* What you are working on, and what comes after it. Missions rather
-          than lessons, because a mission is the unit of work. */}
-      {workspace.current || workspace.next ? (
-        <section className="space-y-3">
-          <Label as="h2">The work in front of you</Label>
-          <div className="grid gap-4 md:grid-cols-2">
-            {workspace.current ? (
-              <Card className="space-y-2 p-5">
-                <p className="label text-accent">Now</p>
-                <p className="text-[0.9375rem] font-medium text-ink">
-                  {workspace.current.mission.title}
-                </p>
-                <p className="text-sm text-ink-muted">{workspace.current.mission.objective}</p>
-                <p className="pt-2">
-                  <ButtonLink
-                    href={`/learn/missions/${workspace.current.mission.slug}`}
-                    size="sm"
-                  >
-                    Open the mission
-                  </ButtonLink>
-                </p>
-              </Card>
-            ) : null}
-
-            {workspace.next ? (
-              <Card className="space-y-2 p-5">
-                <p className="label text-ink-subtle">Next</p>
-                <p className="text-[0.9375rem] font-medium text-ink">
-                  {workspace.next.mission.title}
-                </p>
-                <p className="text-sm text-ink-muted">{workspace.next.mission.objective}</p>
-              </Card>
-            ) : null}
+            <div className="shrink-0">
+              <ButtonLink
+                href={
+                  nextLesson
+                    ? `/learn/lessons/${nextLesson.lesson.slug}`
+                    : `/learn/missions/${nextMission!.mission.slug}`
+                }
+              >
+                {nextLesson ? "Start the lesson" : "Open the mission"}
+              </ButtonLink>
+            </div>
           </div>
-        </section>
-      ) : null}
 
-      {revisit.length > 0 ? (
-        <section className="space-y-3">
-          <Label as="h2">Revisit</Label>
-          <ul className="space-y-2">
-            {revisit.map((lesson) => (
-              <li key={lesson.id}>
+          {revisit.length > 0 ? (
+            <p className="mt-5 flex flex-wrap items-baseline gap-x-3 gap-y-1 text-sm">
+              <span className="label text-ink-subtle">Flagged to revisit</span>
+              {revisit.slice(0, 3).map((lesson) => (
                 <Link
+                  key={lesson.id}
                   href={`/learn/lessons/${lesson.slug}`}
-                  className="flex flex-wrap items-baseline gap-x-3 gap-y-1 rounded-card border border-border p-4 transition-colors hover:border-border-strong hover:bg-surface-sunken"
+                  className="text-ink-muted underline decoration-border-strong underline-offset-4 hover:text-ink"
                 >
-                  <span className="text-[0.9375rem] font-medium text-ink">{lesson.title}</span>
-                  <Badge tone="accent">You marked this to revisit</Badge>
+                  {lesson.title}
                 </Link>
-              </li>
-            ))}
-          </ul>
+              ))}
+            </p>
+          ) : null}
         </section>
       ) : null}
 
-      {recentlyCompleted.length > 0 ? (
-        <section className="space-y-3">
-          <Label as="h2">Recently completed</Label>
-          <ul className="space-y-2">
-            {recentlyCompleted.map((lesson) => (
-              <li key={lesson.id}>
-                <Link
-                  href={`/learn/lessons/${lesson.slug}`}
-                  className="flex flex-wrap items-baseline gap-x-3 gap-y-1 rounded-card border border-border p-4 transition-colors hover:border-border-strong hover:bg-surface-sunken"
-                >
-                  <span aria-hidden className="size-2 rounded-full bg-success" />
-                  <span className="text-[0.9375rem] font-medium text-ink">{lesson.title}</span>
-                </Link>
-              </li>
-            ))}
-          </ul>
-        </section>
-      ) : null}
+      {/* ── The ten phases ───────────────────────────────────────────────── */}
+      <section className="space-y-2">
+        <h2 className="label text-ink-subtle">The ten phases</h2>
 
-      <RoadmapLegend />
+        {/*
+         * A single rule down the left, behind the marks, stopping before the
+         * last one so the route reads as finite rather than trailing off.
+         */}
+        <ol className="relative space-y-9 pt-4">
+          <span aria-hidden className="absolute top-6 bottom-6 left-3 w-px bg-border" />
 
-      <section aria-label="Phases">
-        <Roadmap phases={phases} detail={detail} />
+          {phases.map((phase) => (
+            <li key={phase.key}>
+              <PhaseBand
+                number={phase.number}
+                label={phase.label}
+                summary={phase.summary}
+                state={phase.state}
+                meta={
+                  phase.published ? (
+                    <p className="flex flex-wrap items-center gap-x-4 gap-y-1">
+                      <span className="label tabular-nums text-ink-subtle">
+                        {phase.lessonsDone}/{phase.lessonCount} lessons
+                      </span>
+                      {phase.missions.length > 0 ? (
+                        <span className="label tabular-nums text-ink-subtle">
+                          {phase.missionsDone}/{phase.missions.length} missions
+                        </span>
+                      ) : null}
+                      {phase.percent !== null ? (
+                        <span className="label tabular-nums text-ink-muted">{phase.percent}%</span>
+                      ) : null}
+                    </p>
+                  ) : null
+                }
+              >
+                {/*
+                 * Only the current phase opens. Expanding all ten would be the
+                 * old wall of cards again, and collapsing all ten would hide
+                 * the only part anybody needs today.
+                 */}
+                {phase.published && phase.key === activeKey && phase.modules.length > 0 ? (
+                  <div className="grid gap-3 md:grid-cols-2">
+                    {phase.modules.map((entry, index) => (
+                      <ModuleBlock
+                        key={entry.module.id}
+                        number={index + 1}
+                        title={entry.module.title}
+                        summary={entry.module.summary}
+                        href={`/learn/modules/${entry.module.slug}`}
+                        next={entry.module.id === nextModuleId}
+                        counts={{
+                          lessons: entry.lessons.length,
+                          lessonsDone: entry.lessonsDone,
+                          missions: entry.missions.length,
+                          minutes: entry.minutes,
+                        }}
+                      />
+                    ))}
+                  </div>
+                ) : phase.published && phase.modules[0] ? (
+                  <p className="flex flex-wrap items-center gap-x-4 gap-y-1">
+                    <Link
+                      href={`/learn/modules/${phase.modules[0].module.slug}`}
+                      className="text-sm text-ink-muted underline decoration-border-strong underline-offset-4 hover:text-ink"
+                    >
+                      {phase.modules.length} {phase.modules.length === 1 ? "module" : "modules"}
+                    </Link>
+                  </p>
+                ) : phase.published ? null : (
+                  <PhaseInPreparation summary={`${phase.label} is written before it opens.`} />
+                )}
+              </PhaseBand>
+            </li>
+          ))}
+        </ol>
       </section>
     </div>
   );
